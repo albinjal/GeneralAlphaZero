@@ -3,16 +3,21 @@ from typing import Callable
 
 class Action:
     pass
+ValueFunction = Callable[["Node"], float]
+
+
 class Node:
     parent: "Node" | None
     children: dict[Action, "Node"]
     visits: int = 0
     subtree_value: float = 0.0
+    value_evaluation: float | None
+    reward: float
 
-    def __init__(self):
+    def __init__(self, parent: "Node" | None, reward: float,):
         # TODO: lazy init
         self.children = {}
-        
+
 
     def is_terminal(self) -> bool:
         # TODO: returns if its a terminal node or not
@@ -20,13 +25,8 @@ class Node:
 
     def step(self, action: Action) -> "Node":
         # steps into the action and returns that node
-        # if the child exists, return it
-        # if not, create it and return it
-        if action in self.children:
-            return self.children[action]
-        else:
-            self.children[action] = Node()
-            return self.children[action]
+        return self.children[action]
+
 
     def backprop(self, value: float) -> None:
         node: Node | None = self
@@ -36,7 +36,6 @@ class Node:
             self.subtree_value += value
 
 
-ValueFunction = Callable[[Node], float]
 
 
 from abc import ABC, abstractmethod
