@@ -1,0 +1,5 @@
+name: alphazero
+
+dependencies:
+  - python=3.4
+  - pip
