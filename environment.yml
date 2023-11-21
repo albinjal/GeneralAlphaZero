@@ -1,5 +1,8 @@
 name: alphazero
 
 dependencies:
-  - python=3.4
+  - python=3.10
+  - gymnasium
+  - pygame
+  - ipykernel
   - pip
