@@ -195,7 +195,7 @@ class MCTS(Generic[ObservationType, ActionType]):
         self,
         node: Node[ObservationType, ActionType],
         env: gym.Env[ObservationType, ActionType],
-        rollout_budget = 1000,
+        rollout_budget = 100,
     ) -> float:
 
         # if the node is terminal, return the reward
@@ -266,18 +266,19 @@ def run_episode(
     tree_evaluation_policy: Policy,
     compute_budget=1000,
     max_steps=1000,
-    render=False,
+    render_env=None,
     verbose=False,
 ):
     total_reward = 0.0
 
     for step in range(max_steps):
         tree = solver.search(env, compute_budget)
+        print(f"Found {tree.default_value()}")
         action = tree_evaluation_policy(tree)
         observation, reward, terminated, truncated, _ = env.step(action)
         total_reward += float(reward)
-        if render:
-            env.render()
+        if render_env is not None:
+            render_env.step(action)
         if verbose:
             print(
                 f"{step}. A: {action}, R: {reward}, T: {terminated}, Tr: {truncated}, total_reward: {total_reward}"
@@ -298,11 +299,14 @@ if __name__ == "__main__":
     actType = np.int64
     env: gym.Env[obsType, actType] = gym.make("CliffWalking-v0")
     env.reset()
-    selection_policy = UCB[obsType, actType](c=10.0)
+    render_env: gym.Env[obsType, actType] = gym.make("CliffWalking-v0", render_mode="human")
+    render_env.reset()
+    selection_policy = UCB[obsType, actType](c=5.0)
     tree_evaluation_policy = DefaultTreeEvaluator[obsType]()
 
     mcts = MCTS[obsType, actType](selection_policy=selection_policy)
-    vis_tree(mcts, env, compute_budget=1000, max_depth=3)
-    # total_reward = run_episode(mcts, env, tree_evaluation_policy, compute_budget=1000, render=True, verbose=True)
-    # print(f"Total reward: {total_reward}")
-    # env.close()
+    # vis_tree(mcts, env, compute_budget=1000, max_depth=3)
+    total_reward = run_episode(mcts, env, tree_evaluation_policy, compute_budget=100, render_env=render_env, verbose=True)
+    print(f"Total reward: {total_reward}")
+    env.close()
+    render_env.close()
