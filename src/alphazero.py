@@ -1,20 +1,23 @@
-from typing import Callable
+from typing import Any, Callable, Generic, TypeVar
+from abc import ABC, abstractmethod
+
+import gymnasium as gym
 
 
-class Action:
-    pass
-ValueFunction = Callable[["Node"], float]
+ActionType = TypeVar('ActionType')
+ObservationType = TypeVar('ObservationType')
 
 
-class Node:
-    parent: "Node" | None
-    children: dict[Action, "Node"]
+
+class Node(Generic[ObservationType, ActionType]):
+    parent: "Node[ObservationType, ActionType]" | None
+    children: dict[ActionType, "Node[ObservationType, ActionType]"]
     visits: int = 0
     subtree_value: float = 0.0
     value_evaluation: float | None
     reward: float
 
-    def __init__(self, parent: "Node" | None, reward: float,):
+    def __init__(self, parent: "Node[ObservationType, ActionType]" | None, reward: float):
         # TODO: lazy init
         self.children = {}
 
@@ -23,13 +26,13 @@ class Node:
         # TODO: returns if its a terminal node or not
         return False
 
-    def step(self, action: Action) -> "Node":
+    def step(self, action: ActionType) -> "Node[ObservationType, ActionType]":
         # steps into the action and returns that node
         return self.children[action]
 
 
     def backprop(self, value: float) -> None:
-        node: Node | None = self
+        node: Node[ObservationType, ActionType] | None = self
         while node is not None:
             node.visits += 1
             node = node.parent
@@ -38,40 +41,40 @@ class Node:
 
 
 
-from abc import ABC, abstractmethod
 
-class Policy(ABC):
+class Policy(ABC, Generic[ObservationType, ActionType]):
     @abstractmethod
-    def __call__(self, node: Node) -> Action:
+    def __call__(self, node: Node[ObservationType, ActionType]) -> ActionType:
         pass
 
-class SelectionPolicy(ABC):
+class SelectionPolicy(ABC, Generic[ObservationType, ActionType]):
     @abstractmethod
-    def __call__(self, node: Node) -> Action | None:
+    def __call__(self, node: Node[ObservationType, ActionType]) -> ActionType | None:
         pass
 
-class Environment:
-    pass
 
-class MCTS:
-    tree_evaluation_policy: Policy
-    selection_policy: SelectionPolicy
-    expansion_policy: Policy # the expansion policy is usually "pick uniform non explored action"
-    value_function: ValueFunction
+class MCTS(Generic[ObservationType, ActionType]):
+    env: gym.Env[ObservationType, ActionType]
+    tree_evaluation_policy: Policy[ObservationType, ActionType]
+    selection_policy: SelectionPolicy[ObservationType, ActionType]
+    expansion_policy: Policy[ObservationType, ActionType] # the expansion policy is usually "pick uniform non explored action"
+    value_function: Callable[["Node[ObservationType, ActionType]"], float]
 
-    def __init__(self, tree_evaluation_policy: Policy,
-                 selection_policy: SelectionPolicy,
-                 value_function: ValueFunction,
-                 expansion_policy: Policy,
+    def __init__(self, tree_evaluation_policy: Policy[ObservationType, ActionType],
+                 selection_policy: SelectionPolicy[ObservationType, ActionType],
+                 value_function: Callable[["Node[ObservationType, ActionType]"], float],
+                 expansion_policy: Policy[ObservationType, ActionType],
+                 environment: gym.Env[ObservationType, ActionType]
                  ):
         self.tree_evaluation_policy = tree_evaluation_policy
         self.selection_policy = selection_policy # the selection policy should return None if the input node should be expanded
         self.value_function = value_function
         self.expansion_policy = expansion_policy
+        self.env = environment
 
 
 
-    def build_tree(self, from_node: Node, iterations: int):
+    def build_tree(self, from_node: Node[ObservationType, ActionType], iterations: int):
 
         for _ in range(iterations):
             selected_node_for_expansion = self.select_node_to_expand(from_node)
@@ -86,11 +89,12 @@ class MCTS:
 
             else:
                 # node is terminal
+                pass
 
 
 
 
-    def select_node_to_expand(self, from_node: Node) -> Node:
+    def select_node_to_expand(self, from_node: Node[ObservationType, ActionType]) -> Node[ObservationType, ActionType] | None:
         """
         Returns the node to be expanded next.
         Returns None if the node is terminal.
@@ -106,7 +110,7 @@ class MCTS:
 
         return node
 
-    def expand(self, node: Node) -> Node:
+    def expand(self, node: Node[ObservationType, ActionType]) -> Node[ObservationType, ActionType]:
         """
         Expands the node and returns the expanded node.
         """
