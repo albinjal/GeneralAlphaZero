@@ -1,5 +1,5 @@
-from typing import Callable, Generic, Optional, TypeVar
 from abc import ABC, abstractmethod
+from typing import Generic, Optional, Tuple, TypeVar
 import numpy as np
 import gymnasium as gym
 import copy
@@ -19,34 +19,43 @@ class Node(Generic[ObservationType, ActionType]):
     reward: float
     # Discrete action space
     action_space: gym.spaces.Discrete
+    observation: Optional[ObservationType]
 
     def __init__(
         self,
         parent: Optional["Node[ObservationType, ActionType]"],
         reward: float,
         action_space: gym.spaces.Discrete,
+        observaton: Optional[ObservationType] = None,
+        terminal: bool = False,
     ):
         # TODO: lazy init
         self.children = {}
         self.action_space = action_space
+        self.reward = reward
+        self.parent = parent
+        self.terminal = terminal
+        self.observation = observaton
 
     def is_terminal(self) -> bool:
         # TODO: returns if its a terminal node or not
-        return False
+        return self.terminal
 
     def step(self, action: ActionType) -> "Node[ObservationType, ActionType]":
         # steps into the action and returns that node
-        return self.children[action]
+        child = self.children[action]
+        child.visits += 1
+        return child
 
     def backprop(self, value: float) -> None:
+        self.value_evaluation = value
         node: Node[ObservationType, ActionType] | None = self
         while node is not None:
-            node.visits += 1
+            node.subtree_value += self.value_evaluation + self.reward
             node = node.parent
-            self.subtree_value += value
 
     def default_value(self) -> float:
-        return self.reward + self.subtree_value / self.visits
+        return self.subtree_value / self.visits
 
     def is_fully_expanded(self) -> bool:
         return len(self.children) == self.action_space.n
@@ -108,18 +117,15 @@ class MCTS(Generic[ObservationType, ActionType]):
     expansion_policy: Policy[
         ObservationType, ActionType
     ]  # the expansion policy is usually "pick uniform non explored action"
-    value_function: Callable[["Node[ObservationType, ActionType]"], float]
 
     def __init__(
         self,
         tree_evaluation_policy: Policy[ObservationType, ActionType],
         selection_policy: SelectionPolicy[ObservationType, ActionType],
-        value_function: Callable[["Node[ObservationType, ActionType]"], float],
         expansion_policy: Policy[ObservationType, ActionType] = DefaultExpansionPolicy[ObservationType](),
     ):
         self.tree_evaluation_policy = tree_evaluation_policy
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
-        self.value_function = value_function
         self.expansion_policy = expansion_policy
 
 
@@ -135,23 +141,37 @@ class MCTS(Generic[ObservationType, ActionType]):
 
     def build_tree(self, from_node: Node[ObservationType, ActionType], iterations: int):
         for _ in range(iterations):
-            selected_node_for_expansion = self.select_node_to_expand(from_node)
+            selected_node_for_expansion, env = self.select_node_to_expand(from_node)
             # check if the node is terminal
             if not selected_node_for_expansion.is_terminal():
                 # expand the node
-                expanded_node = self.expand(selected_node_for_expansion)
+                expanded_node = self.expand(selected_node_for_expansion, env)
                 # evaluate the node
-                value = self.value_function(expanded_node)
+                value = self.value_function(expanded_node, env)
                 # backpropagate the value
                 expanded_node.backprop(value)
-
             else:
                 # node is terminal
                 pass
 
+    def value_function(self, node: Node[ObservationType, ActionType], env: gym.Env[ObservationType, ActionType]) -> float:
+        # if the node is terminal, return the reward
+        if node.is_terminal():
+            return node.reward
+
+        # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
+        accumulated_reward = 0.0
+        while True:
+            _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
+            accumulated_reward += float(reward)
+            if terminated or truncated:
+                break
+
+        return accumulated_reward
+
     def select_node_to_expand(
         self, from_node: Node[ObservationType, ActionType]
-    ) -> Node[ObservationType, ActionType]:
+    ) -> Tuple[Node[ObservationType, ActionType], gym.Env[ObservationType, ActionType]]:
         """
         Returns the node to be expanded next.
         Returns None if the node is terminal.
@@ -159,24 +179,38 @@ class MCTS(Generic[ObservationType, ActionType]):
         """
 
         node = from_node
+        # increase the visits of the root node (why not)
+        node.visits += 1
+        env = copy.deepcopy(self.env)
         while not node.is_terminal():
             action = self.selection_policy(node)
             if action is None:
-                return node
+                return node, env
             node = node.step(action)
             # also step the environment
-            self.env.step(action)
+            env.step(action)
 
-        return node
+        return node, env
 
     def expand(
-        self, node: Node[ObservationType, ActionType]
+        self, node: Node[ObservationType, ActionType],
+        env: gym.Env[ObservationType, ActionType],
     ) -> Node[ObservationType, ActionType]:
         """
         Expands the node and returns the expanded node.
         """
         action = self.expansion_policy(node)
-        # assert that the
+        # step the environment
+        observation, reward, terminated, truncated, _ = env.step(action)
+        terminal = terminated or truncated
+        # create the node
+        new_child = Node[ObservationType, ActionType](parent=node,
+                                                     reward=float(reward),
+                                                     action_space=node.action_space,
+                                                     terminal=terminal,
+                                                     observaton=observation)
+        node.children[action] = new_child
+        return new_child
 
 
 if __name__ == "__main__":
