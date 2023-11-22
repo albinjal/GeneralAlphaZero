@@ -1,4 +1,4 @@
-from typing import Any, Callable, Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 from abc import ABC, abstractmethod
 
 import gymnasium as gym
@@ -94,7 +94,7 @@ class MCTS(Generic[ObservationType, ActionType]):
 
 
 
-    def select_node_to_expand(self, from_node: Node[ObservationType, ActionType]) -> Node[ObservationType, ActionType] | None:
+    def select_node_to_expand(self, from_node: Node[ObservationType, ActionType]) -> Node[ObservationType, ActionType]:
         """
         Returns the node to be expanded next.
         Returns None if the node is terminal.
