@@ -14,9 +14,9 @@ class Node(Generic[ObservationType, ActionType]):
     parent: Optional["Node[ObservationType, ActionType]"]
     # Since we have to use Discrete action space the ActionType is an integer so we could also use a list
     children: dict[ActionType, "Node[ObservationType, ActionType]"]
-    visits: int = 0
+    visits: int = 1
     subtree_value: float = 0.0
-    value_evaluation: float | None
+    value_evaluation: float = 0.0
     reward: float
     # Discrete action space
     action_space: gym.spaces.Discrete
@@ -61,7 +61,6 @@ class Node(Generic[ObservationType, ActionType]):
     def is_fully_expanded(self) -> bool:
         return len(self.children) == self.action_space.n
 
-
     def sample_unexplored_action(self) -> np.int64:
         """
         mask – An optional mask for if an action can be selected. Expected np.ndarray of shape (n,) and dtype np.int8 where 1 represents valid actions and 0 invalid / infeasible actions. If there are no possible actions (i.e. np.all(mask == 0)) then space.start will be returned.
@@ -71,24 +70,34 @@ class Node(Generic[ObservationType, ActionType]):
             mask[action] = 0
         return self.action_space.sample(mask=mask)
 
-    def visualize(self, var_fn: Optional[Callable[['Node[ObservationType, ActionType]'], Any]] = None) -> None:
+    def visualize(
+        self,
+        var_fn: Optional[Callable[["Node[ObservationType, ActionType]"], Any]] = None,
+        max_depth: int = 10,
+    ) -> None:
         dot = graphviz.Digraph(comment="MCTS Tree")
-        self._add_node_to_graph(dot, var_fn)
+        self._add_node_to_graph(dot, var_fn, max_depth=max_depth)
         dot.render(filename="mcts_tree.gv", view=True)
 
-    def _add_node_to_graph(self, dot: graphviz.Digraph, var_fn: Optional[Callable[['Node[ObservationType, ActionType]'], Any]] = None) -> None:
-        label = f"R: {self.reward}, SS: {self.subtree_value: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
+    def _add_node_to_graph(
+        self,
+        dot: graphviz.Digraph,
+        var_fn: Optional[Callable[["Node[ObservationType, ActionType]"], Any]] = None,
+        max_depth: int = 30,
+    ) -> None:
+        if max_depth == 0:
+            return
+        label = f"R: {self.reward}, SS: {self.subtree_value: .2f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
         if var_fn is not None:
             label += f", Var: {var_fn(self)}"
         dot.node(str(id(self)), label=label)
         for action, child in self.children.items():
-            child._add_node_to_graph(dot, var_fn)
+            child._add_node_to_graph(dot, var_fn, max_depth=max_depth - 1)
 
             dot.edge(str(id(self)), str(id(child)), label=f"Action: {action}")
 
     def __str__(self):
         return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_value}\nRollout: {self.default_value()}"
-
 
     def __repr__(self):
         return self.__str__()
@@ -179,19 +188,21 @@ class MCTS(Generic[ObservationType, ActionType]):
             value = self.value_function(expanded_node, env)
             # backpropagate the value
             expanded_node.backprop(value)
+        return from_node
 
     def value_function(
         self,
         node: Node[ObservationType, ActionType],
         env: gym.Env[ObservationType, ActionType],
     ) -> float:
+        rollout_budget = 100
         # if the node is terminal, return the reward
         if node.is_terminal():
             return node.reward
 
         # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
         accumulated_reward = 0.0
-        while True:
+        for _ in range(rollout_budget):
             _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
             accumulated_reward += float(reward)
             if terminated or truncated:
@@ -256,8 +267,9 @@ if __name__ == "__main__":
     value_function = None
 
     mcts = MCTS[obsType, actType](
-        tree_evaluation_policy=tree_evaluation_policy,
-        selection_policy=selection_policy,
-        value_function=lambda node: node.default_value(),
-        environment=env,
+        tree_evaluation_policy=tree_evaluation_policy, selection_policy=selection_policy
     )
+
+    tree = mcts.search(env, 1000)
+    
+    #tree.visualize(max_depth=3)
