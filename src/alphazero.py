@@ -39,7 +39,6 @@ class Node(Generic[ObservationType, ActionType]):
         self.observation = observaton
 
     def is_terminal(self) -> bool:
-        # TODO: returns if its a terminal node or not
         return self.terminal
 
     def step(self, action: ActionType) -> "Node[ObservationType, ActionType]":
@@ -144,9 +143,14 @@ class DefaultExpansionPolicy(Policy[ObservationType, np.int64]):
         return node.sample_unexplored_action()
 
 
+class DefaultTreeEvaluator(Policy[ObservationType, np.int64]):
+    # the default tree evaluator selects the action with the most visits
+    def __call__(self, node: Node[ObservationType, np.int64]) -> np.int64:
+        return max(node.children, key=lambda action: node.children[action].visits)
+
+
 class MCTS(Generic[ObservationType, ActionType]):
     env: gym.Env[ObservationType, ActionType]
-    tree_evaluation_policy: Policy[ObservationType, ActionType]
     selection_policy: SelectionPolicy[ObservationType, ActionType]
     expansion_policy: Policy[
         ObservationType, ActionType
@@ -154,20 +158,17 @@ class MCTS(Generic[ObservationType, ActionType]):
 
     def __init__(
         self,
-        tree_evaluation_policy: Policy[ObservationType, ActionType],
         selection_policy: SelectionPolicy[ObservationType, ActionType],
         expansion_policy: Policy[ObservationType, ActionType] = DefaultExpansionPolicy[
             ObservationType
         ](),
     ):
-        self.tree_evaluation_policy = tree_evaluation_policy
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
         self.expansion_policy = expansion_policy
 
     def search(self, env: gym.Env[ObservationType, ActionType], iterations: int):
         # the env should be in the state we want to search from
         self.env = env
-        # build the tree
         # assert that the type of the action space is discrete
         assert isinstance(env.action_space, gym.spaces.Discrete)
         root_node = Node[ObservationType, ActionType](
@@ -194,8 +195,9 @@ class MCTS(Generic[ObservationType, ActionType]):
         self,
         node: Node[ObservationType, ActionType],
         env: gym.Env[ObservationType, ActionType],
+        rollout_budget = 1000,
     ) -> float:
-        rollout_budget = 100
+
         # if the node is terminal, return the reward
         if node.is_terminal():
             return node.reward
@@ -222,6 +224,7 @@ class MCTS(Generic[ObservationType, ActionType]):
         node = from_node
         # increase the visits of the root node (why not)
         node.visits += 1
+
         env = copy.deepcopy(self.env)
         while not node.is_terminal():
             action = self.selection_policy(node)
@@ -257,19 +260,49 @@ class MCTS(Generic[ObservationType, ActionType]):
         return new_child
 
 
+def run_episode(
+    solver: MCTS,
+    env: gym.Env,
+    tree_evaluation_policy: Policy,
+    compute_budget=1000,
+    max_steps=1000,
+    render=False,
+    verbose=False,
+):
+    total_reward = 0.0
+
+    for step in range(max_steps):
+        tree = solver.search(env, compute_budget)
+        action = tree_evaluation_policy(tree)
+        observation, reward, terminated, truncated, _ = env.step(action)
+        total_reward += float(reward)
+        if render:
+            env.render()
+        if verbose:
+            print(
+                f"{step}. A: {action}, R: {reward}, T: {terminated}, Tr: {truncated}, total_reward: {total_reward}"
+            )
+        if terminated or truncated:
+            break
+
+    return total_reward
+
+
+def vis_tree(solver: MCTS, env: gym.Env, compute_budget=1000, max_depth=5):
+    tree = solver.search(env, compute_budget)
+    return tree.visualize(max_depth=max_depth)
+
+
 if __name__ == "__main__":
     obsType = np.int64
     actType = np.int64
     env: gym.Env[obsType, actType] = gym.make("CliffWalking-v0")
     env.reset()
-    selection_policy = UCB[obsType, actType](c=1.0)
-    tree_evaluation_policy = RandomPolicy[obsType]()
-    value_function = None
+    selection_policy = UCB[obsType, actType](c=10.0)
+    tree_evaluation_policy = DefaultTreeEvaluator[obsType]()
 
-    mcts = MCTS[obsType, actType](
-        tree_evaluation_policy=tree_evaluation_policy, selection_policy=selection_policy
-    )
-
-    tree = mcts.search(env, 1000)
-    
-    #tree.visualize(max_depth=3)
+    mcts = MCTS[obsType, actType](selection_policy=selection_policy)
+    vis_tree(mcts, env, compute_budget=1000, max_depth=3)
+    # total_reward = run_episode(mcts, env, tree_evaluation_policy, compute_budget=1000, render=True, verbose=True)
+    # print(f"Total reward: {total_reward}")
+    # env.close()
