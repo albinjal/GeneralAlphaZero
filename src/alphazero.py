@@ -197,21 +197,8 @@ class MCTS(Generic[ObservationType, ActionType]):
         self,
         node: Node[ObservationType, ActionType],
         env: gym.Env[ObservationType, ActionType],
-        rollout_budget=40,
     ) -> float:
-        # if the node is terminal, return the reward
-        if node.is_terminal():
-            return node.reward
-
-        # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
-        accumulated_reward = 0.0
-        for _ in range(rollout_budget):
-            _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
-            accumulated_reward += float(reward)
-            if terminated or truncated:
-                break
-
-        return accumulated_reward
+        return node.reward
 
     def select_node_to_expand(
         self, from_node: Node[ObservationType, ActionType]
@@ -259,6 +246,32 @@ class MCTS(Generic[ObservationType, ActionType]):
         return new_child
 
 
+
+
+class RandomRollout(MCTS):
+    def __init__(self, rollout_budget=40, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rollout_budget = rollout_budget
+
+    def value_function(
+        self,
+        node: Node[ObservationType, ActionType],
+        env: gym.Env[ObservationType, ActionType],
+    ) -> float:
+        # if the node is terminal, return the reward
+        if node.is_terminal():
+            return node.reward
+
+        # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
+        accumulated_reward = 0.0
+        for _ in range(self.rollout_budget):
+            _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
+            accumulated_reward += float(reward)
+            if terminated or truncated:
+                break
+
+        return accumulated_reward
+
 def run_episode(
     solver: MCTS,
     env: gym.Env,
@@ -288,6 +301,7 @@ def run_episode(
     return total_reward
 
 
+
 def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
     tree = solver.search(env, compute_budget)
     return tree.visualize(max_depth=max_depth)
@@ -296,12 +310,13 @@ def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
 if __name__ == "__main__":
     seed = 0
     actType = np.int64
-    env_id = "LunarLander-v2"
-    # env_id = "FrozenLake-v1"
+    # env_id = "CliffWalking-v0"
+    env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
-    env: gym.Env[Any, actType] = gym.make(env_id)
+    args = {"id": env_id, "map_name": "8x8", "is_slippery":False}
+    env: gym.Env[Any, actType] = gym.make(**args)
     env.reset(seed=seed)
-    render_env: gym.Env[Any, actType] = gym.make(env_id, render_mode="human")
+    render_env: gym.Env[Any, actType] = gym.make(**args, render_mode="human")
     render_env.reset(seed=seed)
     selection_policy = UCB[Any, actType](c=0.5)
     tree_evaluation_policy = DefaultTreeEvaluator[Any]()
