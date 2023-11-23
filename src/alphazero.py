@@ -14,7 +14,7 @@ class Node(Generic[ObservationType, ActionType]):
     parent: Optional["Node[ObservationType, ActionType]"]
     # Since we have to use Discrete action space the ActionType is an integer so we could also use a list
     children: dict[ActionType, "Node[ObservationType, ActionType]"]
-    visits: int = 1
+    visits: int = 0
     subtree_value: float = 0.0
     value_evaluation: float = 0.0
     reward: float
@@ -44,7 +44,6 @@ class Node(Generic[ObservationType, ActionType]):
     def step(self, action: ActionType) -> "Node[ObservationType, ActionType]":
         # steps into the action and returns that node
         child = self.children[action]
-        child.visits += 1
         return child
 
     def backprop(self, value: float) -> None:
@@ -52,6 +51,7 @@ class Node(Generic[ObservationType, ActionType]):
         node: Node[ObservationType, ActionType] | None = self
         while node is not None:
             node.subtree_value += self.value_evaluation + self.reward
+            node.visits += 1
             node = node.parent
 
     def default_value(self) -> float:
@@ -72,7 +72,7 @@ class Node(Generic[ObservationType, ActionType]):
     def visualize(
         self,
         var_fn: Optional[Callable[["Node[ObservationType, ActionType]"], Any]] = None,
-        max_depth: int = 10,
+        max_depth: Optional[int] = None,
     ) -> None:
         dot = graphviz.Digraph(comment="MCTS Tree")
         self._add_node_to_graph(dot, var_fn, max_depth=max_depth)
@@ -82,16 +82,18 @@ class Node(Generic[ObservationType, ActionType]):
         self,
         dot: graphviz.Digraph,
         var_fn: Optional[Callable[["Node[ObservationType, ActionType]"], Any]] = None,
-        max_depth: int = 30,
+        max_depth: Optional[int] = None,
     ) -> None:
-        if max_depth == 0:
+        if max_depth is not None and max_depth == 0:
             return
-        label = f"R: {self.reward}, SS: {self.subtree_value: .2f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
+        label = f"R: {self.reward}, MS: {self.default_value(): .2f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
         if var_fn is not None:
             label += f", Var: {var_fn(self)}"
         dot.node(str(id(self)), label=label)
         for action, child in self.children.items():
-            child._add_node_to_graph(dot, var_fn, max_depth=max_depth - 1)
+            child._add_node_to_graph(
+                dot, var_fn, max_depth=max_depth - 1 if max_depth is not None else None
+            )
 
             dot.edge(str(id(self)), str(id(child)), label=f"Action: {action}")
 
@@ -195,9 +197,8 @@ class MCTS(Generic[ObservationType, ActionType]):
         self,
         node: Node[ObservationType, ActionType],
         env: gym.Env[ObservationType, ActionType],
-        rollout_budget = 40,
+        rollout_budget=40,
     ) -> float:
-
         # if the node is terminal, return the reward
         if node.is_terminal():
             return node.reward
@@ -222,8 +223,6 @@ class MCTS(Generic[ObservationType, ActionType]):
         """
 
         node = from_node
-        # increase the visits of the root node (why not)
-        node.visits += 1
 
         env = copy.deepcopy(self.env)
         while not node.is_terminal():
@@ -273,8 +272,8 @@ def run_episode(
 
     for step in range(max_steps):
         tree = solver.search(env, compute_budget)
-        print(f"Found {tree.default_value()}")
         action = tree_evaluation_policy(tree)
+        print(f"Found {tree.children[action].default_value()}")
         observation, reward, terminated, truncated, _ = env.step(action)
         total_reward += float(reward)
         if render_env is not None:
@@ -289,7 +288,7 @@ def run_episode(
     return total_reward
 
 
-def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=5):
+def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
     tree = solver.search(env, compute_budget)
     return tree.visualize(max_depth=max_depth)
 
@@ -297,19 +296,26 @@ def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=5):
 if __name__ == "__main__":
     seed = 0
     actType = np.int64
-    # env_id = "CartPole-v1"
-    env_id = "FrozenLake-v1"
+    env_id = "LunarLander-v2"
+    # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env: gym.Env[Any, actType] = gym.make(env_id)
     env.reset(seed=seed)
     render_env: gym.Env[Any, actType] = gym.make(env_id, render_mode="human")
     render_env.reset(seed=seed)
-    selection_policy = UCB[Any, actType](c=5.0)
+    selection_policy = UCB[Any, actType](c=0.5)
     tree_evaluation_policy = DefaultTreeEvaluator[Any]()
 
     mcts = MCTS[Any, actType](selection_policy=selection_policy)
-    # vis_tree(mcts, env, compute_budget=1000, max_depth=3)
-    total_reward = run_episode(mcts, env, tree_evaluation_policy, compute_budget=5000, render_env=render_env, verbose=True)
+    # vis_tree(mcts, env, compute_budget=10000, max_depth=None)
+    total_reward = run_episode(
+        mcts,
+        env,
+        tree_evaluation_policy,
+        compute_budget=1000,
+        render_env=render_env,
+        verbose=True,
+    )
     print(f"Total reward: {total_reward}")
     env.close()
     render_env.close()
