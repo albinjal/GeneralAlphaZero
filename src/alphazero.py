@@ -181,14 +181,14 @@ class MCTS(Generic[ObservationType, ActionType]):
             selected_node_for_expansion, env = self.select_node_to_expand(from_node)
             # check if the node is terminal
             if selected_node_for_expansion.is_terminal():
-                # the visitation count of the terminal node should be increased so less likely to be selected again
-                continue
-            # expand the node
-            expanded_node = self.expand(selected_node_for_expansion, env)
+                eval_node = selected_node_for_expansion
+            else:
+                # expand the node
+                eval_node = self.expand(selected_node_for_expansion, env)
             # evaluate the node
-            value = self.value_function(expanded_node, env)
+            value = self.value_function(eval_node, env)
             # backpropagate the value
-            expanded_node.backprop(value)
+            eval_node.backprop(value)
         return from_node
 
     def value_function(
@@ -298,8 +298,8 @@ if __name__ == "__main__":
     seed = 0
     actType = np.int64
     # env_id = "CartPole-v1"
-    # env_id = "FrozenLake-v1"
-    env_id = "Taxi-v3"
+    env_id = "FrozenLake-v1"
+    # env_id = "Taxi-v3"
     env: gym.Env[Any, actType] = gym.make(env_id)
     env.reset(seed=seed)
     render_env: gym.Env[Any, actType] = gym.make(env_id, render_mode="human")
@@ -309,7 +309,7 @@ if __name__ == "__main__":
 
     mcts = MCTS[Any, actType](selection_policy=selection_policy)
     # vis_tree(mcts, env, compute_budget=1000, max_depth=3)
-    total_reward = run_episode(mcts, env, tree_evaluation_policy, compute_budget=200, render_env=render_env, verbose=True)
+    total_reward = run_episode(mcts, env, tree_evaluation_policy, compute_budget=5000, render_env=render_env, verbose=True)
     print(f"Total reward: {total_reward}")
     env.close()
     render_env.close()
