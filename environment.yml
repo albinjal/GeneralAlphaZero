@@ -6,4 +6,5 @@ dependencies:
   - pygame
   - graphviz
   - ipykernel
+  - pytorch
   - pip

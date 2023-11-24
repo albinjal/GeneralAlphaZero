@@ -9,14 +9,14 @@ ObservationType = TypeVar("ObservationType")
 
 class Node(Generic[ObservationType, ActionType]):
     parent: Optional["Node[ObservationType, ActionType]"]
-    # Since we have to use Discrete action space the ActionType is an integer so we could also use a list
+    # TODO: Since we have to use Discrete action space the ActionType is an integer so we could also use a list
     children: dict[ActionType, "Node[ObservationType, ActionType]"]
     visits: int = 0
-    subtree_value: float = 0.0
-    value_evaluation: float = 0.0
-    reward: float
+    subtree_sum: float = 0.0 # sum of reward and value of all children
+    value_evaluation: float = 0.0 # expected future reward
+    reward: float # reward recived when stepping into this node
     # Discrete action space
-    action_space: gym.spaces.Discrete
+    action_space: gym.spaces.Discrete # the reference to the action space
     observation: Optional[ObservationType]
 
     def __init__(
@@ -27,7 +27,7 @@ class Node(Generic[ObservationType, ActionType]):
         observaton: Optional[ObservationType] = None,
         terminal: bool = False,
     ):
-        # TODO: lazy init
+        # TODO: lazy init?
         self.children = {}
         self.action_space = action_space
         self.reward = reward
@@ -46,13 +46,23 @@ class Node(Generic[ObservationType, ActionType]):
     def backprop(self, value: float) -> None:
         self.value_evaluation = value
         node: Node[ObservationType, ActionType] | None = self
+        # add the value and the reward to all parent nodes
+        # TODO: not fully clear how to weigh the rewards
+        # we weight the reward by visit count of node (from mathematically derived formula)
+        # for example, the immidiate reward will have the highest weight
+        cum_reward = .0
         while node is not None:
-            node.subtree_value += self.value_evaluation + self.reward
+            cum_reward += node.reward
+            node.subtree_sum += value + cum_reward
             node.visits += 1
+            # parent is None if node is root
             node = node.parent
 
     def default_value(self) -> float:
-        return self.subtree_value / self.visits
+        """
+        The default value estimate for taking this action is the average of the rewards + value estimates of all children
+        """
+        return self.subtree_sum / self.visits
 
     def is_fully_expanded(self) -> bool:
         return len(self.children) == self.action_space.n
@@ -95,7 +105,7 @@ class Node(Generic[ObservationType, ActionType]):
             dot.edge(str(id(self)), str(id(child)), label=f"Action: {action}")
 
     def __str__(self):
-        return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_value}\nRollout: {self.default_value()}"
+        return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_sum}\nRollout: {self.default_value()}"
 
     def __repr__(self):
         return self.__str__()

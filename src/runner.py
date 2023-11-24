@@ -45,24 +45,24 @@ def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
 if __name__ == "__main__":
     seed = 0
     actType = np.int64
-    # env_id = "CliffWalking-v0"
-    env_id = "FrozenLake-v1"
+    env_id = "CliffWalking-v0"
+    # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
-    args = {"id": env_id, "map_name": "8x8", "is_slippery":False}
+    args: dict = {"id": env_id}
     env: gym.Env[Any, actType] = gym.make(**args)
     env.reset(seed=seed)
     render_env: gym.Env[Any, actType] = gym.make(**args, render_mode="human")
     render_env.reset(seed=seed)
-    selection_policy = UCB[Any, actType](c=0.5)
+    selection_policy = UCB[Any, actType](c=5)
     tree_evaluation_policy = DefaultTreeEvaluator[Any]()
 
-    mcts = RandomRolloutMCTS(selection_policy=selection_policy)
-    # vis_tree(mcts, env, compute_budget=10000, max_depth=None)
+    mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
+    # vis_tree(mcts, env, compute_budget=100, max_depth=None)
     total_reward = run_episode(
         mcts,
         env,
         tree_evaluation_policy,
-        compute_budget=1000,
+        compute_budget=2000,
         render_env=render_env,
         verbose=True,
     )
