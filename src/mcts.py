@@ -35,14 +35,18 @@ class MCTS(Generic[ObservationType]):
         self.env = env
         # assert that the type of the action space is discrete
         assert isinstance(env.action_space, gym.spaces.Discrete)
+        # root_node = Node[ObservationType](
+        #     parent=None, reward=reward, action_space=env.action_space, observaton=obs
+        # )
+        # # evaluate the root node
+        # value = self.value_function(root_node, copy.deepcopy(self.env))
+        # # backpropagate the value (just updates value est)
+        # root_node.backprop(value)
+        # return self.build_tree(root_node, iterations - 1)
         root_node = Node[ObservationType](
             parent=None, reward=reward, action_space=env.action_space, observaton=obs
         )
-        # evaluate the root node
-        value = self.value_function(root_node, copy.deepcopy(self.env))
-        # backpropagate the value (just updates value est)
-        root_node.backprop(value)
-        return self.build_tree(root_node, iterations - 1)
+        return self.build_tree(root_node, iterations)
 
     def build_tree(self, from_node: Node[ObservationType], iterations: int) -> Node[ObservationType]:
         for _ in range(iterations):
