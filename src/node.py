@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Generic, TypeVar, Optional, Any, Callable, Tuple
+from typing import Dict, Generic, TypeVar, Optional, Any, Callable, Tuple
 import gymnasium as gym
 import numpy as np
 import graphviz
@@ -8,10 +8,10 @@ ActionType = TypeVar("ActionType")
 ObservationType = TypeVar("ObservationType")
 
 
-class Node(Generic[ObservationType, ActionType]):
-    parent: Optional["Node[ObservationType, ActionType]"]
+class Node(Generic[ObservationType]):
+    parent: Optional["Node[ObservationType]"]
     # TODO: Since we have to use Discrete action space the ActionType is an integer so we could also use a list
-    children: dict[ActionType, "Node[ObservationType, ActionType]"]
+    children: Dict[np.int64, "Node[ObservationType]"]
     visits: int = 0
     subtree_sum: float = 0.0 # sum of reward and value of all children
     value_evaluation: float = 0.0 # expected future reward
@@ -22,7 +22,7 @@ class Node(Generic[ObservationType, ActionType]):
 
     def __init__(
         self,
-        parent: Optional["Node[ObservationType, ActionType]"],
+        parent: Optional["Node[ObservationType]"],
         reward: float,
         action_space: gym.spaces.Discrete,
         observaton: Optional[ObservationType] = None,
@@ -39,14 +39,14 @@ class Node(Generic[ObservationType, ActionType]):
     def is_terminal(self) -> bool:
         return self.terminal
 
-    def step(self, action: ActionType) -> "Node[ObservationType, ActionType]":
+    def step(self, action: np.int64) -> "Node[ObservationType]":
         # steps into the action and returns that node
         child = self.children[action]
         return child
 
     def backprop(self, value: float) -> None:
         self.value_evaluation = value
-        node: Node[ObservationType, ActionType] | None = self
+        node: Node[ObservationType] | None = self
         # add the value and the reward to all parent nodes
         # we weight the reward by visit count of node (from mathematically derived formula)
         # for example, the immidiate reward will have the highest weight
@@ -78,7 +78,7 @@ class Node(Generic[ObservationType, ActionType]):
 
     def visualize(
         self,
-        var_fn: Optional[Callable[["Node[ObservationType, ActionType]"], Any]] = None,
+        var_fn: Optional[Callable[["Node[ObservationType]"], Any]] = None,
         max_depth: Optional[int] = None,
     ) -> None:
         dot = graphviz.Digraph(comment="MCTS Tree")
@@ -88,7 +88,7 @@ class Node(Generic[ObservationType, ActionType]):
     def _add_node_to_graph(
         self,
         dot: graphviz.Digraph,
-        var_fn: Optional[Callable[["Node[ObservationType, ActionType]"], Any]] = None,
+        var_fn: Optional[Callable[["Node[ObservationType]"], Any]] = None,
         max_depth: Optional[int] = None,
     ) -> None:
         if max_depth is not None and max_depth == 0:
