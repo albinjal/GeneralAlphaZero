@@ -31,7 +31,7 @@ class MCTS(Generic[ObservationType, ActionType]):
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
         self.expansion_policy = expansion_policy
 
-    def search(self, env: gym.Env[ObservationType, ActionType], iterations: int):
+    def search(self, env: gym.Env[ObservationType, ActionType], iterations: int) -> Node[ObservationType, ActionType]:
         # the env should be in the state we want to search from
         self.env = env
         # assert that the type of the action space is discrete
@@ -41,7 +41,7 @@ class MCTS(Generic[ObservationType, ActionType]):
         )
         return self.build_tree(root_node, iterations)
 
-    def build_tree(self, from_node: Node[ObservationType, ActionType], iterations: int):
+    def build_tree(self, from_node: Node[ObservationType, ActionType], iterations: int) -> Node[ObservationType, ActionType]:
         for _ in range(iterations):
             # traverse the tree and select the node to expand
             selected_node_for_expansion, env = self.select_node_to_expand(from_node)

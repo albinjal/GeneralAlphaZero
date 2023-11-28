@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import Generic, TypeVar, Optional, Any, Callable, Tuple
 import gymnasium as gym
 import numpy as np
@@ -47,13 +48,12 @@ class Node(Generic[ObservationType, ActionType]):
         self.value_evaluation = value
         node: Node[ObservationType, ActionType] | None = self
         # add the value and the reward to all parent nodes
-        # TODO: not fully clear how to weigh the rewards
         # we weight the reward by visit count of node (from mathematically derived formula)
         # for example, the immidiate reward will have the highest weight
-        cum_reward = .0
+        cum_reward = value
         while node is not None:
             cum_reward += node.reward
-            node.subtree_sum += value + cum_reward
+            node.subtree_sum += cum_reward
             node.visits += 1
             # parent is None if node is root
             node = node.parent
@@ -103,6 +103,19 @@ class Node(Generic[ObservationType, ActionType]):
             )
 
             dot.edge(str(id(self)), str(id(child)), label=f"Action: {action}")
+
+    def state_visitation_counts(self) -> Counter:
+        """
+        Returns a counter of the number of times each state has been visited
+        """
+        counter = Counter()
+        # add the current node
+        counter[self.observation] += self.visits
+        # add all children
+        for child in self.children.values():
+            counter.update(child.state_visitation_counts())
+
+        return counter
 
     def __str__(self):
         return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_sum}\nRollout: {self.default_value()}"
