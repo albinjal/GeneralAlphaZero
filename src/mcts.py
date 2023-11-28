@@ -4,7 +4,7 @@ from typing import Generic, TypeVar, Tuple
 import numpy as np
 from node import Node
 
-from policies import DefaultExpansionPolicy, Policy, SelectionPolicy
+from policies import DefaultExpansionPolicy, OptionalPolicy, Policy
 
 ObservationType = TypeVar("ObservationType")
 
@@ -15,14 +15,14 @@ class MCTS(Generic[ObservationType]):
     """
 
     env: gym.Env[ObservationType, np.int64]
-    selection_policy: SelectionPolicy[ObservationType]
+    selection_policy: OptionalPolicy[ObservationType]
     expansion_policy: Policy[
         ObservationType
     ]  # the expansion policy is usually "pick uniform non explored action"
 
     def __init__(
         self,
-        selection_policy: SelectionPolicy[ObservationType],
+        selection_policy: OptionalPolicy[ObservationType],
         expansion_policy: Policy[ObservationType] = DefaultExpansionPolicy[
             ObservationType
         ](),

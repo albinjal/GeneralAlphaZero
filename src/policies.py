@@ -7,10 +7,14 @@ from node import Node
 ObservationType = TypeVar("ObservationType")
 
 class Policy(ABC, Generic[ObservationType]):
-    """Take a node and return an action"""
-    @abstractmethod
+
     def __call__(self, node: Node[ObservationType]) -> np.int64:
-        pass
+        return self.sample(node)
+
+
+    @abstractmethod
+    def sample(self, node: Node[ObservationType]) -> np.int64:
+        """Take a node and return an action"""
 
 class PolicyDistribution(Policy[ObservationType]):
     """Also lets us view the full distribution of the policy, not only sample from it.
@@ -19,30 +23,34 @@ class PolicyDistribution(Policy[ObservationType]):
     We can also apply softmax with temperature to the distribution.
     """
 
-    def __call__(self, node: Node[ObservationType]) -> np.int64:
+    def sample(self, node: Node[ObservationType]) -> np.int64:
         """
         Returns a random action from the distribution
         """
         return np.random.choice(node.action_space.n, p=self.distribution(node))
 
     @abstractmethod
-    def distribution(self, node: Node[ObservationType]) -> th.Tensor:
+    def distribution(self, node: Node[ObservationType]) -> np.ndarray:
         """The distribution of the policy. Must sum to 1 and be all positive."""
         pass
 
 
 
-class SelectionPolicy(ABC, Generic[ObservationType]):
-    @abstractmethod
+class OptionalPolicy(ABC, Generic[ObservationType]):
     def __call__(self, node: Node[ObservationType]) -> np.int64 | None:
-        pass
+        return self.sample(node)
 
 
-class UCB(SelectionPolicy[ObservationType]):
+    @abstractmethod
+    def sample(self, node: Node[ObservationType]) -> np.int64 | None:
+        """Take a node and return an action"""
+
+
+class UCB(OptionalPolicy[ObservationType]):
     def __init__(self, c: float):
         self.c = c
 
-    def __call__(self, node: Node[ObservationType]) -> np.int64 | None:
+    def sample(self, node: Node[ObservationType]) -> np.int64 | None:
         # if not fully expanded, return None
         if not node.is_fully_expanded():
             return None
@@ -57,17 +65,20 @@ class UCB(SelectionPolicy[ObservationType]):
 
 
 class RandomPolicy(Policy[ObservationType]):
-    def __call__(self, node: Node[ObservationType]) -> np.int64:
+    def sample(self, node: Node[ObservationType]) -> np.int64:
         return node.action_space.sample()
 
 
 class DefaultExpansionPolicy(Policy[ObservationType]):
-    def __call__(self, node: Node[ObservationType]) -> np.int64:
+    def sample(self, node: Node[ObservationType]) -> np.int64:
         # returns a uniformly random unexpanded action
         return node.sample_unexplored_action()
 
 
-class DefaultTreeEvaluator(Policy[ObservationType]):
+class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
     # the default tree evaluator selects the action with the most visits
-    def __call__(self, node: Node[ObservationType]) -> np.int64:
-        return max(node.children, key=lambda action: node.children[action].visits)
+    def distribution(self, node: Node[ObservationType]) -> np.ndarray:
+        visits = np.zeros(node.action_space.n)
+        for action, child in node.children.items():
+            visits[action] = child.visits
+        return visits / visits.sum()

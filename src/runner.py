@@ -4,13 +4,13 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 from mcts import MCTS, RandomRolloutMCTS
-from policies import UCB, DefaultTreeEvaluator, Policy
+from policies import UCB, DefaultTreeEvaluator, Policy, PolicyDistribution
 
 
 def run_episode(
     solver: MCTS,
     env: gym.Env,
-    tree_evaluation_policy: Policy,
+    tree_evaluation_policy: PolicyDistribution,
     compute_budget=1000,
     max_steps=1000,
     render_env=None,
@@ -18,22 +18,26 @@ def run_episode(
     goal_obs=None,
 ):
     total_reward = 0.0
+    assert isinstance(env.action_space, gym.spaces.Discrete)
 
     for step in range(max_steps):
         tree = solver.search(env, compute_budget)
-        action = tree_evaluation_policy(tree)
-        if goal_obs is not None:
-            vis_counter = tree.state_visitation_counts()
-            print(f"Visits to goal state: {vis_counter[goal_obs]}")
+        policy_dist = tree_evaluation_policy.distribution(tree)
+        action = np.random.choice(env.action_space.n, p=policy_dist)
+
 
         observation, reward, terminated, truncated, _ = env.step(action)
         total_reward += float(reward)
         if render_env is not None:
             render_env.step(action)
         if verbose:
-            print(f"Found {tree.children[action].default_value()}")
+            if goal_obs is not None:
+                vis_counter = tree.state_visitation_counts()
+                print(f"Visits to goal state: {vis_counter[goal_obs]}")
+            norm_entropy = -float(np.sum(policy_dist * np.log(policy_dist))) / np.log(env.action_space.n)
+            print(f"Policy: {policy_dist}, Norm Entropy: {norm_entropy: .2f}")
             print(
-                f"{step}. A: {action}, R: {reward}, T: {terminated}, Tr: {truncated}, total_reward: {total_reward}"
+                f"{step}.O: {observation}, A: {action}, R: {reward}, T: {terminated}, Tr: {truncated}, total_reward: {total_reward}"
             )
         if terminated or truncated:
             break
@@ -58,7 +62,7 @@ if __name__ == "__main__":
     env.reset(seed=seed)
     render_env: gym.Env[Any, actType] = gym.make(**args, render_mode="human")
     render_env.reset(seed=seed)
-    selection_policy = UCB[Any](c=100)
+    selection_policy = UCB[Any](c=50)
     tree_evaluation_policy = DefaultTreeEvaluator[Any]()
 
     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
