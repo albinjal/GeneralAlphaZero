@@ -30,15 +30,19 @@ class MCTS(Generic[ObservationType]):
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
         self.expansion_policy = expansion_policy
 
-    def search(self, env: gym.Env[ObservationType, np.int64], iterations: int) -> Node[ObservationType]:
+    def search(self, env: gym.Env[ObservationType, np.int64], iterations: int, obs: ObservationType, reward: float) -> Node[ObservationType]:
         # the env should be in the state we want to search from
         self.env = env
         # assert that the type of the action space is discrete
         assert isinstance(env.action_space, gym.spaces.Discrete)
         root_node = Node[ObservationType](
-            parent=None, reward=0.0, action_space=env.action_space
+            parent=None, reward=reward, action_space=env.action_space, observaton=obs
         )
-        return self.build_tree(root_node, iterations)
+        # evaluate the root node
+        value = self.value_function(root_node, copy.deepcopy(self.env))
+        # backpropagate the value (just updates value est)
+        root_node.backprop(value)
+        return self.build_tree(root_node, iterations - 1)
 
     def build_tree(self, from_node: Node[ObservationType], iterations: int) -> Node[ObservationType]:
         for _ in range(iterations):

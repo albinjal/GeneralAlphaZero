@@ -1,10 +1,13 @@
 from typing import Tuple
 import gymnasium as gym
+from tqdm import tqdm
 from mcts import MCTS
 from node import Node
-from policies import DefaultExpansionPolicy, Policy, SelectionPolicy
+from policies import DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
 from torchrl.data import ReplayBuffer, LazyTensorStorage
+
+from runner import run_episode
 
 # class AlphaZeroModel(th.nn.Module):
 #     """
@@ -66,14 +69,62 @@ class AlphaZeroController:
     """
 
     replay_buffer: ReplayBuffer
+    training_epochs: int
+    model: th.nn.Module
 
-    def __init__(self, env: gym.Env, agent: AlphaZeroMCTS, storage = LazyTensorStorage(1000)) -> None:
+    def __init__(self,
+                 env: gym.Env,
+                 agent: AlphaZeroMCTS,
+                 optimizer: th.optim.Optimizer,
+                 storage = LazyTensorStorage(1000),
+                 training_epochs = 10,
+                 batch_size = 32,
+                 tree_evaluation_policy = DefaultTreeEvaluator(),
+                 compute_budget = 1000,
+                 max_episode_length = 500,
+                 ) -> None:
         self.replay_buffer = ReplayBuffer(storage=storage)
+        self.training_epochs = training_epochs
+        self.batch_size = batch_size
+        self.optimizer = optimizer
+        self.agent = agent
+        self.env = env
+        self.tree_evaluation_policy = tree_evaluation_policy
+        self.compute_budget = compute_budget
+        self.max_episode_length = max_episode_length
+
+
+    def iterate(self, iterations = 10):
+        for i in range(iterations):
+            print(f"Iteration {i}")
+            print("Self play...")
+            self.self_play()
+            print("Learning...")
+            self.learn()
 
 
     def self_play(self):
-        pass
+        """play a game and store the data in the replay buffer"""
+        self.agent.model.eval()
+        new_training_data = run_episode(self.agent, self.env, self.tree_evaluation_policy, compute_budget=self.compute_budget,
+                                        max_steps=self.max_episode_length, verbose=True)
+        self.replay_buffer.extend(new_training_data)
 
 
-    def train(self):
-        pass
+    def learn(self):
+        self.agent.model.train()
+        for i in tqdm(range(self.training_epochs)):
+            # sample a batch from the replay buffer
+            observation, policy_dist, v_target  = self.replay_buffer.sample(batch_size=self.batch_size)
+            value, policy = self.agent.model(observation)
+
+            # calculate the loss
+            value_loss = th.nn.functional.mse_loss(value, v_target)
+            policy_loss = th.nn.functional.kl_div(policy, policy_dist)
+            loss = value_loss + policy_loss
+            # backprop
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            print(f"{i}. Loss: {loss.item():.2f}")

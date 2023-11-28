@@ -14,7 +14,7 @@ class Node(Generic[ObservationType]):
     children: Dict[np.int64, "Node[ObservationType]"]
     visits: int = 0
     subtree_sum: float = 0.0 # sum of reward and value of all children
-    value_evaluation: float = 0.0 # expected future reward
+    value_evaluation: float # expected future reward
     reward: float # reward recived when stepping into this node
     # Discrete action space
     action_space: gym.spaces.Discrete # the reference to the action space
@@ -25,7 +25,7 @@ class Node(Generic[ObservationType]):
         parent: Optional["Node[ObservationType]"],
         reward: float,
         action_space: gym.spaces.Discrete,
-        observaton: Optional[ObservationType] = None,
+        observaton: Optional[ObservationType],
         terminal: bool = False,
     ):
         # TODO: lazy init?
