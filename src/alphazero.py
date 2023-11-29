@@ -153,9 +153,10 @@ class AlphaZeroController:
         for i in tqdm(range(iterations)):
             print(f"Iteration {i}")
             print("Self play...")
-            total_reward = self.self_play()
+            total_reward, mean_entropy = self.self_play()
             # Log the total reward
             self.writer.add_scalar('Self_Play/Total_Reward', total_reward, i)
+            self.writer.add_scalar('Self_Play/Mean_Entropy', mean_entropy, i)
             print("Learning...")
             self.learn(it=i)
 
@@ -177,11 +178,11 @@ class AlphaZeroController:
     def self_play(self):
         """play a game and store the data in the replay buffer"""
         self.agent.model.eval()
-        new_training_data, total_reward = run_episode(self.agent, self.env, self.tree_evaluation_policy, compute_budget=self.compute_budget,
+        new_training_data, total_reward, total_entropy = run_episode(self.agent, self.env, self.tree_evaluation_policy, compute_budget=self.compute_budget,
                                         max_steps=self.max_episode_length, verbose=True)
         self.replay_buffer.extend(new_training_data)
 
-        return total_reward
+        return total_reward, total_entropy / len(new_training_data)
 
 
     def learn(self, it: int):
@@ -211,19 +212,21 @@ class AlphaZeroController:
 
 if __name__ == "__main__":
     actType = np.int64
-    env_id = "CliffWalking-v0"
+    env_id = "CartPole-v1"
+    # env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id, render_mode="ansi")
 
-    selection_policy = UCB(c=3)
+    selection_policy = UCB(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
 
-    model = AlphaZeroModel(env, hidden_dim=32, layers=2)
+    model = AlphaZeroModel(env, hidden_dim=64, layers=3)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
-    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=200, batch_size=200, storage = ListStorage(1000))
+    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=400,
+                                     batch_size=200, storage = ListStorage(1000), compute_budget=100, training_epochs=10)
     controller.iterate(100)
 
 

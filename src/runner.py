@@ -18,7 +18,7 @@ def run_episode(
     goal_obs=None,
     render=False,
     seed=None,
-) -> Tuple[List[Tuple[Any, np.ndarray, float]], float]:
+) -> Tuple[List[Tuple[Any, np.ndarray, float]], float, float]:
     assert isinstance(env.action_space, gym.spaces.Discrete)
     observation, info = env.reset(seed=seed)
     reward = .0
@@ -26,6 +26,7 @@ def run_episode(
     terminal = False
     total_reward = 0.0
     trajectory = []
+    total_entropy = 0.0
     for step in range(max_steps):
         tree = solver.search(env, compute_budget, observation, float(reward))
 
@@ -46,6 +47,7 @@ def run_episode(
                 vis_counter = tree.state_visitation_counts()
                 print(f"Visits to goal state: {vis_counter[goal_obs]}")
             norm_entropy = m.entropy() / np.log(env.action_space.n)
+            total_entropy += norm_entropy
             print(f"Policy: {policy_dist}, Norm Entropy: {norm_entropy: .2f}")
             print(
                 f"{step}.O: {observation}, A: {action}, R: {reward}, T: {terminal}, total_reward: {total_reward}"
@@ -54,7 +56,7 @@ def run_episode(
             break
 
 
-    return trajectory, total_reward
+    return trajectory, total_reward, total_entropy
 
 
 
