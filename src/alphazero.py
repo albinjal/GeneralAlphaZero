@@ -1,3 +1,4 @@
+import datetime
 from typing import Tuple
 import gymnasium as gym
 import numpy as np
@@ -7,8 +8,8 @@ from node import Node
 from policies import UCB, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
 from torchrl.data import ReplayBuffer, ListStorage
-
 from runner import run_episode
+from torch.utils.tensorboard import SummaryWriter
 
 class AlphaZeroModel(th.nn.Module):
     """
@@ -92,7 +93,7 @@ class AlphaZeroMCTS(MCTS):
         assert observation is not None
         # run the model
         # convert observation from int to tensor float 1x1 tensor
-        tensor_obs = th.tensor(gym.spaces.flatten(env.observation_space, observation)).float()
+        tensor_obs = th.tensor(gym.spaces.flatten(env.observation_space, observation), dtype=th.float32)
         value, policy = self.model.forward(tensor_obs)
         # store the policy
         node.prior_policy = policy
@@ -130,43 +131,55 @@ class AlphaZeroController:
         self.tree_evaluation_policy = tree_evaluation_policy
         self.compute_budget = compute_budget
         self.max_episode_length = max_episode_length
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_dir = f'./tensorboard_logs/{env_id}_{current_time}'
+        self.writer = SummaryWriter(log_dir=log_dir)
+
 
 
     def iterate(self, iterations = 10):
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            self.self_play()
+            total_reward = self.self_play()
+            # Log the total reward
+            self.writer.add_scalar('Self_Play/Total_Reward', total_reward, i)
             print("Learning...")
-            self.learn()
+            self.learn(it=i)
+        self.writer.close()
 
 
     def self_play(self):
         """play a game and store the data in the replay buffer"""
         self.agent.model.eval()
-        new_training_data = run_episode(self.agent, self.env, self.tree_evaluation_policy, compute_budget=self.compute_budget,
+        new_training_data, total_reward = run_episode(self.agent, self.env, self.tree_evaluation_policy, compute_budget=self.compute_budget,
                                         max_steps=self.max_episode_length, verbose=True)
         self.replay_buffer.extend(new_training_data)
+        return total_reward
 
 
-    def learn(self):
+    def learn(self, it: int):
         self.agent.model.train()
-        for i in tqdm(range(self.training_epochs)):
+        for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
             observations, policy_dists, v_targets  = self.replay_buffer.sample(batch_size=self.batch_size)
-            tensor_obs = th.tensor([gym.spaces.flatten(env.observation_space, observation) for observation in observations]).float()
+            tensor_obs = th.tensor([gym.spaces.flatten(env.observation_space, observation) for observation in observations], dtype=th.float32)
             value, policy = self.agent.model.forward(tensor_obs)
 
             # calculate the loss
-            value_loss = th.nn.functional.mse_loss(value, v_targets)
-            policy_loss = th.nn.functional.kl_div(policy, policy_dists)
+            value_loss = th.nn.functional.mse_loss(value, v_targets, reduction='batchmean')
+            # note that kl div expect log probabilities for input
+            policy_loss = th.nn.functional.kl_div(th.log(policy), policy_dists, reduction='batchmean', log_target=False)
             loss = value_loss + policy_loss
             # backprop
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-
+            i = it * self.training_epochs + j
             print(f"{i}. Loss: {loss.item():.2f}")
+            self.writer.add_scalar('Loss/Value_loss', value_loss.item(), i)
+            self.writer.add_scalar('Loss/Policy_loss', policy_loss.item(), i)
+            self.writer.add_scalar('Loss/Total_loss', loss.item(), i)
 
 
 
@@ -177,14 +190,14 @@ if __name__ == "__main__":
     # env_id = "Taxi-v3"
     env = gym.make(env_id, render_mode="ansi")
 
-    selection_policy = UCB(c=40)
+    selection_policy = UCB(c=3)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
 
-    model = AlphaZeroModel(env, hidden_dim=64, layers=3)
+    model = AlphaZeroModel(env, hidden_dim=32, layers=3)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
-    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=100)
+    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=100, batch_size=100)
     controller.iterate(100)
 
 

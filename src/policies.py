@@ -30,7 +30,7 @@ class PolicyDistribution(Policy[ObservationType]):
         return np.random.choice(node.action_space.n, p=self.distribution(node))
 
     @abstractmethod
-    def distribution(self, node: Node[ObservationType]) -> np.ndarray:
+    def distribution(self, node: Node[ObservationType]) -> th.Tensor:
         """The distribution of the policy. Must sum to 1 and be all positive."""
         pass
 
@@ -77,8 +77,8 @@ class DefaultExpansionPolicy(Policy[ObservationType]):
 
 class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
     # the default tree evaluator selects the action with the most visits
-    def distribution(self, node: Node[ObservationType]) -> np.ndarray:
-        visits = np.zeros(node.action_space.n)
+    def distribution(self, node: Node[ObservationType]) -> th.Tensor:
+        visits = th.zeros(int(node.action_space.n), dtype=th.float32)
         for action, child in node.children.items():
             visits[action] = child.visits
         return visits / visits.sum()
