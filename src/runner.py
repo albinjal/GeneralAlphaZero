@@ -1,7 +1,7 @@
 
 
 import copy
-from typing import Any
+from typing import Any, List, Tuple
 import gymnasium as gym
 import numpy as np
 from mcts import MCTS, RandomRolloutMCTS
@@ -18,7 +18,7 @@ def run_episode(
     goal_obs=None,
     render=False,
     seed=None,
-):
+) -> List[Tuple[Any, np.ndarray, float]]:
     assert isinstance(env.action_space, gym.spaces.Discrete)
     observation, info = env.reset(seed=seed)
     reward = .0
@@ -28,13 +28,16 @@ def run_episode(
     trajectory = []
     for step in range(max_steps):
         tree = solver.search(env, compute_budget, observation, float(reward))
+
         policy_dist = tree_evaluation_policy.distribution(tree)
         v_target = tree.default_value()
         trajectory.append((observation, policy_dist, v_target))
+
         action = np.random.choice(env.action_space.n, p=policy_dist)
         observation, reward, terminated, truncated, _ = env.step(action)
         terminal = terminated or truncated
         total_reward += float(reward)
+
         if verbose:
             if goal_obs is not None:
                 vis_counter = tree.state_visitation_counts()
