@@ -10,6 +10,7 @@ import torch as th
 from torchrl.data import ReplayBuffer, ListStorage
 from runner import run_episode
 from torch.utils.tensorboard import SummaryWriter
+import os
 
 class AlphaZeroModel(th.nn.Module):
     """
@@ -121,6 +122,9 @@ class AlphaZeroController:
                  tree_evaluation_policy = DefaultTreeEvaluator(),
                  compute_budget = 100,
                  max_episode_length = 500,
+                 tensorboard_dir ='./tensorboard_logs',
+                 runs_dir = './runs',
+                 checkpoint_interval = 10,
                  ) -> None:
         self.replay_buffer = ReplayBuffer(storage=storage)
         self.training_epochs = training_epochs
@@ -132,13 +136,21 @@ class AlphaZeroController:
         self.compute_budget = compute_budget
         self.max_episode_length = max_episode_length
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        log_dir = f'./tensorboard_logs/{env_id}_{current_time}'
+        self.run_name = f"{env_id}_{current_time}"
+        log_dir = f'{tensorboard_dir}/{self.run_name}'
         self.writer = SummaryWriter(log_dir=log_dir)
+        self.run_dir = f"{runs_dir}/{self.run_name}"
+        # create run dir if it does not exist
+        os.makedirs(self.run_dir, exist_ok=True)
+
+        self.checkpoint_interval = checkpoint_interval
+        # Log the model
+        self.writer.add_graph(self.agent.model, th.tensor([gym.spaces.flatten(self.env.observation_space, self.env.reset()[0])], dtype=th.float32))
 
 
 
     def iterate(self, iterations = 10):
-        for i in range(iterations):
+        for i in tqdm(range(iterations)):
             print(f"Iteration {i}")
             print("Self play...")
             total_reward = self.self_play()
@@ -146,6 +158,19 @@ class AlphaZeroController:
             self.writer.add_scalar('Self_Play/Total_Reward', total_reward, i)
             print("Learning...")
             self.learn(it=i)
+
+
+            # Log the size of the replay buffer
+            self.writer.add_scalar('Replay_Buffer/Size', len(self.replay_buffer), i)
+
+            # save the model every 10 iterations
+            if i % self.checkpoint_interval == 0:
+                th.save(self.agent.model.state_dict(), f"{self.run_dir}/checkpoint.pth")
+
+        # save the final model
+        th.save(self.agent.model.state_dict(), f"{self.run_dir}/final_model.pth")
+
+        # close the writer
         self.writer.close()
 
 
@@ -155,6 +180,7 @@ class AlphaZeroController:
         new_training_data, total_reward = run_episode(self.agent, self.env, self.tree_evaluation_policy, compute_budget=self.compute_budget,
                                         max_steps=self.max_episode_length, verbose=True)
         self.replay_buffer.extend(new_training_data)
+
         return total_reward
 
 
@@ -167,7 +193,7 @@ class AlphaZeroController:
             value, policy = self.agent.model.forward(tensor_obs)
 
             # calculate the loss
-            value_loss = th.nn.functional.mse_loss(value, v_targets, reduction='batchmean')
+            value_loss = th.nn.functional.mse_loss(value, v_targets)
             # note that kl div expect log probabilities for input
             policy_loss = th.nn.functional.kl_div(th.log(policy), policy_dists, reduction='batchmean', log_target=False)
             loss = value_loss + policy_loss
@@ -194,10 +220,10 @@ if __name__ == "__main__":
     tree_evaluation_policy = DefaultTreeEvaluator()
 
 
-    model = AlphaZeroModel(env, hidden_dim=32, layers=3)
+    model = AlphaZeroModel(env, hidden_dim=32, layers=2)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
-    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=100, batch_size=100)
+    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=200, batch_size=200, storage = ListStorage(1000))
     controller.iterate(100)
 
 
