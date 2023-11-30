@@ -22,8 +22,17 @@ class AlphaZeroModel(th.nn.Module):
     - the policy is a vector of proabilities of the same size as the action space
     """
 
-    def __init__(self, env: gym.Env, hidden_dim: int, layers: int, *args, **kwargs):
+    def __init__(self, env: gym.Env, hidden_dim: int, layers: int, pref_gpu = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # check if cuda is available
+        if not pref_gpu:
+            self.device = th.device("cpu")
+        elif th.cuda.is_available():
+            self.device = th.device("cuda")
+        elif th.backends.mps.is_available():
+            self.device = th.device("mps")
+
+
         self.env = env
         self.state_dim = gym.spaces.flatdim(env.observation_space)
         self.action_dim = gym.spaces.flatdim(env.action_space)
@@ -46,6 +55,7 @@ class AlphaZeroModel(th.nn.Module):
             th.nn.ReLU(),
             th.nn.Linear(hidden_dim, self.action_dim),
         )
+        self.to(self.device)
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
@@ -79,9 +89,9 @@ class AlphaZeroModel(th.nn.Module):
 
 
 class AlphaZeroMCTS(MCTS):
-    model: th.nn.Module
+    model: AlphaZeroModel
 
-    def __init__(self, model: th.nn.Module, *args, **kwargs):
+    def __init__(self, model: AlphaZeroModel, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
 
@@ -90,7 +100,7 @@ class AlphaZeroMCTS(MCTS):
         self,
         node: AlphaNode,
         env: gym.Env,
-    ) -> float:
+    ):
         observation = node.observation
         # flatten the observation
         assert observation is not None
@@ -98,7 +108,7 @@ class AlphaZeroMCTS(MCTS):
         # convert observation from int to tensor float 1x1 tensor
         tensor_obs = th.tensor(
             gym.spaces.flatten(env.observation_space, observation), dtype=th.float32
-        )
+        ).to(self.model.device)
         value, policy = self.model.forward(tensor_obs)
         # store the policy
         node.prior_policy = policy
@@ -151,13 +161,15 @@ class AlphaZeroController:
 
         self.checkpoint_interval = checkpoint_interval
         # Log the model
-        self.writer.add_graph(
-            self.agent.model,
-            th.tensor(
-                [gym.spaces.flatten(self.env.observation_space, self.env.reset()[0])],
-                dtype=th.float32,
-            ),
-        )
+        if self.agent.model.device == th.device("cpu"):
+            self.writer.add_graph(
+                self.agent.model,
+                th.tensor(
+                    [gym.spaces.flatten(self.env.observation_space, self.env.reset()[0])],
+                    dtype=th.float32,
+                ),
+            )
+
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
@@ -231,7 +243,7 @@ class AlphaZeroController:
                     for observation in observations
                 ],
                 dtype=th.float32,
-            )
+            ).to(self.agent.model.device)
             value, policy = self.agent.model.forward(tensor_obs)
 
             # calculate the loss
@@ -268,12 +280,12 @@ if __name__ == "__main__":
     # env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
-    env = gym.make(env_id, render_mode="ansi")
+    env = gym.make(env_id)
 
     selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
-    model = AlphaZeroModel(env, hidden_dim=256, layers=2)
+    model = AlphaZeroModel(env, hidden_dim=256, layers=2, pref_gpu=True)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
     controller = AlphaZeroController(

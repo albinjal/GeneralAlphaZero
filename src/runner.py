@@ -18,7 +18,7 @@ def run_episode(
     goal_obs=None,
     render=False,
     seed=None,
-) -> Tuple[List[Tuple[Any, np.ndarray, float]], float, float]:
+):
     assert isinstance(env.action_space, gym.spaces.Discrete)
     observation, info = env.reset(seed=seed)
     reward = .0
