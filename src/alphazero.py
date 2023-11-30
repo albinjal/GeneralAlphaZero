@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from mcts import MCTS
 from node import AlphaNode, Node
-from policies import PUCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
 from torchrl.data import ReplayBuffer, ListStorage
 from runner import run_episode
@@ -212,7 +212,7 @@ class AlphaZeroController:
             # calculate the loss
             value_loss = th.nn.functional.mse_loss(value, v_targets)
             # - target_policy * log(policy)
-            policy_loss = -th.sum(policy_dists * th.log(policy))
+            policy_loss = -th.sum(policy_dists * th.log(policy)) / policy_dists.shape[0]
             # the regularization loss is the squared l2 norm of the weights
             regularization_loss = th.tensor(0.0)
             if self.regularization_weight > 0:
@@ -244,11 +244,11 @@ if __name__ == "__main__":
     tree_evaluation_policy = DefaultTreeEvaluator()
 
 
-    model = AlphaZeroModel(env, hidden_dim=64, layers=3)
+    model = AlphaZeroModel(env, hidden_dim=64, layers=5)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4)
-    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=400,
-                                     batch_size=150, storage = ListStorage(600), compute_budget=100, training_epochs=20)
+    controller = AlphaZeroController(env, agent, optimizer, max_episode_length=1000,
+                                     batch_size=300, storage = ListStorage(2000), compute_budget=200, training_epochs=10)
     controller.iterate(100)
 
 
