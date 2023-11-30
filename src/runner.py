@@ -5,7 +5,7 @@ from typing import Any, List, Tuple
 import gymnasium as gym
 import numpy as np
 from mcts import MCTS, RandomRolloutMCTS
-from policies import UCB, DefaultTreeEvaluator, Policy, PolicyDistribution
+from policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution
 
 
 def run_episode(
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # env_id = "Taxi-v3"
     env: gym.Env[Any, actType] = gym.make(env_id, render_mode="ansi")
 
-    selection_policy = UCB(c=40)
+    selection_policy = PUCT(c=40)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)

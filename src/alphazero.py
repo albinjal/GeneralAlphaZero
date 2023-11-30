@@ -4,8 +4,8 @@ import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
 from mcts import MCTS
-from node import Node
-from policies import UCB, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
+from node import AlphaNode, Node
+from policies import PUCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
 from torchrl.data import ReplayBuffer, ListStorage
 from runner import run_episode
@@ -32,8 +32,20 @@ class AlphaZeroModel(th.nn.Module):
         for _ in range(layers):
             self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
 
-        self.value_head = th.nn.Linear(hidden_dim, 1)
-        self.policy_head = th.nn.Linear(hidden_dim, self.action_dim)
+        # the value head should be two layers
+        self.value_head = th.nn.Sequential(
+            th.nn.Linear(hidden_dim, hidden_dim),
+            th.nn.ReLU(),
+            th.nn.Linear(hidden_dim, 1),
+        )
+
+        # the policy head should be two layers
+        self.policy_head = th.nn.Sequential(
+            th.nn.Linear(hidden_dim, hidden_dim),
+            th.nn.ReLU(),
+            th.nn.Linear(hidden_dim, self.action_dim),
+        )
+
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
 
@@ -62,9 +74,6 @@ class AlphaZeroModel(th.nn.Module):
 
 
 
-class AlphaNode(Node):
-    # also has a prior_policy
-    prior_policy: np.ndarray
 
 
 
@@ -125,6 +134,9 @@ class AlphaZeroController:
                  tensorboard_dir ='./tensorboard_logs',
                  runs_dir = './runs',
                  checkpoint_interval = 10,
+                 value_loss_weight = 1.0,
+                 policy_loss_weight = 1.0,
+                 regularization_weight = 1e-4,
                  ) -> None:
         self.replay_buffer = ReplayBuffer(storage=storage)
         self.training_epochs = training_epochs
@@ -146,6 +158,10 @@ class AlphaZeroController:
         self.checkpoint_interval = checkpoint_interval
         # Log the model
         self.writer.add_graph(self.agent.model, th.tensor([gym.spaces.flatten(self.env.observation_space, self.env.reset()[0])], dtype=th.float32))
+
+        self.value_loss_weight = value_loss_weight
+        self.policy_loss_weight = policy_loss_weight
+        self.regularization_weight = regularization_weight
 
 
 
@@ -195,9 +211,14 @@ class AlphaZeroController:
 
             # calculate the loss
             value_loss = th.nn.functional.mse_loss(value, v_targets)
-            # note that kl div expect log probabilities for input
-            policy_loss = th.nn.functional.kl_div(th.log(policy), policy_dists, reduction='batchmean', log_target=False)
-            loss = value_loss + policy_loss
+            # - target_policy * log(policy)
+            policy_loss = -th.sum(policy_dists * th.log(policy))
+            # the regularization loss is the squared l2 norm of the weights
+            regularization_loss = th.tensor(0.0)
+            if self.regularization_weight > 0:
+                for param in self.agent.model.parameters():
+                    regularization_loss += th.sum(th.square(param))
+            loss = self.value_loss_weight * value_loss + self.policy_loss_weight * policy_loss + self.regularization_weight * regularization_loss
             # backprop
             self.optimizer.zero_grad()
             loss.backward()
@@ -206,6 +227,7 @@ class AlphaZeroController:
             print(f"{i}. Loss: {loss.item():.2f}")
             self.writer.add_scalar('Loss/Value_loss', value_loss.item(), i)
             self.writer.add_scalar('Loss/Policy_loss', policy_loss.item(), i)
+            self.writer.add_scalar('Loss/Regularization_loss', regularization_loss.item(), i)
             self.writer.add_scalar('Loss/Total_loss', loss.item(), i)
 
 
@@ -218,15 +240,15 @@ if __name__ == "__main__":
     # env_id = "Taxi-v3"
     env = gym.make(env_id, render_mode="ansi")
 
-    selection_policy = UCB(c=1)
+    selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
 
     model = AlphaZeroModel(env, hidden_dim=64, layers=3)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-4)
     controller = AlphaZeroController(env, agent, optimizer, max_episode_length=400,
-                                     batch_size=200, storage = ListStorage(1000), compute_budget=100, training_epochs=10)
+                                     batch_size=150, storage = ListStorage(600), compute_budget=100, training_epochs=20)
     controller.iterate(100)
 
 

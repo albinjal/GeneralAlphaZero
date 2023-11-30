@@ -46,6 +46,8 @@ class MCTS(Generic[ObservationType]):
         root_node = Node[ObservationType](
             parent=None, reward=reward, action_space=env.action_space, observaton=obs
         )
+        value = self.value_function(root_node, copy.deepcopy(self.env))
+        root_node.value_evaluation = value
         return self.build_tree(root_node, iterations)
 
     def build_tree(self, from_node: Node[ObservationType], iterations: int) -> Node[ObservationType]:

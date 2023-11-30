@@ -3,7 +3,7 @@ from typing import Dict, Generic, TypeVar, Optional, Any, Callable, Tuple
 import gymnasium as gym
 import numpy as np
 import graphviz
-
+import torch as th
 ActionType = TypeVar("ActionType")
 ObservationType = TypeVar("ObservationType")
 
@@ -122,3 +122,8 @@ class Node(Generic[ObservationType]):
 
     def __repr__(self):
         return self.__str__()
+
+
+class AlphaNode(Node):
+    # also has a prior_policy
+    prior_policy: th.Tensor

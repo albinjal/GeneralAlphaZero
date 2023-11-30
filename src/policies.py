@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 import torch as th
 import numpy as np
-from node import Node
+from node import AlphaNode, Node
 
 ObservationType = TypeVar("ObservationType")
 
@@ -46,7 +46,10 @@ class OptionalPolicy(ABC, Generic[ObservationType]):
         """Take a node and return an action"""
 
 
-class UCB(OptionalPolicy[ObservationType]):
+
+
+
+class UCT(OptionalPolicy[ObservationType]):
     def __init__(self, c: float):
         self.c = c
 
@@ -62,6 +65,28 @@ class UCB(OptionalPolicy[ObservationType]):
     def ucb(self, node: Node[ObservationType], action: np.int64) -> float:
         child = node.children[action]
         return child.default_value() + self.c * (node.visits / child.visits) ** 0.5
+
+
+
+class PUCT(OptionalPolicy[ObservationType]):
+    def __init__(self, c: float):
+        self.c = c
+
+    def sample(self, node: AlphaNode) -> np.int64 | None:
+        # if not fully expanded, return None
+        if not node.is_fully_expanded():
+            return None
+
+        # if fully expanded, return the action with the highest UCB value
+        # Idea: potentially mess around with making this stochastic
+        return max(node.children, key=lambda action: self.puct(node, action))
+
+    # TODO: this can def be sped up (calculate the denominator once)
+    def puct(self, node: AlphaNode, action: np.int64) -> float:
+        child = node.children[action]
+        prior = node.prior_policy[action]
+        return child.default_value() + self.c * prior * (node.visits ** 0.5) / (child.visits + 1)
+
 
 
 class RandomPolicy(Policy[ObservationType]):
