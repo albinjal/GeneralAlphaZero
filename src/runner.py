@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # env_id = "Taxi-v3"
     env: gym.Env[Any, actType] = gym.make(env_id, render_mode="ansi")
 
-    selection_policy = PUCT(c=40)
+    selection_policy = UCT(c=40)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)

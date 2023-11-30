@@ -174,7 +174,12 @@ class AlphaZeroController:
             self.writer.add_scalar('Self_Play/Total_Reward', total_reward, i)
             self.writer.add_scalar('Self_Play/Mean_Entropy', mean_entropy, i)
             print("Learning...")
-            self.learn(it=i)
+            value_losses, policy_losses, regularization_losses, total_losses = self.learn()
+
+            self.writer.add_scalar('Loss/Value_loss', np.mean(value_losses), i)
+            self.writer.add_scalar('Loss/Policy_loss', np.mean(policy_losses), i)
+            self.writer.add_scalar('Loss/Regularization_loss', np.mean(regularization_losses), i)
+            self.writer.add_scalar('Loss/Total_loss', np.mean(total_losses), i)
 
 
             # Log the size of the replay buffer
@@ -201,7 +206,11 @@ class AlphaZeroController:
         return total_reward, total_entropy / len(new_training_data)
 
 
-    def learn(self, it: int):
+    def learn(self):
+        value_losses = []
+        policy_losses = []
+        regularization_losses = []
+        total_losses = []
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
@@ -215,7 +224,8 @@ class AlphaZeroController:
             policy_loss = -th.sum(policy_dists * th.log(policy)) / policy_dists.shape[0]
             # the regularization loss is the squared l2 norm of the weights
             regularization_loss = th.tensor(0.0)
-            if self.regularization_weight > 0:
+            if True: #self.regularization_weight > 0:
+                # just fun to keep track of the regularization loss
                 for param in self.agent.model.parameters():
                     regularization_loss += th.sum(th.square(param))
             loss = self.value_loss_weight * value_loss + self.policy_loss_weight * policy_loss + self.regularization_weight * regularization_loss
@@ -223,12 +233,17 @@ class AlphaZeroController:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            i = it * self.training_epochs + j
-            print(f"{i}. Loss: {loss.item():.2f}")
-            self.writer.add_scalar('Loss/Value_loss', value_loss.item(), i)
-            self.writer.add_scalar('Loss/Policy_loss', policy_loss.item(), i)
-            self.writer.add_scalar('Loss/Regularization_loss', regularization_loss.item(), i)
-            self.writer.add_scalar('Loss/Total_loss', loss.item(), i)
+            print(f"{j}. Loss: {loss.item():.2f}")
+            value_losses.append(value_loss.item())
+            policy_losses.append(policy_loss.item())
+            regularization_losses.append(regularization_loss.item())
+            total_losses.append(loss.item())
+
+        return value_losses, policy_losses, regularization_losses, total_losses
+
+
+
+
 
 
 
@@ -244,11 +259,12 @@ if __name__ == "__main__":
     tree_evaluation_policy = DefaultTreeEvaluator()
 
 
-    model = AlphaZeroModel(env, hidden_dim=64, layers=5)
+    model = AlphaZeroModel(env, hidden_dim=256, layers=2)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
     controller = AlphaZeroController(env, agent, optimizer, max_episode_length=1000,
-                                     batch_size=300, storage = ListStorage(2000), compute_budget=200, training_epochs=10)
+                                     batch_size=300, storage = ListStorage(1000), compute_budget=100, training_epochs=10,
+                                     regularization_weight=0.0, value_loss_weight=1.0, policy_loss_weight=100.0)
     controller.iterate(100)
 
 
