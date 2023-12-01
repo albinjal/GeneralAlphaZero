@@ -112,7 +112,6 @@ class AlphaZeroMCTS(MCTS):
     def value_function(
         self,
         node: Node,
-        env: gym.Env,
     ):
         observation = node.observation
         # flatten the observation
@@ -129,34 +128,11 @@ class AlphaZeroMCTS(MCTS):
         return np.float32(value.item())
 
 
-    def handle_all(self, node: Node, env: gym.Env):
-        """
-        should do the same as
-    def handle_single(
-        self,
-        node: Node[ObservationType],
-        env: gym.Env[ObservationType, np.int64],
-        action: np.int64,
-    ):
-        eval_node = self.expand(node, env, action)
-        # evaluate the node
-        value = self.value_function(eval_node, env)
-        # backupagate the value
-        eval_node.value_evaluation = value
-        eval_node.backup(value)
-
-    def handle_all(
-        self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
-    ):
-        for action in range(node.action_space.n):
-            self.handle_single(node, copy.deepcopy(env), np.int64(action))
-
-        """
+    def handle_all(self, node: Node):
         observations = []
         all_actions = np.arange(node.action_space.n)
         for action in all_actions:
-            new_env = copy.deepcopy(env)
-            new_node = self.expand(node, new_env, action)
+            new_node = self.expand(node, action)
             observations.append(gym.spaces.flatten(env.observation_space, new_node.observation))
 
 
@@ -373,7 +349,7 @@ if __name__ == "__main__":
         env,
         agent,
         optimizer,
-        max_episode_length=5,
+        max_episode_length=500,
         batch_size=300,
         storage=ListStorage(2000),
         compute_budget=200,
