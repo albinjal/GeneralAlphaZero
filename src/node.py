@@ -86,6 +86,12 @@ class Node(Generic[ObservationType]):
         self._add_node_to_graph(dot, var_fn, max_depth=max_depth)
         dot.render(filename="mcts_tree.gv", view=True)
 
+    def get_root(self) -> "Node[ObservationType]":
+        node: Node[ObservationType] | None = self
+        while node.parent is not None:
+            node = node.parent
+        return node
+
     def _add_node_to_graph(
         self,
         dot: graphviz.Digraph,
@@ -94,7 +100,7 @@ class Node(Generic[ObservationType]):
     ) -> None:
         if max_depth is not None and max_depth == 0:
             return
-        label = f"R: {self.reward}, MS: {self.default_value(): .2f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
+        label = f"O: {self.observation}, R: {self.reward}, MS: {self.default_value(): .2f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
         if var_fn is not None:
             label += f", Var: {var_fn(self)}"
         dot.node(str(id(self)), label=label)
