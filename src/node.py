@@ -4,7 +4,6 @@ import gymnasium as gym
 import numpy as np
 import graphviz
 import torch as th
-ActionType = TypeVar("ActionType")
 ObservationType = TypeVar("ObservationType")
 
 

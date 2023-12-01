@@ -6,6 +6,7 @@ import gymnasium as gym
 import numpy as np
 from mcts import MCTS, RandomRolloutMCTS
 from policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution
+from torchrl.envs.libs.gym import GymEnv, GymWrapper
 
 
 def run_episode(

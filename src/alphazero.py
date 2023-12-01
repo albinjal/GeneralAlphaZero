@@ -105,7 +105,7 @@ class AlphaZeroMCTS(MCTS):
         # flatten the observation
         assert observation is not None
         # run the model
-        # convert observation from int to tensor float 1x1 tensor
+        # convert observation from float to tensor
         tensor_obs = th.tensor(
             gym.spaces.flatten(env.observation_space, observation), dtype=th.float32
         ).to(self.model.device)
