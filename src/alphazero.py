@@ -22,7 +22,15 @@ class AlphaZeroModel(th.nn.Module):
     - the policy is a vector of proabilities of the same size as the action space
     """
 
-    def __init__(self, env: gym.Env, hidden_dim: int, layers: int, pref_gpu = False, *args, **kwargs):
+    def __init__(
+        self,
+        env: gym.Env,
+        hidden_dim: int,
+        layers: int,
+        pref_gpu=False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         # check if cuda is available
         if not pref_gpu:
@@ -31,7 +39,6 @@ class AlphaZeroModel(th.nn.Module):
             self.device = th.device("cuda")
         elif th.backends.mps.is_available():
             self.device = th.device("mps")
-
 
         self.env = env
         self.state_dim = gym.spaces.flatdim(env.observation_space)
@@ -165,11 +172,14 @@ class AlphaZeroController:
             self.writer.add_graph(
                 self.agent.model,
                 th.tensor(
-                    [gym.spaces.flatten(self.env.observation_space, self.env.reset()[0])],
+                    [
+                        gym.spaces.flatten(
+                            self.env.observation_space, self.env.reset()[0]
+                        )
+                    ],
                     dtype=th.float32,
                 ),
             )
-
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight

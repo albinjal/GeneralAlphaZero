@@ -4,20 +4,19 @@ import gymnasium as gym
 import numpy as np
 import graphviz
 import torch as th
-ActionType = TypeVar("ActionType")
+
 ObservationType = TypeVar("ObservationType")
 
 
 class Node(Generic[ObservationType]):
     parent: Optional["Node[ObservationType]"]
-    # TODO: Since we have to use Discrete action space the ActionType is an integer so we could also use a list
     children: Dict[np.int64, "Node[ObservationType]"]
     visits: int = 0
-    subtree_sum: float = 0.0 # sum of reward and value of all children
-    value_evaluation: float # expected future reward
-    reward: float # reward recived when stepping into this node
+    subtree_sum: float = 0.0  # sum of reward and value of all children
+    value_evaluation: float  # expected future reward
+    reward: float  # reward recived when stepping into this node
     # Discrete action space
-    action_space: gym.spaces.Discrete # the reference to the action space
+    action_space: gym.spaces.Discrete  # the reference to the action space
     observation: Optional[ObservationType]
 
     def __init__(
@@ -25,7 +24,7 @@ class Node(Generic[ObservationType]):
         parent: Optional["Node[ObservationType]"],
         reward: float,
         action_space: gym.spaces.Discrete,
-        observaton: Optional[ObservationType],
+        observation: Optional[ObservationType],
         terminal: bool = False,
     ):
         # TODO: lazy init?
@@ -34,7 +33,7 @@ class Node(Generic[ObservationType]):
         self.reward = reward
         self.parent = parent
         self.terminal = terminal
-        self.observation = observaton
+        self.observation = observation
 
     def is_terminal(self) -> bool:
         return self.terminal
