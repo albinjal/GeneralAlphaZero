@@ -247,13 +247,16 @@ class AlphaZeroController:
             observations, policy_dists, v_targets = self.replay_buffer.sample(
                 batch_size=self.batch_size
             )
+            policy_dists = policy_dists.to(self.agent.model.device)
+
             tensor_obs = th.tensor(
-                [
+                np.array([
                     gym.spaces.flatten(env.observation_space, observation)
                     for observation in observations
-                ],
+                ]),
                 dtype=th.float32,
-            ).to(self.agent.model.device)
+                device=self.agent.model.device
+            )
             value, policy = self.agent.model.forward(tensor_obs)
 
             # calculate the loss
@@ -261,7 +264,7 @@ class AlphaZeroController:
             # - target_policy * log(policy)
             policy_loss = -th.sum(policy_dists * th.log(policy)) / policy_dists.shape[0]
             # the regularization loss is the squared l2 norm of the weights
-            regularization_loss = th.tensor(0.0)
+            regularization_loss = th.tensor(0.0, device=self.agent.model.device)
             if True:  # self.regularization_weight > 0:
                 # just fun to keep track of the regularization loss
                 for param in self.agent.model.parameters():
@@ -295,7 +298,7 @@ if __name__ == "__main__":
     selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
-    model = AlphaZeroModel(env, hidden_dim=256, layers=2, pref_gpu=True)
+    model = AlphaZeroModel(env, hidden_dim=256, layers=2, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
     controller = AlphaZeroController(

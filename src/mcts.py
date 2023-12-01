@@ -18,14 +18,12 @@ class MCTS(Generic[ObservationType]):
     selection_policy: OptionalPolicy[ObservationType]
     expansion_policy: Policy[
         ObservationType
-    ]  # the expansion policy is usually "pick uniform non explored action"
+    ] | None  # the expansion policy is usually "pick uniform non explored action"
 
     def __init__(
         self,
         selection_policy: OptionalPolicy[ObservationType],
-        expansion_policy: Policy[ObservationType] = DefaultExpansionPolicy[
-            ObservationType
-        ](),
+        expansion_policy: Policy[ObservationType] | None = None,
     ):
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
         self.expansion_policy = expansion_policy
@@ -59,7 +57,7 @@ class MCTS(Generic[ObservationType]):
     def build_tree(
         self, from_node: Node[ObservationType], iterations: int
     ) -> Node[ObservationType]:
-        for _ in range(iterations):
+        while from_node.visits < iterations:
             # traverse the tree and select the node to expand
             selected_node_for_expansion, env = self.select_node_to_expand(from_node)
             # check if the node is terminal
@@ -69,13 +67,29 @@ class MCTS(Generic[ObservationType]):
                 # the backprop will still propagate the visit and reward
                 selected_node_for_expansion.backprop(0)
             else:
-                # expand the node
-                eval_node = self.expand(selected_node_for_expansion, env)
-                # evaluate the node
-                value = self.value_function(eval_node, env)
-                # backpropagate the value
-                eval_node.backprop(value)
+                self.handle_selected_node(selected_node_for_expansion, env)
+
         return from_node
+
+    def handle_selected_node(self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]):
+        if self.expansion_policy is None:
+            self.handle_all(node, env)
+        else:
+            action = self.expansion_policy(node)
+            self.handle_single(node, env, action)
+
+
+
+    def handle_single(self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64], action: np.int64):
+        eval_node = self.expand(node, env, action)
+        # evaluate the node
+        value = self.value_function(eval_node, env)
+        # backpropagate the value
+        eval_node.backprop(value)
+
+    def handle_all(self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]):
+        for action in range(node.action_space.n):
+            self.handle_single(node, copy.deepcopy(env), np.int64(action))
 
     def value_function(
         self,
@@ -119,12 +133,12 @@ class MCTS(Generic[ObservationType]):
         self,
         node: Node[ObservationType],
         env: gym.Env[ObservationType, np.int64],
+        action: np.int64
     ) -> Node[ObservationType]:
         """
         Expands the node and returns the expanded node.
+        Note that the function will modify the env and the input node
         """
-        # in the default case we sample a random unexplored action
-        action = self.expansion_policy(node)
         # step the environment
         observation, reward, terminated, truncated, _ = env.step(action)
         terminal = terminated or truncated

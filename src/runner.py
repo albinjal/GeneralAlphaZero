@@ -18,6 +18,7 @@ def run_episode(
     goal_obs=None,
     render=False,
     seed=None,
+    device=None,
 ):
     assert isinstance(env.action_space, gym.spaces.Discrete)
     observation, info = env.reset(seed=seed)
@@ -31,6 +32,9 @@ def run_episode(
         tree = solver.search(env, compute_budget, observation, float(reward))
 
         policy_dist = tree_evaluation_policy.distribution(tree)
+        if device is not None:
+            policy_dist.to(device)
+
         m = th.distributions.Categorical(policy_dist)
 
         v_target = tree.default_value()
@@ -78,7 +82,7 @@ if __name__ == "__main__":
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
-    # vis_tree(mcts, env, compute_budget=100, max_depth=None)
+    vis_tree(mcts, env, compute_budget=100, max_depth=None)
     total_reward = run_episode(
         mcts,
         env,
