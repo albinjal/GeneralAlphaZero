@@ -7,22 +7,25 @@ import torch as th
 
 ObservationType = TypeVar("ObservationType")
 
+NodeType = TypeVar("NodeType", bound="Node")
+
 
 class Node(Generic[ObservationType]):
     parent: Optional["Node[ObservationType]"]
     children: Dict[np.int64, "Node[ObservationType]"]
     visits: int = 0
-    subtree_sum: float = 0.0  # sum of reward and value of all children
-    value_evaluation: float  # expected future reward
-    reward: float  # reward recived when stepping into this node
+    subtree_sum: np.float32 = np.float32(0.0)  # sum of reward and value of all children
+    value_evaluation: np.float32  # expected future reward
+    reward: np.float32  # reward recived when stepping into this node
     # Discrete action space
     action_space: gym.spaces.Discrete  # the reference to the action space
     observation: Optional[ObservationType]
+    prior_policy: th.Tensor
 
     def __init__(
         self,
         parent: Optional["Node[ObservationType]"],
-        reward: float,
+        reward: np.float32,
         action_space: gym.spaces.Discrete,
         observation: Optional[ObservationType],
         terminal: bool = False,
@@ -43,25 +46,24 @@ class Node(Generic[ObservationType]):
         child = self.children[action]
         return child
 
-    def backprop(self, value: float) -> None:
-        self.value_evaluation = value
+    def backup(self, value: np.float32, new_visits = 1) -> None:
         node: Node[ObservationType] | None = self
         # add the value and the reward to all parent nodes
         # we weight the reward by visit count of node (from mathematically derived formula)
         # for example, the immidiate reward will have the highest weight
-        cum_reward = value
+        cum_reward = np.float32(value)
         while node is not None:
             cum_reward += node.reward
             node.subtree_sum += cum_reward
-            node.visits += 1
+            node.visits += new_visits
             # parent is None if node is root
             node = node.parent
 
-    def default_value(self) -> float:
+    def default_value(self) -> np.float32:
         """
         The default value estimate for taking this action is the average of the rewards + value estimates of all children
         """
-        return self.subtree_sum / self.visits
+        return self.subtree_sum / np.float32(self.visits)
 
     def is_fully_expanded(self) -> bool:
         return len(self.children) == self.action_space.n
@@ -121,8 +123,3 @@ class Node(Generic[ObservationType]):
 
     def __repr__(self):
         return self.__str__()
-
-
-class AlphaNode(Node):
-    # also has a prior_policy
-    prior_policy: th.Tensor

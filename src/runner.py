@@ -29,7 +29,7 @@ def run_episode(
     trajectory = []
     total_entropy = 0.0
     for step in range(max_steps):
-        tree = solver.search(env, compute_budget, observation, float(reward))
+        tree = solver.search(env, compute_budget, observation, np.float32(reward))
 
         policy_dist = tree_evaluation_policy.distribution(tree)
         if device is not None:
@@ -44,7 +44,7 @@ def run_episode(
         action = m.sample()
         observation, reward, terminated, truncated, _ = env.step(action.item())
         terminal = terminated or truncated
-        total_reward += float(reward)
+        total_reward += np.float32(reward)
 
         if verbose:
             if goal_obs is not None:
@@ -66,7 +66,7 @@ def run_episode(
 
 def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
     observation, _ = env.reset()
-    tree = solver.search(env, compute_budget, observation, .0)
+    tree = solver.search(env, compute_budget, observation, np.float32(0.0))
     return tree.visualize(max_depth=max_depth)
 
 

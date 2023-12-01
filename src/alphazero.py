@@ -1,10 +1,11 @@
+import copy
 import datetime
-from typing import Tuple
+from typing import List, Tuple
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
 from mcts import MCTS
-from node import AlphaNode, Node
+from node import Node
 from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
 from torchrl.data import ReplayBuffer, ListStorage
@@ -105,7 +106,7 @@ class AlphaZeroMCTS(MCTS):
     @th.no_grad()
     def value_function(
         self,
-        node: AlphaNode,
+        node: Node,
         env: gym.Env,
     ):
         observation = node.observation
@@ -119,7 +120,29 @@ class AlphaZeroMCTS(MCTS):
         value, policy = self.model.forward(tensor_obs)
         # store the policy
         node.prior_policy = policy
-        return value
+        # return float 32 value
+        return np.float32(value.item())
+
+
+
+    # def handle_all(self, node: Node, env: gym.Env):
+
+    #     observations = []
+    #     for action in range(node.action_space.n):
+    #         new_env = copy.deepcopy(env)
+    #         new_node = self.expand(node, new_env, np.int64(action))
+    #         observations.append(gym.spaces.flatten(env.observation_space, new_node.observation))
+
+    #     tensor_obs = th.tensor(observations, dtype=th.float32, device=self.model.device)
+    #     values, policies = self.model.forward(tensor_obs)
+
+    #     for action, value, policy in zip(range(node.action_space.n), values, policies):
+    #         new_node = node.children[np.int64(action)]
+    #         new_node.prior_policy = policy
+    #         new_node.value_evaluation = value.item()
+
+    # def backup_all_children(self, parent: Node, values: th.Tensor):
+
 
 
 class AlphaZeroController:
@@ -260,7 +283,7 @@ class AlphaZeroController:
             value, policy = self.agent.model.forward(tensor_obs)
 
             # calculate the loss
-            value_loss = th.nn.functional.mse_loss(value, v_targets)
+            value_loss = th.nn.functional.mse_loss(value, v_targets.unsqueeze(-1))
             # - target_policy * log(policy)
             policy_loss = -th.sum(policy_dists * th.log(policy)) / policy_dists.shape[0]
             # the regularization loss is the squared l2 norm of the weights
@@ -274,7 +297,7 @@ class AlphaZeroController:
                 + self.policy_loss_weight * policy_loss
                 + self.regularization_weight * regularization_loss
             )
-            # backprop
+            # backup
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()

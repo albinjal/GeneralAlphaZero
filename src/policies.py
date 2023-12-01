@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 import torch as th
 import numpy as np
-from node import AlphaNode, Node
+from node import Node
 
 ObservationType = TypeVar("ObservationType")
 
@@ -72,7 +72,7 @@ class PUCT(OptionalPolicy[ObservationType]):
     def __init__(self, c: float):
         self.c = c
 
-    def sample(self, node: AlphaNode) -> np.int64 | None:
+    def sample(self, node: Node) -> np.int64 | None:
         # if not fully expanded, return None
         if not node.is_fully_expanded():
             return None
@@ -82,7 +82,7 @@ class PUCT(OptionalPolicy[ObservationType]):
         return max(node.children, key=lambda action: self.puct(node, action))
 
     # TODO: this can def be sped up (calculate the denominator once)
-    def puct(self, node: AlphaNode, action: np.int64) -> float:
+    def puct(self, node: Node, action: np.int64) -> float:
         child = node.children[action]
         prior = node.prior_policy[action]
         return child.default_value() + self.c * prior * (node.visits ** 0.5) / (child.visits + 1)
