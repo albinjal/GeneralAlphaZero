@@ -66,6 +66,7 @@ class MCTS(Generic[ObservationType]):
                 # if the node is terminal, we can not expand it
                 # the value (sum of future reward) of the node is 0
                 # the backup will still propagate the visit and reward
+                selected_node_for_expansion.value_evaluation = np.float32(0.0)
                 selected_node_for_expansion.backup(np.float32(0))
             else:
                 self.handle_selected_node(selected_node_for_expansion, env)

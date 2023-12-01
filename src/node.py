@@ -46,12 +46,12 @@ class Node(Generic[ObservationType]):
         child = self.children[action]
         return child
 
-    def backup(self, value: np.float32, new_visits = 1) -> None:
+    def backup(self, value: np.float32, new_visits: int = 1) -> None:
         node: Node[ObservationType] | None = self
         # add the value and the reward to all parent nodes
         # we weight the reward by visit count of node (from mathematically derived formula)
         # for example, the immidiate reward will have the highest weight
-        cum_reward = np.float32(value)
+        cum_reward = value
         while node is not None:
             cum_reward += node.reward
             node.subtree_sum += cum_reward

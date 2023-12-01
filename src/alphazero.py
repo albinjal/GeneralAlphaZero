@@ -12,6 +12,7 @@ from torchrl.data import ReplayBuffer, ListStorage
 from runner import run_episode
 from torch.utils.tensorboard import SummaryWriter
 import os
+import numpy as np
 
 
 class AlphaZeroModel(th.nn.Module):
@@ -22,6 +23,10 @@ class AlphaZeroModel(th.nn.Module):
     - The output is a tuple of (value, policy)
     - the policy is a vector of proabilities of the same size as the action space
     """
+    value_head: th.nn.Module
+    policy_head: th.nn.Module
+    device: th.device
+
 
     def __init__(
         self,
@@ -124,22 +129,53 @@ class AlphaZeroMCTS(MCTS):
         return np.float32(value.item())
 
 
+    def handle_all(self, node: Node, env: gym.Env):
+        """
+        should do the same as
+    def handle_single(
+        self,
+        node: Node[ObservationType],
+        env: gym.Env[ObservationType, np.int64],
+        action: np.int64,
+    ):
+        eval_node = self.expand(node, env, action)
+        # evaluate the node
+        value = self.value_function(eval_node, env)
+        # backupagate the value
+        eval_node.value_evaluation = value
+        eval_node.backup(value)
 
-    # def handle_all(self, node: Node, env: gym.Env):
+    def handle_all(
+        self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
+    ):
+        for action in range(node.action_space.n):
+            self.handle_single(node, copy.deepcopy(env), np.int64(action))
 
-    #     observations = []
-    #     for action in range(node.action_space.n):
-    #         new_env = copy.deepcopy(env)
-    #         new_node = self.expand(node, new_env, np.int64(action))
-    #         observations.append(gym.spaces.flatten(env.observation_space, new_node.observation))
+        """
+        observations = []
+        all_actions = np.arange(node.action_space.n)
+        for action in all_actions:
+            new_env = copy.deepcopy(env)
+            new_node = self.expand(node, new_env, action)
+            observations.append(gym.spaces.flatten(env.observation_space, new_node.observation))
 
-    #     tensor_obs = th.tensor(observations, dtype=th.float32, device=self.model.device)
-    #     values, policies = self.model.forward(tensor_obs)
 
-    #     for action, value, policy in zip(range(node.action_space.n), values, policies):
-    #         new_node = node.children[np.int64(action)]
-    #         new_node.prior_policy = policy
-    #         new_node.value_evaluation = value.item()
+        tensor_obs = th.tensor(observations, dtype=th.float32, device=self.model.device) # actions x obs_dim tensor
+        values, policies = self.model.forward(tensor_obs)
+
+        value_to_backup = np.float32(0.0)
+        for action, value, policy in zip(all_actions, values, policies):
+            new_node = node.children[action]
+            new_node.prior_policy = policy
+            new_node.visits = 1
+            new_node.value_evaluation = np.float32(value.item())
+            new_node.subtree_sum = new_node.reward + new_node.value_evaluation
+            value_to_backup += new_node.subtree_sum
+
+        # backup
+        # the value to backup from the parent should be the sum of the value and the reward for all children
+        node.backup(value_to_backup, len(all_actions))
+
 
     # def backup_all_children(self, parent: Node, values: th.Tensor):
 
@@ -310,10 +346,19 @@ class AlphaZeroController:
         return value_losses, policy_losses, regularization_losses, total_losses
 
 
+import cProfile
+import pstats
+
+def profile():
+    cProfile.runctx("controller.iterate(10)", globals(), locals(), "Profile.prof")
+
+    s = pstats.Stats("Profile.prof")
+    s.strip_dirs().sort_stats("time").print_stats()
+
 if __name__ == "__main__":
     actType = np.int64
-    env_id = "CartPole-v1"
-    # env_id = "CliffWalking-v0"
+    # env_id = "CartPole-v1"
+    env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
@@ -328,14 +373,14 @@ if __name__ == "__main__":
         env,
         agent,
         optimizer,
-        max_episode_length=1000,
+        max_episode_length=5,
         batch_size=300,
-        storage=ListStorage(1000),
-        compute_budget=100,
+        storage=ListStorage(2000),
+        compute_budget=200,
         training_epochs=10,
         regularization_weight=0.0,
         value_loss_weight=1.0,
-        policy_loss_weight=100.0,
+        policy_loss_weight=50.0,
     )
     controller.iterate(100)
 
