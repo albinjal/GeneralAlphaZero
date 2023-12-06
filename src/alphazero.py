@@ -207,6 +207,7 @@ class AlphaZeroController:
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         regularization_weight=1e-4,
+        self_play_iterations=10,
     ) -> None:
         self.replay_buffer = ReplayBuffer(storage=storage)
         self.training_epochs = training_epochs
@@ -243,15 +244,15 @@ class AlphaZeroController:
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
         self.regularization_weight = regularization_weight
+        self.self_play_iterations = self_play_iterations
 
     def iterate(self, iterations=10):
         for i in tqdm(range(iterations)):
             print(f"Iteration {i}")
             print("Self play...")
-            total_reward, mean_entropy = self.self_play()
+            mean_reward = self.self_play()
             # Log the total reward
-            self.writer.add_scalar("Self_Play/Total_Reward", total_reward, i)
-            self.writer.add_scalar("Self_Play/Mean_Entropy", mean_entropy, i)
+            self.writer.add_scalar("Self_Play/Total_Reward", mean_reward, i)
             print("Learning...")
             (
                 value_losses,
@@ -283,17 +284,21 @@ class AlphaZeroController:
     def self_play(self):
         """play a game and store the data in the replay buffer"""
         self.agent.model.eval()
-        new_training_data, total_reward, total_entropy = run_episode(
-            self.agent,
-            self.env,
-            self.tree_evaluation_policy,
-            compute_budget=self.compute_budget,
-            max_steps=self.max_episode_length,
-            verbose=True,
-        )
-        self.replay_buffer.extend(new_training_data)
-
-        return total_reward, total_entropy / len(new_training_data)
+        # run_episode self.self_play_iterations times and add each trajectory to the replay buffer
+        trajectories = []
+        for _ in tqdm(range(self.self_play_iterations)):
+            trajectories.append(
+                run_episode(
+                    self.agent,
+                    self.env,
+                    self.tree_evaluation_policy,
+                    compute_budget=self.compute_budget,
+                    max_steps=self.max_episode_length,
+                )
+            )
+        self.replay_buffer.extend(trajectories)
+        mean_reward = np.mean([sum([reward for _, _, _, reward, _ in trajectory]) for trajectory in trajectories])
+        return mean_reward
 
     def learn(self):
         value_losses = []
@@ -303,9 +308,10 @@ class AlphaZeroController:
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
-            observations, policy_dists, v_targets = self.replay_buffer.sample(
+            trajectories = self.replay_buffer.sample(
                 batch_size=self.batch_size
             )
+            # the tracectories are a list of lists
             policy_dists = policy_dists.to(self.agent.model.device)
 
             tensor_obs = th.tensor(
@@ -376,11 +382,12 @@ if __name__ == "__main__":
         max_episode_length=5,
         batch_size=300,
         storage=ListStorage(2000),
-        compute_budget=200,
+        compute_budget=50,
         training_epochs=10,
         regularization_weight=0.0,
         value_loss_weight=1.0,
         policy_loss_weight=50.0,
+        self_play_iterations=2,
     )
     controller.iterate(100)
 
