@@ -155,9 +155,13 @@ class AlphaZeroMCTS(MCTS):
         """
         observations = []
         all_actions = np.arange(node.action_space.n)
-        for action in all_actions:
-            new_env = copy.deepcopy(env)
-            new_node = self.expand(node, new_env, action)
+        for i, action in enumerate(all_actions):
+            if i == len(all_actions) - 1:
+                # we can mess up the env on the last action
+                new_node = self.expand(node, env, action)
+            else:
+                new_env = copy.deepcopy(env)
+                new_node = self.expand(node, new_env, action)
             observations.append(gym.spaces.flatten(env.observation_space, new_node.observation))
 
 
