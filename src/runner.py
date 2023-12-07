@@ -1,9 +1,10 @@
-
+from tensordict import TensorDict, tensorclass
 import torch as th
 import copy
 from typing import Any, List, Tuple
 import gymnasium as gym
 import numpy as np
+from environment import obs_to_tensor
 from mcts import MCTS, RandomRolloutMCTS
 from policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution
 
@@ -16,52 +17,60 @@ def run_episode(
     max_steps=1000,
     verbose=False,
     goal_obs=None,
-    render=False,
     seed=None,
-    device=None,
 ):
+    """Runs an episode using the given solver and environment.
+    For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
+    """
     assert isinstance(env.action_space, gym.spaces.Discrete)
+    n = env.action_space.n
+
     observation, info = env.reset(seed=seed)
-    reward = .0
-    action = None
-    terminal = False
-    total_reward = 0.0
-    trajectory = []
-    total_entropy = 0.0
+    observation_tensor = obs_to_tensor(env.observation_space, observation)
+    trajectory = TensorDict(
+        source={
+            "observations": th.zeros(max_steps, *env.observation_space.shape, dtype=observation_tensor.dtype),
+            "rewards": th.zeros(max_steps, dtype=th.float32),
+            "policy_distributions": th.zeros(max_steps, int(n), dtype=th.float32),
+            "actions": th.zeros(max_steps, dtype=th.int64),
+            "mask": th.zeros(max_steps, dtype=th.bool),
+            "terminals": th.zeros(max_steps, dtype=th.bool),
+        },
+        batch_size=[max_steps],
+    )
     for step in range(max_steps):
-        tree = solver.search(env, compute_budget, observation, np.float32(reward))
-
+        tree = solver.search(env, compute_budget, observation, np.float32(0.0))
         policy_dist = tree_evaluation_policy.distribution(tree)
-        if device is not None:
-            policy_dist.to(device)
-
-        m = th.distributions.Categorical(policy_dist)
-
-        v_target = tree.default_value()
-        trajectory.append((observation, policy_dist, v_target))
-
-
-        action = m.sample()
-        observation, reward, terminated, truncated, _ = env.step(action.item())
+        action = policy_dist.sample()
+        # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
+        new_obs, reward, terminated, truncated, _ = env.step(action.item())
+        new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         terminal = terminated or truncated
-        total_reward += np.float32(reward)
+        trajectory["observations"][step] = observation_tensor
+        trajectory["rewards"][step] = reward
+        trajectory["policy_distributions"][step] = policy_dist.probs
+        trajectory["actions"][step] = action
+        trajectory["mask"][step] = True
+        trajectory["terminals"][step] = terminal
 
         if verbose:
             if goal_obs is not None:
                 vis_counter = tree.state_visitation_counts()
                 print(f"Visits to goal state: {vis_counter[goal_obs]}")
-            norm_entropy = m.entropy() / np.log(env.action_space.n)
-            total_entropy += norm_entropy
-            print(f"Policy: {policy_dist}, Norm Entropy: {norm_entropy: .2f}")
-            print(
-                f"{step}.O: {observation}, A: {action}, R: {reward}, T: {terminal}, total_reward: {total_reward}"
-            )
+            norm_entropy = policy_dist.entropy() / np.log(n)
+            print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
+            print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
+
+        observation_tensor = new_observation_tensor
+
         if terminal:
             break
 
+    # if we terminated early, we need to add the final observation to the trajectory as well for value estimation
+    # trajectory.append((observation, None, None, None, None))
+    # observations.append(observation)
 
-    return trajectory, total_reward, total_entropy
-
+    return trajectory
 
 
 def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
@@ -82,8 +91,8 @@ if __name__ == "__main__":
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
-    vis_tree(mcts, env, compute_budget=100, max_depth=None)
-    total_reward = run_episode(
+    # vis_tree(mcts, env, compute_budget=100, max_depth=None)
+    trajectory = run_episode(
         mcts,
         env,
         tree_evaluation_policy,
@@ -91,7 +100,7 @@ if __name__ == "__main__":
         verbose=True,
         goal_obs=47,
         seed=seed,
-        render=True,
+        max_steps=5,
     )
     env.close()
-    print(f"Total reward: {total_reward}")
+    print(trajectory)

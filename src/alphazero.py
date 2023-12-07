@@ -4,15 +4,18 @@ from typing import List, Tuple
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
+from environment import obs_to_tensor
 from mcts import MCTS
 from node import Node
 from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
-from torchrl.data import ReplayBuffer, ListStorage
+from torchrl.data import ReplayBuffer, ListStorage, LazyTensorStorage, Storage, TensorDictReplayBuffer
 from runner import run_episode
 from torch.utils.tensorboard import SummaryWriter
 import os
 import numpy as np
+
+
 
 
 class AlphaZeroModel(th.nn.Module):
@@ -79,7 +82,7 @@ class AlphaZeroModel(th.nn.Module):
         policy = self.policy_head(x)
         # apply softmax to the policy
         policy = th.nn.functional.softmax(policy, dim=-1)
-        return value, policy
+        return value.squeeze(-1), policy
 
     # def forward_state(self, state: gym.spaces.Space) -> Tuple[th.Tensor, th.Tensor]:
     #     # gymnasium.spaces.utils.flatten
@@ -119,14 +122,12 @@ class AlphaZeroMCTS(MCTS):
         assert observation is not None
         # run the model
         # convert observation from int to tensor float 1x1 tensor
-        tensor_obs = th.tensor(
-            gym.spaces.flatten(env.observation_space, observation), dtype=th.float32
-        ).to(self.model.device)
+        tensor_obs = obs_to_tensor(env.observation_space, observation, device=self.model.device)
         value, policy = self.model.forward(tensor_obs)
         # store the policy
         node.prior_policy = policy
         # return float 32 value
-        return np.float32(value.item())
+        return value.item()
 
 
     def handle_all(self, node: Node, env: gym.Env):
@@ -195,7 +196,7 @@ class AlphaZeroController:
         env: gym.Env,
         agent: AlphaZeroMCTS,
         optimizer: th.optim.Optimizer,
-        storage=ListStorage(1000),
+        storage: Storage =LazyTensorStorage(50),
         training_epochs=10,
         batch_size=32,
         tree_evaluation_policy=DefaultTreeEvaluator(),
@@ -207,8 +208,9 @@ class AlphaZeroController:
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         regularization_weight=1e-4,
+        self_play_iterations=10,
     ) -> None:
-        self.replay_buffer = ReplayBuffer(storage=storage)
+        self.replay_buffer = TensorDictReplayBuffer(storage=storage)
         self.training_epochs = training_epochs
         self.batch_size = batch_size
         self.optimizer = optimizer
@@ -243,15 +245,15 @@ class AlphaZeroController:
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
         self.regularization_weight = regularization_weight
+        self.self_play_iterations = self_play_iterations
 
     def iterate(self, iterations=10):
         for i in tqdm(range(iterations)):
             print(f"Iteration {i}")
             print("Self play...")
-            total_reward, mean_entropy = self.self_play()
+            mean_reward = self.self_play()
             # Log the total reward
-            self.writer.add_scalar("Self_Play/Total_Reward", total_reward, i)
-            self.writer.add_scalar("Self_Play/Mean_Entropy", mean_entropy, i)
+            self.writer.add_scalar("Self_Play/Total_Reward", mean_reward, i)
             print("Learning...")
             (
                 value_losses,
@@ -283,17 +285,22 @@ class AlphaZeroController:
     def self_play(self):
         """play a game and store the data in the replay buffer"""
         self.agent.model.eval()
-        new_training_data, total_reward, total_entropy = run_episode(
-            self.agent,
-            self.env,
-            self.tree_evaluation_policy,
-            compute_budget=self.compute_budget,
-            max_steps=self.max_episode_length,
-            verbose=True,
-        )
-        self.replay_buffer.extend(new_training_data)
+        # run_episode self.self_play_iterations times and add each trajectory to the replay buffer
+        rewards = []
+        for _ in tqdm(range(self.self_play_iterations)):
+            new_trajectory = run_episode(
+                    self.agent,
+                    self.env,
+                    self.tree_evaluation_policy,
+                    compute_budget=self.compute_budget,
+                    max_steps=self.max_episode_length,
+                )
+            self.replay_buffer.add(new_trajectory)
+            rewards.append(new_trajectory['rewards'].sum())
+        return np.mean(rewards)
 
-        return total_reward, total_entropy / len(new_training_data)
+
+
 
     def learn(self):
         value_losses = []
@@ -303,25 +310,30 @@ class AlphaZeroController:
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
-            observations, policy_dists, v_targets = self.replay_buffer.sample(
-                batch_size=self.batch_size
+            trajectories = self.replay_buffer.sample(
+                batch_size=min(self.batch_size, len(self.replay_buffer))
             )
-            policy_dists = policy_dists.to(self.agent.model.device)
 
-            tensor_obs = th.tensor(
-                np.array([
-                    gym.spaces.flatten(env.observation_space, observation)
-                    for observation in observations
-                ]),
-                dtype=th.float32,
-                device=self.agent.model.device
-            )
-            value, policy = self.agent.model.forward(tensor_obs)
 
-            # calculate the loss
-            value_loss = th.nn.functional.mse_loss(value, v_targets.unsqueeze(-1))
-            # - target_policy * log(policy)
-            policy_loss = -th.sum(policy_dists * th.log(policy)) / policy_dists.shape[0]
+            values, policies = self.agent.model.forward(trajectories["observations"])
+
+            # compute the value targets via TD learning
+            # the target should be the reward + the value of the next state
+            # if the next state is terminal, the value of the next state is 0
+            t_values = ~trajectories["terminals"] * values.squeeze(-1)
+            targets = trajectories["rewards"][:, :-1] + t_values[:, 1:]
+            td = targets.detach() - values[:, :-1]
+            mask = trajectories["mask"][:, :-1]
+            # compute the value loss
+            value_loss = th.sum((td * mask) ** 2) / th.sum(mask)
+
+
+            # compute the policy loss
+            epsilon = 1e-8
+            step_loss = - th.sum(trajectories["policy_distributions"] * th.log(policies + epsilon), dim=-1)
+            policy_loss = th.sum(step_loss * trajectories["mask"]) / th.sum(trajectories["mask"])
+
+
             # the regularization loss is the squared l2 norm of the weights
             regularization_loss = th.tensor(0.0, device=self.agent.model.device)
             if True:  # self.regularization_weight > 0:
@@ -357,8 +369,8 @@ def profile():
 
 if __name__ == "__main__":
     actType = np.int64
-    # env_id = "CartPole-v1"
-    env_id = "CliffWalking-v0"
+    env_id = "CartPole-v1"
+    # env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
@@ -366,21 +378,21 @@ if __name__ == "__main__":
     selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
-    model = AlphaZeroModel(env, hidden_dim=256, layers=2, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
     controller = AlphaZeroController(
         env,
         agent,
         optimizer,
-        max_episode_length=5,
-        batch_size=300,
-        storage=ListStorage(2000),
-        compute_budget=200,
+        max_episode_length=500,
+        batch_size=20,
+        compute_budget=50,
         training_epochs=10,
         regularization_weight=0.0,
         value_loss_weight=1.0,
-        policy_loss_weight=50.0,
+        policy_loss_weight=1.0,
+        self_play_iterations=5,
     )
     controller.iterate(100)
 

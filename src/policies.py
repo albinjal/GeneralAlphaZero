@@ -23,14 +23,14 @@ class PolicyDistribution(Policy[ObservationType]):
     We can also apply softmax with temperature to the distribution.
     """
 
-    def sample(self, node: Node[ObservationType]) -> np.int64:
+    def sample(self, node: Node[ObservationType]) -> th.Tensor:
         """
         Returns a random action from the distribution
         """
-        return np.random.choice(node.action_space.n, p=self.distribution(node))
+        return self.distribution(node).sample()
 
     @abstractmethod
-    def distribution(self, node: Node[ObservationType]) -> th.Tensor:
+    def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
         """The distribution of the policy. Must sum to 1 and be all positive."""
         pass
 
@@ -102,8 +102,9 @@ class DefaultExpansionPolicy(Policy[ObservationType]):
 
 class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
     # the default tree evaluator selects the action with the most visits
-    def distribution(self, node: Node[ObservationType]) -> th.Tensor:
+    def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
         visits = th.zeros(int(node.action_space.n), dtype=th.float32)
         for action, child in node.children.items():
             visits[action] = child.visits
-        return visits / visits.sum()
+
+        return th.distributions.Categorical(visits)
