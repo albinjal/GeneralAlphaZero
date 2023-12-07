@@ -10,7 +10,7 @@ ObservationType = TypeVar("ObservationType")
 
 NodeType = TypeVar("NodeType", bound="Node")
 
-
+#test
 class MCTS(Generic[ObservationType]):
     """
     This class contains the basic MCTS algorithm without assumtions on the value function.
