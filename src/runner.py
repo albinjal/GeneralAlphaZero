@@ -1,3 +1,4 @@
+import time
 from tensordict import TensorDict, tensorclass
 import torch as th
 import copy
@@ -71,6 +72,47 @@ def run_episode(
     # observations.append(observation)
 
     return trajectory
+
+
+def visualize_gameplay(solver: MCTS,
+    env: gym.Env,
+    render_env: gym.Env,
+    tree_evaluation_policy: PolicyDistribution,
+    compute_budget=1000,
+    max_steps=1000,
+    verbose=True,
+    goal_obs=None,
+    seed=None,
+    sleep_time=.0):
+    """Runs an episode using the given solver and environment."""
+    assert isinstance(env.action_space, gym.spaces.Discrete)
+    n = env.action_space.n
+    observation, _ = env.reset(seed=seed)
+    render_env.reset(seed=seed)
+
+    for step in range(max_steps):
+        tree = solver.search(env, compute_budget, observation, np.float32(0.0))
+        policy_dist = tree_evaluation_policy.distribution(tree)
+        action = policy_dist.sample()
+        # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
+        observation, reward, terminated, truncated, _ = env.step(action.item())
+        render_env.step(action.item())
+        terminal = terminated or truncated
+        time.sleep(sleep_time)
+
+        if verbose:
+            if goal_obs is not None:
+                vis_counter = tree.state_visitation_counts()
+                print(f"Visits to goal state: {vis_counter[goal_obs]}")
+            norm_entropy = policy_dist.entropy() / np.log(n)
+            print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
+            print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
+
+        if terminal:
+            break
+
+
+
 
 
 def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):

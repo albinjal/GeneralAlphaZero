@@ -1,5 +1,6 @@
 import copy
 import datetime
+import time
 from typing import List, Tuple
 import gymnasium as gym
 import numpy as np
@@ -9,8 +10,14 @@ from mcts import MCTS
 from node import Node
 from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
-from torchrl.data import ReplayBuffer, ListStorage, LazyTensorStorage, Storage, TensorDictReplayBuffer
-from runner import run_episode
+from torchrl.data import (
+    ReplayBuffer,
+    ListStorage,
+    LazyTensorStorage,
+    Storage,
+    TensorDictReplayBuffer,
+)
+from runner import run_episode, visualize_gameplay
 from torch.utils.tensorboard import SummaryWriter
 import os
 import numpy as np
@@ -18,11 +25,13 @@ import numpy as np
 import multiprocessing
 
 
-
 def run_episode_process(args):
     """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""
     agent, env, tree_evaluation_policy, compute_budget, max_episode_length = args
-    return run_episode(agent, env, tree_evaluation_policy, compute_budget, max_episode_length)
+    return run_episode(
+        agent, env, tree_evaluation_policy, compute_budget, max_episode_length
+    )
+
 
 class AlphaZeroModel(th.nn.Module):
     """
@@ -32,10 +41,10 @@ class AlphaZeroModel(th.nn.Module):
     - The output is a tuple of (value, policy)
     - the policy is a vector of proabilities of the same size as the action space
     """
+
     value_head: th.nn.Module
     policy_head: th.nn.Module
     device: th.device
-
 
     def __init__(
         self,
@@ -90,17 +99,11 @@ class AlphaZeroModel(th.nn.Module):
         policy = th.nn.functional.softmax(policy, dim=-1)
         return value.squeeze(-1), policy
 
-    # def forward_state(self, state: gym.spaces.Space) -> Tuple[th.Tensor, th.Tensor]:
-    #     # gymnasium.spaces.utils.flatten
-    #     flat_state = gym.spaces.flatten(self.env.observation_space, state)
+    def save_model(self, filename: str):
+        return th.save(self.state_dict(), filename)
 
-    #     # convert to tensor
-    #     flat_state = th.from_numpy(flat_state).float()
-
-    #     # run the model
-    #     value, policy = self.forward(flat_state)
-
-    #     return value, policy
+    def load_model(self, filename: str):
+        return self.load_state_dict(th.load(filename))
 
 
 """
@@ -128,35 +131,36 @@ class AlphaZeroMCTS(MCTS):
         assert observation is not None
         # run the model
         # convert observation from int to tensor float 1x1 tensor
-        tensor_obs = obs_to_tensor(env.observation_space, observation, device=self.model.device)
+        tensor_obs = obs_to_tensor(
+            env.observation_space, observation, device=self.model.device
+        )
         value, policy = self.model.forward(tensor_obs)
         # store the policy
         node.prior_policy = policy
         # return float 32 value
         return value.item()
 
-
     def handle_all(self, node: Node, env: gym.Env):
         """
-        should do the same as
-    def handle_single(
-        self,
-        node: Node[ObservationType],
-        env: gym.Env[ObservationType, np.int64],
-        action: np.int64,
-    ):
-        eval_node = self.expand(node, env, action)
-        # evaluate the node
-        value = self.value_function(eval_node, env)
-        # backupagate the value
-        eval_node.value_evaluation = value
-        eval_node.backup(value)
+            should do the same as
+        def handle_single(
+            self,
+            node: Node[ObservationType],
+            env: gym.Env[ObservationType, np.int64],
+            action: np.int64,
+        ):
+            eval_node = self.expand(node, env, action)
+            # evaluate the node
+            value = self.value_function(eval_node, env)
+            # backupagate the value
+            eval_node.value_evaluation = value
+            eval_node.backup(value)
 
-    def handle_all(
-        self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
-    ):
-        for action in range(node.action_space.n):
-            self.handle_single(node, copy.deepcopy(env), np.int64(action))
+        def handle_all(
+            self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
+        ):
+            for action in range(node.action_space.n):
+                self.handle_single(node, copy.deepcopy(env), np.int64(action))
 
         """
         observations = []
@@ -168,10 +172,15 @@ class AlphaZeroMCTS(MCTS):
             else:
                 new_env = copy.deepcopy(env)
                 new_node = self.expand(node, new_env, action)
-            observations.append(obs_to_tensor(env.observation_space, new_node.observation, device=self.model.device))
+            observations.append(
+                obs_to_tensor(
+                    env.observation_space,
+                    new_node.observation,
+                    device=self.model.device,
+                )
+            )
 
-
-        tensor_obs = th.stack(observations) # actions x obs_dim tensor
+        tensor_obs = th.stack(observations)  # actions x obs_dim tensor
         values, policies = self.model.forward(tensor_obs)
 
         value_to_backup = np.float32(0.0)
@@ -187,9 +196,7 @@ class AlphaZeroMCTS(MCTS):
         # the value to backup from the parent should be the sum of the value and the reward for all children
         node.backup(value_to_backup, len(all_actions))
 
-
     # def backup_all_children(self, parent: Node, values: th.Tensor):
-
 
 
 class AlphaZeroController:
@@ -206,7 +213,7 @@ class AlphaZeroController:
         env: gym.Env,
         agent: AlphaZeroMCTS,
         optimizer: th.optim.Optimizer,
-        storage: Storage =LazyTensorStorage(50),
+        storage: Storage = LazyTensorStorage(50),
         training_epochs=10,
         batch_size=32,
         tree_evaluation_policy=DefaultTreeEvaluator(),
@@ -290,8 +297,6 @@ class AlphaZeroController:
         # close the writer
         self.writer.close()
 
-
-
     def self_play(self, global_step):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
@@ -304,8 +309,16 @@ class AlphaZeroController:
         # Create a pool of processes
         with multiprocessing.Pool() as pool:
             # Generate tasks for each episode
-            tasks = [(self.agent, self.env, self.tree_evaluation_policy, self.compute_budget, self.max_episode_length)
-                    for _ in range(self.self_play_iterations)]
+            tasks = [
+                (
+                    self.agent,
+                    self.env,
+                    self.tree_evaluation_policy,
+                    self.compute_budget,
+                    self.max_episode_length,
+                )
+                for _ in range(self.self_play_iterations)
+            ]
             # Run the tasks using map
             results = pool.map(run_episode_process, tasks)
         tot_tim = datetime.datetime.now() - tim
@@ -315,12 +328,11 @@ class AlphaZeroController:
         for trajectory in results:
             self.replay_buffer.add(trajectory)
 
-            episode_rewards = trajectory['rewards'].sum().item()
+            episode_rewards = trajectory["rewards"].sum().item()
             rewards.append(episode_rewards)
 
-            timesteps = trajectory['mask'].sum().item()
+            timesteps = trajectory["mask"].sum().item()
             time_steps.append(timesteps)
-
 
         # Calculate statistics
         mean_reward = np.mean(rewards)
@@ -328,17 +340,22 @@ class AlphaZeroController:
 
         # Log the statistics
         self.writer.add_scalar("Self_Play/Mean_Reward", mean_reward, global_step)
-        self.writer.add_scalar("Self_Play/Reward_STD", np.sqrt(reward_variance), global_step)
-        self.writer.add_scalar("Self_Play/Mean_Timesteps", np.mean(time_steps), global_step)
-        self.writer.add_scalar("Self_Play/Timesteps_STD", np.sqrt(np.var(time_steps, ddof=1)), global_step)
-        self.writer.add_scalar("Self_Play/Runtime_per_Timestep", tot_tim.microseconds / np.sum(time_steps), global_step)
+        self.writer.add_scalar(
+            "Self_Play/Reward_STD", np.sqrt(reward_variance), global_step
+        )
+        self.writer.add_scalar(
+            "Self_Play/Mean_Timesteps", np.mean(time_steps), global_step
+        )
+        self.writer.add_scalar(
+            "Self_Play/Timesteps_STD", np.sqrt(np.var(time_steps, ddof=1)), global_step
+        )
+        self.writer.add_scalar(
+            "Self_Play/Runtime_per_Timestep",
+            tot_tim.microseconds / np.sum(time_steps),
+            global_step,
+        )
 
         return mean_reward
-
-
-
-
-
 
     def learn(self):
         value_losses = []
@@ -352,7 +369,6 @@ class AlphaZeroController:
                 batch_size=min(self.batch_size, len(self.replay_buffer))
             )
 
-
             values, policies = self.agent.model.forward(trajectories["observations"])
 
             # compute the value targets via TD learning
@@ -365,12 +381,15 @@ class AlphaZeroController:
             # compute the value loss
             value_loss = th.sum((td * mask) ** 2) / th.sum(mask)
 
-
             # compute the policy loss
             epsilon = 1e-8
-            step_loss = - th.sum(trajectories["policy_distributions"] * th.log(policies + epsilon), dim=-1)
-            policy_loss = th.sum(step_loss * trajectories["mask"]) / th.sum(trajectories["mask"])
-
+            step_loss = -th.sum(
+                trajectories["policy_distributions"] * th.log(policies + epsilon),
+                dim=-1,
+            )
+            policy_loss = th.sum(step_loss * trajectories["mask"]) / th.sum(
+                trajectories["mask"]
+            )
 
             # the regularization loss is the squared l2 norm of the weights
             regularization_loss = th.tensor(0.0, device=self.agent.model.device)
@@ -398,21 +417,73 @@ class AlphaZeroController:
 import cProfile
 import pstats
 
+
 def profile():
     cProfile.runctx("controller.iterate(10)", globals(), locals(), "Profile.prof")
 
     s = pstats.Stats("Profile.prof")
     s.strip_dirs().sort_stats("time").print_stats()
 
-if __name__ == "__main__":
-    actType = np.int64
+
+def run_vis(
+    checkpoint_path,
+    env_args,
+    tree_eval_policy,
+    compute_budget=1000,
+    max_steps=1000,
+    verbose=True,
+    goal_obs=None,
+    seed=None,
+    sleep_time=0.0,
+):
+    env = gym.make(**env_args)
+    render_env = gym.make(**env_args, render_mode="human")
+
+    selection_policy = PUCT(c=1)
+    model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
+    model.load_model(checkpoint_path)
+    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
+
+    visualize_gameplay(
+        agent,
+        env,
+        render_env,
+        tree_eval_policy,
+        compute_budget,
+        max_steps,
+        verbose,
+        goal_obs,
+        seed,
+        sleep_time,
+    )
+    time.sleep(1)
+    env.close()
+    render_env.close()
+
+
+def main_runviss():
+    env_args = {"id": "CartPole-v1"}
+    run_vis(
+        "runs/CartPole-v1_20231208-193614/checkpoint.pth",
+        env_args,
+        DefaultTreeEvaluator(),
+        compute_budget=500,
+        max_steps=1000,
+        verbose=True,
+        goal_obs=None,
+        seed=1,
+        sleep_time=0,
+    )
+
+
+def train_alphazero():
     env_id = "CartPole-v1"
     # env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=1)
+    selection_policy = PUCT(c=10)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
@@ -431,8 +502,12 @@ if __name__ == "__main__":
         policy_loss_weight=10.0,
         self_play_iterations=8,
         storage=LazyTensorStorage(100),
-
+        tree_evaluation_policy=tree_evaluation_policy,
     )
     controller.iterate(100)
 
     env.close()
+
+
+if __name__ == "__main__":
+    main_runviss()
