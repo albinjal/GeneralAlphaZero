@@ -255,9 +255,7 @@ class AlphaZeroController:
         for i in tqdm(range(iterations)):
             print(f"Iteration {i}")
             print("Self play...")
-            mean_reward = self.self_play()
-            # Log the total reward
-            self.writer.add_scalar("Self_Play/Total_Reward", mean_reward, i)
+            self.self_play(i)
             print("Learning...")
             (
                 value_losses,
@@ -286,12 +284,15 @@ class AlphaZeroController:
         # close the writer
         self.writer.close()
 
-    def self_play(self):
+    def self_play(self, global_step):
         """play a game and store the data in the replay buffer"""
         self.agent.model.eval()
-        # run_episode self.self_play_iterations times and add each trajectory to the replay buffer
         rewards = []
+        time_steps = []
+        runtime = []
+        time_step = []
         for _ in tqdm(range(self.self_play_iterations)):
+            time_start = datetime.datetime.now()
             new_trajectory = run_episode(
                     self.agent,
                     self.env,
@@ -299,9 +300,38 @@ class AlphaZeroController:
                     compute_budget=self.compute_budget,
                     max_steps=self.max_episode_length,
                 )
+            time_end = datetime.datetime.now()
             self.replay_buffer.add(new_trajectory)
-            rewards.append(new_trajectory['rewards'].sum())
-        return np.mean(rewards)
+            episode_rewards = new_trajectory['rewards']
+            rewards.append(episode_rewards.sum())
+
+            timesteps = new_trajectory['mask'].sum()
+            time_steps.append(timesteps)
+
+            runtime.append((time_end - time_start).total_seconds())
+            time_step.append((time_end - time_start).total_seconds() / timesteps)
+
+
+
+        mean_reward = np.mean(rewards)
+        reward_variance = np.var(rewards, ddof=1)
+
+
+        # Log the mean and variance of rewards
+        self.writer.add_scalar("Self_Play/Mean_Reward", mean_reward, global_step)
+        self.writer.add_scalar("Self_Play/Reward_STD", np.sqrt(reward_variance), global_step)
+
+        self.writer.add_scalar("Self_Play/Mean_Timesteps", np.mean(time_steps), global_step)
+        self.writer.add_scalar("Self_Play/Timesteps_STD", np.sqrt(np.var(time_steps, ddof=1)), global_step)
+
+        self.writer.add_scalar("Self_Play/Mean_Runtime", np.mean(runtime), global_step)
+        self.writer.add_scalar("Self_Play/Runtime_STD", np.sqrt(np.var(runtime, ddof=1)), global_step)
+
+        self.writer.add_scalar("Self_Play/Mean_Runtime_per_Timestep", np.mean(time_step), global_step)
+        self.writer.add_scalar("Self_Play/Runtime_per_Timestep_STD", np.sqrt(np.var(time_step, ddof=1)), global_step)
+
+        return mean_reward
+
 
 
 
