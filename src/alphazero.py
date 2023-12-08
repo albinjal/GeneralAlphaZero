@@ -15,8 +15,14 @@ from torch.utils.tensorboard import SummaryWriter
 import os
 import numpy as np
 
+import multiprocessing
 
 
+
+def run_episode_process(args):
+    """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""
+    agent, env, tree_evaluation_policy, compute_budget, max_episode_length = args
+    return run_episode(agent, env, tree_evaluation_policy, compute_budget, max_episode_length)
 
 class AlphaZeroModel(th.nn.Module):
     """
@@ -162,10 +168,10 @@ class AlphaZeroMCTS(MCTS):
             else:
                 new_env = copy.deepcopy(env)
                 new_node = self.expand(node, new_env, action)
-            observations.append(gym.spaces.flatten(env.observation_space, new_node.observation))
+            observations.append(obs_to_tensor(env.observation_space, new_node.observation, device=self.model.device))
 
 
-        tensor_obs = th.tensor(observations, dtype=th.float32, device=self.model.device) # actions x obs_dim tensor
+        tensor_obs = th.stack(observations) # actions x obs_dim tensor
         values, policies = self.model.forward(tensor_obs)
 
         value_to_backup = np.float32(0.0)
@@ -284,53 +290,51 @@ class AlphaZeroController:
         # close the writer
         self.writer.close()
 
-    def self_play(self, global_step):
-        """play a game and store the data in the replay buffer"""
-        self.agent.model.eval()
-        rewards = []
-        time_steps = []
-        runtime = []
-        time_step = []
-        for _ in tqdm(range(self.self_play_iterations)):
-            time_start = datetime.datetime.now()
-            new_trajectory = run_episode(
-                    self.agent,
-                    self.env,
-                    self.tree_evaluation_policy,
-                    compute_budget=self.compute_budget,
-                    max_steps=self.max_episode_length,
-                )
-            time_end = datetime.datetime.now()
-            self.replay_buffer.add(new_trajectory)
-            episode_rewards = new_trajectory['rewards']
-            rewards.append(episode_rewards.sum())
 
-            timesteps = new_trajectory['mask'].sum()
+
+    def self_play(self, global_step):
+        """Play games in parallel and store the data in the replay buffer."""
+        self.agent.model.eval()
+
+        # Collect results from each process
+        results = []
+
+        # Number of processes - you can customize this
+        tim = datetime.datetime.now()
+        # Create a pool of processes
+        with multiprocessing.Pool() as pool:
+            # Generate tasks for each episode
+            tasks = [(self.agent, self.env, self.tree_evaluation_policy, self.compute_budget, self.max_episode_length)
+                    for _ in range(self.self_play_iterations)]
+            # Run the tasks using map
+            results = pool.map(run_episode_process, tasks)
+        tot_tim = datetime.datetime.now() - tim
+
+        # Process the results
+        rewards, time_steps = [], []
+        for trajectory in results:
+            self.replay_buffer.add(trajectory)
+
+            episode_rewards = trajectory['rewards'].sum().item()
+            rewards.append(episode_rewards)
+
+            timesteps = trajectory['mask'].sum().item()
             time_steps.append(timesteps)
 
-            runtime.append((time_end - time_start).total_seconds())
-            time_step.append((time_end - time_start).total_seconds() / timesteps)
 
-
-
+        # Calculate statistics
         mean_reward = np.mean(rewards)
         reward_variance = np.var(rewards, ddof=1)
 
-
-        # Log the mean and variance of rewards
+        # Log the statistics
         self.writer.add_scalar("Self_Play/Mean_Reward", mean_reward, global_step)
         self.writer.add_scalar("Self_Play/Reward_STD", np.sqrt(reward_variance), global_step)
-
         self.writer.add_scalar("Self_Play/Mean_Timesteps", np.mean(time_steps), global_step)
         self.writer.add_scalar("Self_Play/Timesteps_STD", np.sqrt(np.var(time_steps, ddof=1)), global_step)
-
-        self.writer.add_scalar("Self_Play/Mean_Runtime", np.mean(runtime), global_step)
-        self.writer.add_scalar("Self_Play/Runtime_STD", np.sqrt(np.var(runtime, ddof=1)), global_step)
-
-        self.writer.add_scalar("Self_Play/Mean_Runtime_per_Timestep", np.mean(time_step), global_step)
-        self.writer.add_scalar("Self_Play/Runtime_per_Timestep_STD", np.sqrt(np.var(time_step, ddof=1)), global_step)
+        self.writer.add_scalar("Self_Play/Runtime_per_Timestep", tot_tim.microseconds / np.sum(time_steps), global_step)
 
         return mean_reward
+
 
 
 
@@ -383,7 +387,6 @@ class AlphaZeroController:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            print(f"{j}. Loss: {loss.item():.2f}")
             value_losses.append(value_loss.item())
             policy_losses.append(policy_loss.item())
             regularization_losses.append(regularization_loss.item())
@@ -420,13 +423,15 @@ if __name__ == "__main__":
         agent,
         optimizer,
         max_episode_length=500,
-        batch_size=20,
+        batch_size=30,
         compute_budget=50,
         training_epochs=10,
-        regularization_weight=0.0,
+        regularization_weight=1e-4,
         value_loss_weight=1.0,
-        policy_loss_weight=1.0,
-        self_play_iterations=5,
+        policy_loss_weight=10.0,
+        self_play_iterations=8,
+        storage=LazyTensorStorage(100),
+
     )
     controller.iterate(100)
 
