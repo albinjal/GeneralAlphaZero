@@ -132,7 +132,7 @@ class AlphaZeroMCTS(MCTS):
         # run the model
         # convert observation from int to tensor float 1x1 tensor
         tensor_obs = obs_to_tensor(
-            env.observation_space, observation, device=self.model.device
+            env.observation_space, observation, device=self.model.device, dtype=th.float32
         )
         value, policy = self.model.forward(tensor_obs)
         # store the policy
@@ -177,6 +177,7 @@ class AlphaZeroMCTS(MCTS):
                     env.observation_space,
                     new_node.observation,
                     device=self.model.device,
+                    dtype=th.float32,
                 )
             )
 
@@ -226,6 +227,7 @@ class AlphaZeroController:
         policy_loss_weight=1.0,
         regularization_weight=1e-4,
         self_play_iterations=10,
+        self_play_workers = 1,
     ) -> None:
         self.replay_buffer = TensorDictReplayBuffer(storage=storage)
         self.training_epochs = training_epochs
@@ -236,7 +238,10 @@ class AlphaZeroController:
         self.tree_evaluation_policy = tree_evaluation_policy
         self.compute_budget = compute_budget
         self.max_episode_length = max_episode_length
+        self.self_play_workers = self_play_workers
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        assert env.spec is not None
+        env_id = env.spec.id
         self.run_name = f"{env_id}_{current_time}"
         log_dir = f"{tensorboard_dir}/{self.run_name}"
         self.writer = SummaryWriter(log_dir=log_dir)
@@ -307,20 +312,32 @@ class AlphaZeroController:
         # Number of processes - you can customize this
         tim = datetime.datetime.now()
         # Create a pool of processes
-        with multiprocessing.Pool() as pool:
-            # Generate tasks for each episode
-            tasks = [
-                (
-                    self.agent,
-                    self.env,
-                    self.tree_evaluation_policy,
-                    self.compute_budget,
-                    self.max_episode_length,
+        if self.self_play_workers > 1:
+            with multiprocessing.Pool() as pool:
+                # Generate tasks for each episode
+                tasks = [
+                    (
+                        self.agent,
+                        self.env,
+                        self.tree_evaluation_policy,
+                        self.compute_budget,
+                        self.max_episode_length,
+                    )
+                    for _ in range(self.self_play_iterations)
+                ]
+                # Run the tasks using map
+                results = pool.map(run_episode_process, tasks)
+        else:
+            for _ in tqdm(range(self.self_play_iterations)):
+                results.append(
+                    run_episode(
+                        self.agent,
+                        self.env,
+                        self.tree_evaluation_policy,
+                        self.compute_budget,
+                        self.max_episode_length,
+                    )
                 )
-                for _ in range(self.self_play_iterations)
-            ]
-            # Run the tasks using map
-            results = pool.map(run_episode_process, tasks)
         tot_tim = datetime.datetime.now() - tim
 
         # Process the results
@@ -462,9 +479,9 @@ def run_vis(
 
 
 def main_runviss():
-    env_args = {"id": "CartPole-v1"}
+    env_args = {"id": "CliffWalking-v0"}
     run_vis(
-        "runs/CartPole-v1_20231208-193614/checkpoint.pth",
+        "runs/CliffWalking-v0_20231208-204158/checkpoint.pth",
         env_args,
         DefaultTreeEvaluator(),
         compute_budget=500,
@@ -477,18 +494,19 @@ def main_runviss():
 
 
 def train_alphazero():
-    env_id = "CartPole-v1"
-    # env_id = "CliffWalking-v0"
+    # env_id = "CartPole-v1"
+    env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=10)
+    selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
+    workers = multiprocessing.cpu_count()
     controller = AlphaZeroController(
         env,
         agent,
@@ -500,9 +518,10 @@ def train_alphazero():
         regularization_weight=1e-4,
         value_loss_weight=1.0,
         policy_loss_weight=10.0,
-        self_play_iterations=8,
+        self_play_iterations=workers,
         storage=LazyTensorStorage(100),
         tree_evaluation_policy=tree_evaluation_policy,
+        self_play_workers=workers,
     )
     controller.iterate(100)
 

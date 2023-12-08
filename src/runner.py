@@ -27,10 +27,10 @@ def run_episode(
     n = env.action_space.n
 
     observation, info = env.reset(seed=seed)
-    observation_tensor = obs_to_tensor(env.observation_space, observation)
+    observation_tensor = obs_to_tensor(env.observation_space, observation, dtype=th.float32)
     trajectory = TensorDict(
         source={
-            "observations": th.zeros(max_steps, *env.observation_space.shape, dtype=observation_tensor.dtype),
+            "observations": th.zeros(max_steps, gym.spaces.flatdim(env.observation_space), dtype=observation_tensor.dtype),
             "rewards": th.zeros(max_steps, dtype=th.float32),
             "policy_distributions": th.zeros(max_steps, int(n), dtype=th.float32),
             "actions": th.zeros(max_steps, dtype=th.int64),
