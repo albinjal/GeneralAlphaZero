@@ -16,6 +16,7 @@ from torchrl.data import (
     LazyTensorStorage,
     Storage,
     TensorDictReplayBuffer,
+    TensorDictPrioritizedReplayBuffer
 )
 from runner import run_episode, visualize_gameplay
 from torch.utils.tensorboard import SummaryWriter
@@ -105,12 +106,6 @@ class AlphaZeroModel(th.nn.Module):
     def load_model(self, filename: str):
         return self.load_state_dict(th.load(filename))
 
-
-"""
-- update so we expand all nodes at once?
-- prior distribution on parent or float on child?
-
-"""
 
 
 class AlphaZeroMCTS(MCTS):
@@ -214,9 +209,8 @@ class AlphaZeroController:
         env: gym.Env,
         agent: AlphaZeroMCTS,
         optimizer: th.optim.Optimizer,
-        storage: Storage = LazyTensorStorage(50),
+        replay_buffer = TensorDictReplayBuffer(),
         training_epochs=10,
-        batch_size=32,
         tree_evaluation_policy=DefaultTreeEvaluator(),
         compute_budget=100,
         max_episode_length=500,
@@ -229,9 +223,8 @@ class AlphaZeroController:
         self_play_iterations=10,
         self_play_workers = 1,
     ) -> None:
-        self.replay_buffer = TensorDictReplayBuffer(storage=storage)
+        self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
-        self.batch_size = batch_size
         self.optimizer = optimizer
         self.agent = agent
         self.env = env
@@ -382,9 +375,7 @@ class AlphaZeroController:
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
-            trajectories = self.replay_buffer.sample(
-                batch_size=min(self.batch_size, len(self.replay_buffer))
-            )
+            trajectories = self.replay_buffer.sample()
 
             values, policies = self.agent.model.forward(trajectories["observations"])
 
@@ -500,26 +491,27 @@ def train_alphazero():
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=1)
+    selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
-    model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=256, layers=3, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = th.optim.Adam(model.parameters(), lr=5e-4)
     workers = multiprocessing.cpu_count()
+    replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
+                                                      storage=LazyTensorStorage(workers*20), batch_size=workers*2)
     controller = AlphaZeroController(
         env,
         agent,
         optimizer,
-        max_episode_length=500,
-        batch_size=30,
-        compute_budget=50,
+        replay_buffer = replay_buffer,
+        max_episode_length=200,
+        compute_budget=100,
         training_epochs=10,
-        regularization_weight=1e-4,
+        regularization_weight=0,
         value_loss_weight=1.0,
         policy_loss_weight=10.0,
         self_play_iterations=workers,
-        storage=LazyTensorStorage(100),
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
     )
@@ -529,4 +521,4 @@ def train_alphazero():
 
 
 if __name__ == "__main__":
-    main_runviss()
+    train_alphazero()
