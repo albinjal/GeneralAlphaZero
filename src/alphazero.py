@@ -66,6 +66,7 @@ class AlphaZeroModel(th.nn.Module):
             self.device = th.device("mps")
 
         self.env = env
+        self.hidden_dim = hidden_dim
         self.state_dim = gym.spaces.flatdim(env.observation_space)
         self.action_dim = gym.spaces.flatdim(env.action_space)
 
@@ -100,11 +101,41 @@ class AlphaZeroModel(th.nn.Module):
         policy = th.nn.functional.softmax(policy, dim=-1)
         return value.squeeze(-1), policy
 
-    def save_model(self, filename: str):
-        return th.save(self.state_dict(), filename)
 
-    def load_model(self, filename: str):
-        return self.load_state_dict(th.load(filename))
+    def save_model(self, filename: str):
+        model_info = {
+            "state_dict": self.state_dict(),
+            "input_dimensions": self.state_dim,
+            "output_dimensions": self.action_dim,
+            "hidden_dim": self.hidden_dim,
+            "layers": len(self.layers),
+            # Add other relevant model configuration here
+        }
+        th.save(model_info, filename)
+
+
+    @staticmethod
+    def load_model(filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128):
+        # Load the saved model information
+        model_info = th.load(filename)
+
+        # Get hidden_dim, use a default if not found
+        hidden_dim = model_info.get("hidden_dim", default_hidden_dim)
+
+        # Create a new instance of the model with the saved specifications
+        model = AlphaZeroModel(
+            env=env,
+            hidden_dim=hidden_dim,
+            layers=model_info["layers"] - 1,  # Subtracting 1 because the first layer is added by default
+            pref_gpu=pref_gpu
+        )
+
+        # Load the state dict into the newly created model
+        model.load_state_dict(model_info["state_dict"])
+
+        return model
+
+
 
 
 
@@ -216,7 +247,7 @@ class AlphaZeroController:
         max_episode_length=500,
         tensorboard_dir="./tensorboard_logs",
         runs_dir="./runs",
-        checkpoint_interval=10,
+        checkpoint_interval=5,
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         regularization_weight=1e-4,
@@ -287,10 +318,10 @@ class AlphaZeroController:
 
             # save the model every 10 iterations
             if i % self.checkpoint_interval == 0:
-                th.save(self.agent.model.state_dict(), f"{self.run_dir}/checkpoint.pth")
+                self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
 
         # save the final model
-        th.save(self.agent.model.state_dict(), f"{self.run_dir}/final_model.pth")
+        self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
 
         # close the writer
         self.writer.close()
@@ -334,7 +365,7 @@ class AlphaZeroController:
         tot_tim = datetime.datetime.now() - tim
 
         # Process the results
-        rewards, time_steps = [], []
+        rewards, time_steps, entropies = [], [], []
         for trajectory in results:
             self.replay_buffer.add(trajectory)
 
@@ -343,10 +374,17 @@ class AlphaZeroController:
 
             timesteps = trajectory["mask"].sum().item()
             time_steps.append(timesteps)
+            assert isinstance(self.env.action_space, gym.spaces.Discrete)
+            epsilon = 1e-8
+            entropy = - th.sum(trajectory["policy_distributions"] * th.log(trajectory["policy_distributions"] + epsilon), dim=-1) * trajectory["mask"] / np.log(self.env.action_space.n)
+            entropies.append(th.sum(entropy).item() / timesteps)
+
+
 
         # Calculate statistics
         mean_reward = np.mean(rewards)
         reward_variance = np.var(rewards, ddof=1)
+
 
         # Log the statistics
         self.writer.add_scalar("Self_Play/Mean_Reward", mean_reward, global_step)
@@ -363,6 +401,10 @@ class AlphaZeroController:
             "Self_Play/Runtime_per_Timestep",
             tot_tim.microseconds / np.sum(time_steps),
             global_step,
+        )
+
+        self.writer.add_scalar(
+            "Self_Play/Mean_Entropy", np.mean(entropies), global_step
         )
 
         return mean_reward
@@ -448,8 +490,7 @@ def run_vis(
     render_env = gym.make(**env_args, render_mode="human")
 
     selection_policy = PUCT(c=1)
-    model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
-    model.load_model(checkpoint_path)
+    model = AlphaZeroModel.load_model(checkpoint_path, env)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
 
     visualize_gameplay(
@@ -472,7 +513,7 @@ def run_vis(
 def main_runviss():
     env_args = {"id": "CliffWalking-v0"}
     run_vis(
-        "runs/CliffWalking-v0_20231208-204158/checkpoint.pth",
+        "runs/CliffWalking-v0_20231211-180804/checkpoint.pth",
         env_args,
         DefaultTreeEvaluator(),
         compute_budget=500,
@@ -491,22 +532,23 @@ def train_alphazero():
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=2)
+    selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
-    model = AlphaZeroModel(env, hidden_dim=256, layers=3, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     optimizer = th.optim.Adam(model.parameters(), lr=5e-4)
     workers = multiprocessing.cpu_count()
-    replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
-                                                      storage=LazyTensorStorage(workers*20), batch_size=workers*2)
+    # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
+    #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
+    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(workers*20), batch_size=workers)
     controller = AlphaZeroController(
         env,
         agent,
         optimizer,
         replay_buffer = replay_buffer,
         max_episode_length=200,
-        compute_budget=100,
+        compute_budget=50,
         training_epochs=10,
         regularization_weight=0,
         value_loss_weight=1.0,
@@ -515,10 +557,10 @@ def train_alphazero():
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
     )
-    controller.iterate(100)
+    controller.iterate(30)
 
     env.close()
 
 
 if __name__ == "__main__":
-    train_alphazero()
+    main_runviss()
