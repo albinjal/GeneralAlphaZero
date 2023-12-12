@@ -1,10 +1,19 @@
-name: alphazero
-
+name: az10
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.10
   - gymnasium
-  - pygame
-  - graphviz
   - ipykernel
   - pytorch
+  - tqdm
+  - numpy
+  - tensorboard
+  - graphviz
+  - python-graphviz
+  - matplotlib
   - pip
+  - pip:
+    - torchrl

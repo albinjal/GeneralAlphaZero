@@ -5,10 +5,8 @@ from typing import List, Tuple
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
+from azmcts import AlphaZeroMCTS
 from environment import obs_to_tensor
-from mcts import MCTS
-from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 import torch as th
 from torchrl.data import (
     ReplayBuffer,
@@ -18,12 +16,17 @@ from torchrl.data import (
     TensorDictReplayBuffer,
     TensorDictPrioritizedReplayBuffer
 )
-from runner import run_episode, visualize_gameplay
 from torch.utils.tensorboard import SummaryWriter
 import os
 import numpy as np
 
 import multiprocessing
+
+from mcts import MCTS
+from model import AlphaZeroModel
+from node import Node
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
+from runner import run_episode
 
 
 def run_episode_process(args):
@@ -33,197 +36,6 @@ def run_episode_process(args):
         agent, env, tree_evaluation_policy, compute_budget, max_episode_length
     )
 
-
-class AlphaZeroModel(th.nn.Module):
-    """
-    The point of this class is to make sure the model is compatible with MCTS:
-    The model should take in an observation and return a value and a policy. Check that
-    - Input is flattened with shape of the observation space
-    - The output is a tuple of (value, policy)
-    - the policy is a vector of proabilities of the same size as the action space
-    """
-
-    value_head: th.nn.Module
-    policy_head: th.nn.Module
-    device: th.device
-
-    def __init__(
-        self,
-        env: gym.Env,
-        hidden_dim: int,
-        layers: int,
-        pref_gpu=False,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        # check if cuda is available
-        if not pref_gpu:
-            self.device = th.device("cpu")
-        elif th.cuda.is_available():
-            self.device = th.device("cuda")
-        elif th.backends.mps.is_available():
-            self.device = th.device("mps")
-
-        self.env = env
-        self.hidden_dim = hidden_dim
-        self.state_dim = gym.spaces.flatdim(env.observation_space)
-        self.action_dim = gym.spaces.flatdim(env.action_space)
-
-        self.layers = th.nn.ModuleList()
-        self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
-        for _ in range(layers):
-            self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
-
-        # the value head should be two layers
-        self.value_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, hidden_dim),
-            th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, 1),
-        )
-
-        # the policy head should be two layers
-        self.policy_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, hidden_dim),
-            th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, self.action_dim),
-        )
-        self.to(self.device)
-
-    def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
-        # run the layers
-        for layer in self.layers:
-            x = th.nn.functional.relu(layer(x))
-        # run the heads
-        value = self.value_head(x)
-        policy = self.policy_head(x)
-        # apply softmax to the policy
-        policy = th.nn.functional.softmax(policy, dim=-1)
-        return value.squeeze(-1), policy
-
-
-    def save_model(self, filename: str):
-        model_info = {
-            "state_dict": self.state_dict(),
-            "input_dimensions": self.state_dim,
-            "output_dimensions": self.action_dim,
-            "hidden_dim": self.hidden_dim,
-            "layers": len(self.layers),
-            # Add other relevant model configuration here
-        }
-        th.save(model_info, filename)
-
-
-    @staticmethod
-    def load_model(filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128):
-        # Load the saved model information
-        model_info = th.load(filename)
-
-        # Get hidden_dim, use a default if not found
-        hidden_dim = model_info.get("hidden_dim", default_hidden_dim)
-
-        # Create a new instance of the model with the saved specifications
-        model = AlphaZeroModel(
-            env=env,
-            hidden_dim=hidden_dim,
-            layers=model_info["layers"] - 1,  # Subtracting 1 because the first layer is added by default
-            pref_gpu=pref_gpu
-        )
-
-        # Load the state dict into the newly created model
-        model.load_state_dict(model_info["state_dict"])
-
-        return model
-
-
-
-
-
-class AlphaZeroMCTS(MCTS):
-    model: AlphaZeroModel
-
-    def __init__(self, model: AlphaZeroModel, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = model
-
-    @th.no_grad()
-    def value_function(
-        self,
-        node: Node,
-        env: gym.Env,
-    ):
-        observation = node.observation
-        # flatten the observation
-        assert observation is not None
-        # run the model
-        # convert observation from int to tensor float 1x1 tensor
-        tensor_obs = obs_to_tensor(
-            env.observation_space, observation, device=self.model.device, dtype=th.float32
-        )
-        value, policy = self.model.forward(tensor_obs)
-        # store the policy
-        node.prior_policy = policy
-        # return float 32 value
-        return value.item()
-
-    def handle_all(self, node: Node, env: gym.Env):
-        """
-            should do the same as
-        def handle_single(
-            self,
-            node: Node[ObservationType],
-            env: gym.Env[ObservationType, np.int64],
-            action: np.int64,
-        ):
-            eval_node = self.expand(node, env, action)
-            # evaluate the node
-            value = self.value_function(eval_node, env)
-            # backupagate the value
-            eval_node.value_evaluation = value
-            eval_node.backup(value)
-
-        def handle_all(
-            self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
-        ):
-            for action in range(node.action_space.n):
-                self.handle_single(node, copy.deepcopy(env), np.int64(action))
-
-        """
-        observations = []
-        all_actions = np.arange(node.action_space.n)
-        for i, action in enumerate(all_actions):
-            if i == len(all_actions) - 1:
-                # we can mess up the env on the last action
-                new_node = self.expand(node, env, action)
-            else:
-                new_env = copy.deepcopy(env)
-                new_node = self.expand(node, new_env, action)
-            observations.append(
-                obs_to_tensor(
-                    env.observation_space,
-                    new_node.observation,
-                    device=self.model.device,
-                    dtype=th.float32,
-                )
-            )
-
-        tensor_obs = th.stack(observations)  # actions x obs_dim tensor
-        values, policies = self.model.forward(tensor_obs)
-
-        value_to_backup = np.float32(0.0)
-        for action, value, policy in zip(all_actions, values, policies):
-            new_node = node.children[action]
-            new_node.prior_policy = policy
-            new_node.visits = 1
-            new_node.value_evaluation = np.float32(value.item())
-            new_node.subtree_sum = new_node.reward + new_node.value_evaluation
-            value_to_backup += new_node.subtree_sum
-
-        # backup
-        # the value to backup from the parent should be the sum of the value and the reward for all children
-        node.backup(value_to_backup, len(all_actions))
-
-    # def backup_all_children(self, parent: Node, values: th.Tensor):
 
 
 class AlphaZeroController:
@@ -464,66 +276,6 @@ class AlphaZeroController:
         return value_losses, policy_losses, regularization_losses, total_losses
 
 
-import cProfile
-import pstats
-
-
-def profile():
-    cProfile.runctx("controller.iterate(10)", globals(), locals(), "Profile.prof")
-
-    s = pstats.Stats("Profile.prof")
-    s.strip_dirs().sort_stats("time").print_stats()
-
-
-def run_vis(
-    checkpoint_path,
-    env_args,
-    tree_eval_policy,
-    compute_budget=1000,
-    max_steps=1000,
-    verbose=True,
-    goal_obs=None,
-    seed=None,
-    sleep_time=0.0,
-):
-    env = gym.make(**env_args)
-    render_env = gym.make(**env_args, render_mode="human")
-
-    selection_policy = PUCT(c=1)
-    model = AlphaZeroModel.load_model(checkpoint_path, env)
-    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-
-    visualize_gameplay(
-        agent,
-        env,
-        render_env,
-        tree_eval_policy,
-        compute_budget,
-        max_steps,
-        verbose,
-        goal_obs,
-        seed,
-        sleep_time,
-    )
-    time.sleep(1)
-    env.close()
-    render_env.close()
-
-
-def main_runviss():
-    env_args = {"id": "CliffWalking-v0"}
-    run_vis(
-        "runs/CliffWalking-v0_20231211-180804/checkpoint.pth",
-        env_args,
-        DefaultTreeEvaluator(),
-        compute_budget=500,
-        max_steps=1000,
-        verbose=True,
-        goal_obs=None,
-        seed=1,
-        sleep_time=0,
-    )
-
 
 def train_alphazero():
     # env_id = "CartPole-v1"
@@ -532,7 +284,7 @@ def train_alphazero():
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=1)
+    selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
@@ -541,7 +293,7 @@ def train_alphazero():
     workers = multiprocessing.cpu_count()
     # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
     #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
-    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(workers*20), batch_size=workers)
+    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(workers), batch_size=workers)
     controller = AlphaZeroController(
         env,
         agent,
@@ -549,7 +301,7 @@ def train_alphazero():
         replay_buffer = replay_buffer,
         max_episode_length=200,
         compute_budget=50,
-        training_epochs=10,
+        training_epochs=3,
         regularization_weight=0,
         value_loss_weight=1.0,
         policy_loss_weight=10.0,
@@ -563,4 +315,4 @@ def train_alphazero():
 
 
 if __name__ == "__main__":
-    main_runviss()
+    train_alphazero()

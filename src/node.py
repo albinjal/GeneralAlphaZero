@@ -2,7 +2,6 @@ from collections import Counter
 from typing import Dict, Generic, TypeVar, Optional, Any, Callable, Tuple
 import gymnasium as gym
 import numpy as np
-import graphviz
 import torch as th
 
 ObservationType = TypeVar("ObservationType")
@@ -77,24 +76,28 @@ class Node(Generic[ObservationType]):
             mask[action] = 0
         return self.action_space.sample(mask=mask)
 
-    def visualize(
-        self,
-        var_fn: Optional[Callable[["Node[ObservationType]"], Any]] = None,
-        max_depth: Optional[int] = None,
-    ) -> None:
-        dot = graphviz.Digraph(comment="MCTS Tree")
-        self._add_node_to_graph(dot, var_fn, max_depth=max_depth)
-        dot.render(filename="mcts_tree.gv", view=True)
-
     def get_root(self) -> "Node[ObservationType]":
         node: Node[ObservationType] | None = self
         while node.parent is not None:
             node = node.parent
         return node
 
+    
+    def visualize(
+        self,
+        var_fn: Optional[Callable[["Node[ObservationType]"], Any]] = None,
+        max_depth: Optional[int] = None,
+    ) -> None:
+        import graphviz
+
+        dot = graphviz.Digraph(comment="MCTS Tree")
+        self._add_node_to_graph(dot, var_fn, max_depth=max_depth)
+        dot.render(filename="mcts_tree.gv", view=True)
+
+
     def _add_node_to_graph(
         self,
-        dot: graphviz.Digraph,
+        dot,
         var_fn: Optional[Callable[["Node[ObservationType]"], Any]] = None,
         max_depth: Optional[int] = None,
     ) -> None:
