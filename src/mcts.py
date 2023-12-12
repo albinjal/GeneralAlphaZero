@@ -38,7 +38,6 @@ class MCTS(Generic[ObservationType]):
         reward: np.float32,
     ) -> Node[ObservationType]:
         # the env should be in the state we want to search from
-        self.env = env
         # assert that the type of the action space is discrete
         assert isinstance(env.action_space, gym.spaces.Discrete)
         # root_node = Node[ObservationType](
@@ -55,9 +54,10 @@ class MCTS(Generic[ObservationType]):
         )
         value = self.value_function(root_node, copy.deepcopy(self.env))
         root_node.value_evaluation = value
-        return self.build_tree(root_node, iterations)
+        return self.build_tree(env, root_node, iterations)
 
-    def build_tree(self, from_node: NodeType, iterations: int) -> NodeType:
+    def build_tree(self, env: gym.Env, from_node: NodeType, iterations: int) -> NodeType:
+        self.env = env
         while from_node.visits < iterations:
             # traverse the tree and select the node to expand
             selected_node_for_expansion, env = self.select_node_to_expand(from_node)
@@ -188,5 +188,3 @@ class RandomRolloutMCTS(MCTS):
                 break
 
         return accumulated_reward
-
-
