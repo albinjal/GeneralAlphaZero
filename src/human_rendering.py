@@ -52,21 +52,6 @@ def run_vis(
     render_env.close()
 
 
-def main_runviss():
-    env_id = "CliffWalking-v0"
-    env_args = {"id": env_id}
-    run_vis(
-        f"runs/{env_id}*",
-        env_args,
-        DefaultTreeEvaluator(),
-        compute_budget=500,
-        max_steps=1000,
-        verbose=True,
-        goal_obs=None,
-        seed=1,
-        sleep_time=0,
-    )
-
 
 
 
@@ -108,5 +93,22 @@ def visualize_gameplay(solver: MCTS,
             break
 
 
+
+def main_runviss():
+    env_id = "CliffWalking-v0"
+    env_args = {"id": env_id}
+    run_vis(
+        f"runs/{env_id}*",
+        env_args,
+        DefaultTreeEvaluator(),
+        compute_budget=500,
+        max_steps=1000,
+        verbose=True,
+        goal_obs=None,
+        seed=1,
+        sleep_time=0,
+    )
+
+    
 if __name__ == "__main__":
     main_runviss()

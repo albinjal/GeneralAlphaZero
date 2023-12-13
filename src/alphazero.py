@@ -288,19 +288,19 @@ def train_alphazero():
 
     selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
-    iterations = 50
+    iterations = 30
 
     model = AlphaZeroModel(env, hidden_dim=256, layers=5, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     regularization_weight = 1e-4
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
-    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-3, weight_decay=regularization_weight)
+    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, verbose=True)
     workers = multiprocessing.cpu_count()
     # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
     #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
 
     self_play_games_per_iteration = workers
-    replay_buffer_size = 10 * self_play_games_per_iteration
+    replay_buffer_size = 20 * self_play_games_per_iteration
     sample_batch_size = replay_buffer_size // 5
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
@@ -309,11 +309,11 @@ def train_alphazero():
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=400,
-        compute_budget=50,
-        training_epochs=100,
+        max_episode_length=200,
+        compute_budget=100,
+        training_epochs=50,
         value_loss_weight=1.0,
-        policy_loss_weight=10.0,
+        policy_loss_weight=20.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,

@@ -58,6 +58,7 @@ class AlphaZeroModel(th.nn.Module):
             th.nn.Linear(hidden_dim, self.action_dim),
         )
         self.to(self.device)
+        self.nlayers = layers
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
@@ -77,7 +78,7 @@ class AlphaZeroModel(th.nn.Module):
             "input_dimensions": self.state_dim,
             "output_dimensions": self.action_dim,
             "hidden_dim": self.hidden_dim,
-            "layers": len(self.layers),
+            "layers": self.nlayers,
             # Add other relevant model configuration here
         }
         th.save(model_info, filename)
@@ -95,7 +96,7 @@ class AlphaZeroModel(th.nn.Module):
         model = AlphaZeroModel(
             env=env,
             hidden_dim=hidden_dim,
-            layers=model_info["layers"] - 1,  # Subtracting 1 because the first layer is added by default
+            layers=model_info["layers"],  # Subtracting 1 because the first layer is added by default
             pref_gpu=pref_gpu
         )
 
