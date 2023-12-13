@@ -43,12 +43,13 @@ def run_episode(
     )
 
     root_node = Node(
+        env=copy.deepcopy(env),
         parent=None, reward=np.float32(.0), action_space=env.action_space, observation=observation
     )
-    value = solver.value_function(root_node, copy.deepcopy(env))
+    value = solver.value_function(root_node)
     root_node.value_evaluation = value
     for step in range(max_steps):
-        tree = solver.build_tree(env, root_node, compute_budget)
+        tree = solver.build_tree(root_node, compute_budget)
         policy_dist = tree_evaluation_policy.distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action

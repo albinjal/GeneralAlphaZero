@@ -42,6 +42,7 @@ class AlphaZeroModel(th.nn.Module):
         self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
         for _ in range(layers):
             self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
+            self.layers.append(th.nn.ReLU())
 
         # the value head should be two layers
         self.value_head = th.nn.Sequential(
@@ -61,7 +62,7 @@ class AlphaZeroModel(th.nn.Module):
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
         for layer in self.layers:
-            x = th.nn.functional.relu(layer(x))
+            x = layer(x)
         # run the heads
         value = self.value_head(x)
         policy = self.policy_head(x)

@@ -20,9 +20,11 @@ class Node(Generic[ObservationType]):
     action_space: gym.spaces.Discrete  # the reference to the action space
     observation: Optional[ObservationType]
     prior_policy: th.Tensor
+    env: Optional[gym.Env]
 
     def __init__(
         self,
+        env: gym.Env,
         parent: Optional["Node[ObservationType]"],
         reward: np.float32,
         action_space: gym.spaces.Discrete,
@@ -36,6 +38,7 @@ class Node(Generic[ObservationType]):
         self.parent = parent
         self.terminal = terminal
         self.observation = observation
+        self.env = env
 
     def is_terminal(self) -> bool:
         return self.terminal
@@ -82,7 +85,7 @@ class Node(Generic[ObservationType]):
             node = node.parent
         return node
 
-    
+
     def visualize(
         self,
         var_fn: Optional[Callable[["Node[ObservationType]"], Any]] = None,

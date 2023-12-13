@@ -106,7 +106,7 @@ class AlphaZeroController:
         self.self_play_iterations = self_play_iterations
 
     def iterate(self, iterations=10):
-        for i in tqdm(range(iterations)):
+        for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
             self.self_play(i)
@@ -278,8 +278,8 @@ class AlphaZeroController:
 
 
 def train_alphazero():
-    # env_id = "CartPole-v1"
-    env_id = "CliffWalking-v0"
+    env_id = "CartPole-v1"
+    # env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
@@ -289,27 +289,32 @@ def train_alphazero():
 
     model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    optimizer = th.optim.Adam(model.parameters(), lr=5e-4)
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-4)
     workers = multiprocessing.cpu_count()
     # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
     #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
-    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(workers), batch_size=workers)
+
+    self_play_games_per_iteration = workers
+    replay_buffer_size = 10 * self_play_games_per_iteration
+    sample_batch_size = replay_buffer_size // 5
+
+    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
     controller = AlphaZeroController(
         env,
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=200,
+        max_episode_length=500,
         compute_budget=50,
-        training_epochs=3,
+        training_epochs=100,
         regularization_weight=0,
         value_loss_weight=1.0,
         policy_loss_weight=10.0,
-        self_play_iterations=workers,
+        self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
     )
-    controller.iterate(30)
+    controller.iterate(50)
 
     env.close()
 

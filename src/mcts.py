@@ -8,7 +8,6 @@ from policies import DefaultExpansionPolicy, OptionalPolicy, Policy
 
 ObservationType = TypeVar("ObservationType")
 
-NodeType = TypeVar("NodeType", bound="Node")
 
 #test
 class MCTS(Generic[ObservationType]):
@@ -50,17 +49,17 @@ class MCTS(Generic[ObservationType]):
         # return self.build_tree(root_node, iterations - 1)
 
         root_node = Node[ObservationType](
+            env=copy.deepcopy(env),
             parent=None, reward=reward, action_space=env.action_space, observation=obs
         )
-        value = self.value_function(root_node, copy.deepcopy(self.env))
+        value = self.value_function(root_node)
         root_node.value_evaluation = value
-        return self.build_tree(env, root_node, iterations)
+        return self.build_tree(root_node, iterations)
 
-    def build_tree(self, env: gym.Env, from_node: NodeType, iterations: int) -> NodeType:
-        self.env = env
+    def build_tree(self, from_node: Node, iterations: int) -> Node:
         while from_node.visits < iterations:
             # traverse the tree and select the node to expand
-            selected_node_for_expansion, env = self.select_node_to_expand(from_node)
+            selected_node_for_expansion = self.select_node_to_expand(from_node)
             # check if the node is terminal
             if selected_node_for_expansion.is_terminal():
                 # if the node is terminal, we can not expand it
@@ -69,42 +68,40 @@ class MCTS(Generic[ObservationType]):
                 selected_node_for_expansion.value_evaluation = np.float32(0.0)
                 selected_node_for_expansion.backup(np.float32(0))
             else:
-                self.handle_selected_node(selected_node_for_expansion, env)
+                self.handle_selected_node(selected_node_for_expansion)
 
         return from_node
 
     def handle_selected_node(
-        self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
+        self, node: Node[ObservationType]
     ):
         if self.expansion_policy is None:
-            self.handle_all(node, env)
+            self.handle_all(node)
         else:
             action = self.expansion_policy(node)
-            self.handle_single(node, env, action)
+            self.handle_single(node, action)
 
     def handle_single(
         self,
         node: Node[ObservationType],
-        env: gym.Env[ObservationType, np.int64],
         action: np.int64,
     ):
-        eval_node = self.expand(node, env, action)
+        eval_node = self.expand(node, action)
         # evaluate the node
-        value = self.value_function(eval_node, env)
+        value = self.value_function(eval_node)
         # backupagate the value
         eval_node.value_evaluation = value
         eval_node.backup(value)
 
     def handle_all(
-        self, node: Node[ObservationType], env: gym.Env[ObservationType, np.int64]
+        self, node: Node[ObservationType],
     ):
         for action in range(node.action_space.n):
-            self.handle_single(node, copy.deepcopy(env), np.int64(action))
+            self.handle_single(node, np.int64(action))
 
     def value_function(
         self,
         node: Node[ObservationType],
-        env: gym.Env[ObservationType, np.int64],
     ) -> np.float32:
         """The point of the value function is to estimate the value of the node.
         The value is defined as the expected future reward if we get to the node given some policy.
@@ -112,8 +109,8 @@ class MCTS(Generic[ObservationType]):
         return np.float32(0.0)
 
     def select_node_to_expand(
-        self, from_node: NodeType
-    ) -> Tuple[NodeType, gym.Env[ObservationType, np.int64]]:
+        self, from_node: Node
+    ) -> Node:
         """
         Returns the node to be expanded next.
         Returns None if the node is terminal.
@@ -123,35 +120,43 @@ class MCTS(Generic[ObservationType]):
         node = from_node
         # the reason we copy the env is because we want to keep the original env in the root state
         # Question: note that all envs will have the same seed, this might needs to be dealt with for stochastic envs
-        env = copy.deepcopy(self.env)
         while not node.is_terminal():
             # select which node to step into
             action = self.selection_policy(node)
             # if the selection policy returns None, this indicates that the current node should be expanded
             if action is None:
-                return node, env
+                return node
             # step into the node
             node = node.step(action)
             # also step the environment
             # Question: right now we do not save the observation or reward from the env since we already have them saved
             # This might be worth considering though if we use stochastic envs since the rewards/states could vary each time we execute an action sequence
-            env.step(action)
 
-        return node, env
+        return node
 
     def expand(
-        self, node: NodeType, env: gym.Env[ObservationType, np.int64], action: np.int64
-    ) -> NodeType:
+        self, node: Node, action: np.int64
+    ) -> Node:
         """
         Expands the node and returns the expanded node.
         Note that the function will modify the env and the input node
         """
+        # if this is the last child to be expanded, we do not need to copy the env
+        if len(node.children) == node.action_space.n - 1:
+            env = node.env
+            node.env = None
+        else:
+            env = copy.deepcopy(node.env)
+
+        assert env is not None
+
         # step the environment
         observation, reward, terminated, truncated, _ = env.step(action)
         terminal = terminated or truncated
         node_class = type(node)
         # create the node
         new_child = node_class(
+            env=env,
             parent=node,
             reward=np.float32(reward),
             action_space=node.action_space,
@@ -169,8 +174,7 @@ class RandomRolloutMCTS(MCTS):
 
     def value_function(
         self,
-        node: Node[ObservationType],
-        env: gym.Env[ObservationType, np.int64],
+        node: Node,
     ) -> np.float32:
         """
         The standard value function for MCTS is the the sum of the future reward when acting with uniformly random policy.
@@ -181,6 +185,8 @@ class RandomRolloutMCTS(MCTS):
 
         # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
         accumulated_reward = np.float32(0.0)
+        env = copy.deepcopy(node.env)
+        assert env is not None
         for _ in range(self.rollout_budget):
             _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
             accumulated_reward += np.float32(reward)
