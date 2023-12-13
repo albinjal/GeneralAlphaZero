@@ -62,9 +62,9 @@ class AlphaZeroController:
         checkpoint_interval=5,
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
-        regularization_weight=1e-4,
         self_play_iterations=10,
         self_play_workers = 1,
+        secheduler = None,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -102,8 +102,8 @@ class AlphaZeroController:
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
-        self.regularization_weight = regularization_weight
         self.self_play_iterations = self_play_iterations
+        self.scheduler = secheduler
 
     def iterate(self, iterations=10):
         for i in range(iterations):
@@ -114,23 +114,31 @@ class AlphaZeroController:
             (
                 value_losses,
                 policy_losses,
-                regularization_losses,
                 total_losses,
             ) = self.learn()
 
             self.writer.add_scalar("Loss/Value_loss", np.mean(value_losses), i)
             self.writer.add_scalar("Loss/Policy_loss", np.mean(policy_losses), i)
+
+            # the regularization loss is the squared l2 norm of the weights
+            regularization_loss = th.tensor(0.0, device=self.agent.model.device)
+
+            for param in self.agent.model.parameters():
+                regularization_loss += th.sum(th.square(param))
             self.writer.add_scalar(
-                "Loss/Regularization_loss", np.mean(regularization_losses), i
+                "Loss/Regularization_loss", regularization_loss, i
             )
             self.writer.add_scalar("Loss/Total_loss", np.mean(total_losses), i)
 
             # Log the size of the replay buffer
             self.writer.add_scalar("Replay_Buffer/Size", len(self.replay_buffer), i)
 
-            # save the model every 10 iterations
             if i % self.checkpoint_interval == 0:
+                print(f"Saving model at iteration {i}")
                 self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
+
+            if self.scheduler is not None:
+                self.scheduler.step()
 
         # save the final model
         self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
@@ -224,7 +232,7 @@ class AlphaZeroController:
     def learn(self):
         value_losses = []
         policy_losses = []
-        regularization_losses = []
+        # regularization_losses = []
         total_losses = []
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
@@ -253,16 +261,10 @@ class AlphaZeroController:
                 trajectories["mask"]
             )
 
-            # the regularization loss is the squared l2 norm of the weights
-            regularization_loss = th.tensor(0.0, device=self.agent.model.device)
-            if True:  # self.regularization_weight > 0:
-                # just fun to keep track of the regularization loss
-                for param in self.agent.model.parameters():
-                    regularization_loss += th.sum(th.square(param))
+
             loss = (
                 self.value_loss_weight * value_loss
                 + self.policy_loss_weight * policy_loss
-                + self.regularization_weight * regularization_loss
             )
             # backup
             self.optimizer.zero_grad()
@@ -270,26 +272,29 @@ class AlphaZeroController:
             self.optimizer.step()
             value_losses.append(value_loss.item())
             policy_losses.append(policy_loss.item())
-            regularization_losses.append(regularization_loss.item())
+            # regularization_losses.append(regularization_loss.item())
             total_losses.append(loss.item())
 
-        return value_losses, policy_losses, regularization_losses, total_losses
+        return value_losses, policy_losses, total_losses
 
 
 
 def train_alphazero():
-    env_id = "CartPole-v1"
-    # env_id = "CliffWalking-v0"
+    # env_id = "CartPole-v1"
+    env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
     # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
     selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
+    iterations = 50
 
-    model = AlphaZeroModel(env, hidden_dim=128, layers=2, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=256, layers=5, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-4)
+    regularization_weight = 1e-4
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
+    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
     workers = multiprocessing.cpu_count()
     # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
     #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
@@ -304,17 +309,17 @@ def train_alphazero():
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=500,
+        max_episode_length=400,
         compute_budget=50,
         training_epochs=100,
-        regularization_weight=0,
         value_loss_weight=1.0,
         policy_loss_weight=10.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
+        secheduler=scheduler,
     )
-    controller.iterate(50)
+    controller.iterate(iterations)
 
     env.close()
 
