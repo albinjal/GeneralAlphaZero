@@ -29,6 +29,8 @@ def run_episode(
     n = env.action_space.n
 
     observation, info = env.reset(seed=seed)
+    terminal = False
+
     observation_tensor = obs_to_tensor(env.observation_space, observation, dtype=th.float32)
     trajectory = TensorDict(
         source={
@@ -59,7 +61,7 @@ def run_episode(
 
         new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         # TODO: check the difference between terminated and truncated
-        terminal = terminated or truncated
+        next_terminal = terminated or truncated
         trajectory["observations"][step] = observation_tensor
         trajectory["rewards"][step] = reward
         trajectory["policy_distributions"][step] = policy_dist.probs
@@ -76,6 +78,7 @@ def run_episode(
             print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
 
         observation_tensor = new_observation_tensor
+        terminal = next_terminal
 
         if terminal:
             break

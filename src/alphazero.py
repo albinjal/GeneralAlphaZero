@@ -142,8 +142,8 @@ class AlphaZeroController:
                 self.scheduler.step()
 
             # if the env is CliffWalking-v0, plot the output of the value and policy networks
-            assert self.env.observation_space is not None
             assert self.env.spec is not None
+            assert self.env.observation_space is not None
             if self.env.spec.id == "CliffWalking-v0":
                 show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
 
@@ -253,6 +253,7 @@ class AlphaZeroController:
             # compute the value targets via TD learning
             # the target should be the reward + the value of the next state
             # if the next state is terminal, the value of the next state is 0
+
             t_values = ~trajectories["terminals"] * values
             targets = trajectories["rewards"][:, :-1] + t_values[:, 1:]
             td = targets.detach() - values[:, :-1]
