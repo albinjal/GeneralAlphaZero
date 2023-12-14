@@ -6,7 +6,7 @@ import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
 from azmcts import AlphaZeroMCTS
-from environment import obs_to_tensor
+from environment import obs_to_tensor, show_model_in_tensorboard
 import torch as th
 from torchrl.data import (
     ReplayBuffer,
@@ -106,6 +106,7 @@ class AlphaZeroController:
         self.scheduler = secheduler
 
     def iterate(self, iterations=10):
+
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
@@ -139,6 +140,14 @@ class AlphaZeroController:
 
             if self.scheduler is not None:
                 self.scheduler.step()
+
+            # if the env is CliffWalking-v0, plot the output of the value and policy networks
+            assert self.env.observation_space is not None
+            assert self.env.spec is not None
+            if self.env.spec.id == "CliffWalking-v0":
+                show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
+
+
 
         # save the final model
         self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
