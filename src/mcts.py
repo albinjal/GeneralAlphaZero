@@ -153,6 +153,9 @@ class MCTS(Generic[ObservationType]):
         # step the environment
         observation, reward, terminated, truncated, _ = env.step(action)
         terminal = terminated or truncated
+        if terminated:
+            observation = None
+
         node_class = type(node)
         # create the node
         new_child = node_class(

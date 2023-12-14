@@ -244,12 +244,14 @@ class AlphaZeroController:
             # compute the value targets via TD learning
             # the target should be the reward + the value of the next state
             # if the next state is terminal, the value of the next state is 0
-            t_values = ~trajectories["terminals"] * values.squeeze(-1)
+            t_values = ~trajectories["terminals"] * values
             targets = trajectories["rewards"][:, :-1] + t_values[:, 1:]
             td = targets.detach() - values[:, :-1]
             mask = trajectories["mask"][:, :-1]
             # compute the value loss
             value_loss = th.sum((td * mask) ** 2) / th.sum(mask)
+
+
 
             # compute the policy loss
             epsilon = 1e-8
@@ -257,9 +259,10 @@ class AlphaZeroController:
                 trajectories["policy_distributions"] * th.log(policies + epsilon),
                 dim=-1,
             )
-            policy_loss = th.sum(step_loss * trajectories["mask"]) / th.sum(
-                trajectories["mask"]
-            )
+
+            # we do not want to consider terminal states
+            considered_states = ~trajectories["terminals"] * trajectories["mask"]
+            policy_loss = th.sum(step_loss * considered_states) / th.sum(considered_states)
 
 
             loss = (
@@ -292,15 +295,13 @@ def train_alphazero():
 
     model = AlphaZeroModel(env, hidden_dim=256, layers=5, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    regularization_weight = 1e-4
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-3, weight_decay=regularization_weight)
-    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98, verbose=True)
+    regularization_weight = 5e-5
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
+    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
     workers = multiprocessing.cpu_count()
-    # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
-    #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
 
     self_play_games_per_iteration = workers
-    replay_buffer_size = 20 * self_play_games_per_iteration
+    replay_buffer_size = 15 * self_play_games_per_iteration
     sample_batch_size = replay_buffer_size // 5
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
