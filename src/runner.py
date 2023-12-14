@@ -29,7 +29,6 @@ def run_episode(
     n = env.action_space.n
 
     observation, info = env.reset(seed=seed)
-    terminal = False
 
     observation_tensor = obs_to_tensor(env.observation_space, observation, dtype=th.float32)
     trajectory = TensorDict(
@@ -59,7 +58,6 @@ def run_episode(
         root_node = tree.step(np.int64(action.item()))
         root_node.parent = None
 
-        new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         # TODO: check the difference between terminated and truncated
         next_terminal = terminated or truncated
         trajectory["observations"][step] = observation_tensor
@@ -67,7 +65,7 @@ def run_episode(
         trajectory["policy_distributions"][step] = policy_dist.probs
         trajectory["actions"][step] = action
         trajectory["mask"][step] = True
-        trajectory["terminals"][step] = terminal
+        trajectory["terminals"][step] = next_terminal
 
         if verbose:
             if goal_obs is not None:
@@ -75,13 +73,14 @@ def run_episode(
                 print(f"Visits to goal state: {vis_counter[goal_obs]}")
             norm_entropy = policy_dist.entropy() / np.log(n)
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
-            print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
+            print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {next_terminal}")
 
+
+        new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         observation_tensor = new_observation_tensor
-        terminal = next_terminal
-
-        if terminal:
+        if next_terminal:
             break
+
 
     # if we terminated early, we need to add the final observation to the trajectory as well for value estimation
     # trajectory.append((observation, None, None, None, None))

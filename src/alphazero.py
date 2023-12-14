@@ -253,9 +253,15 @@ class AlphaZeroController:
             # compute the value targets via TD learning
             # the target should be the reward + the value of the next state
             # if the next state is terminal, the value of the next state is 0
+            # the indexation is a bit tricky here, since we want to ignore the last state in the trajectory
+            # the observation at index i is the state at time step i
+            # the reward at index i is the reward obtained by taking action i
+            # the terminal at index i is True if we stepped into a terminal state by taking action i
+            # the policy at index i is the policy we used to take action i
 
-            t_values = ~trajectories["terminals"] * values
-            targets = trajectories["rewards"][:, :-1] + t_values[:, 1:]
+            # the target value is the reward we got + the value of the next state if it is not terminal
+            targets = trajectories["rewards"][:, :-1] + values[:, 1:] * ~trajectories["terminals"][:, :-1]
+            # the td error is the difference between the target and the current value
             td = targets.detach() - values[:, :-1]
             mask = trajectories["mask"][:, :-1]
             # compute the value loss
@@ -271,8 +277,7 @@ class AlphaZeroController:
             )
 
             # we do not want to consider terminal states
-            considered_states = ~trajectories["terminals"] * trajectories["mask"]
-            policy_loss = th.sum(step_loss * considered_states) / th.sum(considered_states)
+            policy_loss = th.sum(step_loss * trajectories["mask"]) / th.sum(trajectories["mask"])
 
 
             loss = (
@@ -311,7 +316,7 @@ def train_alphazero():
     workers = multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
-    replay_buffer_size = 15 * self_play_games_per_iteration
+    replay_buffer_size = 10 * self_play_games_per_iteration
     sample_batch_size = replay_buffer_size // 5
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
