@@ -4,6 +4,7 @@ import time
 import gymnasium as gym
 import numpy as np
 from azmcts import AlphaZeroMCTS
+from environment import obs_to_tensor
 from mcts import MCTS
 
 from model import AlphaZeroModel
@@ -109,6 +110,6 @@ def main_runviss():
         sleep_time=0,
     )
 
-    
+
 if __name__ == "__main__":
     main_runviss()

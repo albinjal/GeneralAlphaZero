@@ -294,7 +294,7 @@ def train_alphazero():
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
     regularization_weight = 1e-4
     optimizer = th.optim.Adam(model.parameters(), lr=1e-3, weight_decay=regularization_weight)
-    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, verbose=True)
+    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98, verbose=True)
     workers = multiprocessing.cpu_count()
     # replay_buffer = TensorDictPrioritizedReplayBuffer(alpha=0.7, beta=1.1,
     #                                                   storage=LazyTensorStorage(workers*20), batch_size=workers*2)
@@ -313,7 +313,7 @@ def train_alphazero():
         compute_budget=100,
         training_epochs=50,
         value_loss_weight=1.0,
-        policy_loss_weight=20.0,
+        policy_loss_weight=50.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
