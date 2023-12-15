@@ -58,7 +58,7 @@ def plot_value_network(outputs, nrows=4, ncols=12):
     plot_image(fig, ax, grid, 'Cliff Walking Value Network')
     return fig
 
-def plot_policy_network(outputs, nrows=4, ncols=12):
+def plot_policy_network(outputs, nrows=4, ncols=12, title='Cliff Walking Policy Network'):
     plt.ioff()
     action_arrows = {0: '↑', 1: '→', 2: '↓', 3: '←'}
     preffered_actions = np.zeros((nrows, ncols), dtype='<U2')
@@ -66,14 +66,13 @@ def plot_policy_network(outputs, nrows=4, ncols=12):
     for state, action in outputs.items():
         row, col = divmod(state, ncols)
         preffered_actions[row, col] = action_arrows[np.argmax(action[1]).item()]
-        entropy[row, col] = th.distributions.Categorical(probs=action[1]).entropy().item() / np.log(4)
+        entropy[row, col] = th.distributions.Categorical(probs=action[1]).entropy().item() / np.log(len(action_arrows))
     fig, ax = create_figure_and_axes()
     for i in range(nrows):
         for j in range(ncols):
-            if i < 3 or j < 1:
-                ax.text(j, i, f'{entropy[i, j]:.2f}', ha='center', va='top', color='black')
-                ax.text(j, i, f'{preffered_actions[i, j]}', ha='center', va='bottom', color='red', fontsize=16)
-    plot_image(fig, ax, entropy, 'Cliff Walking Policy Network')
+            ax.text(j, i, f'{entropy[i, j]:.2f}', ha='center', va='top', color='black')
+            ax.text(j, i, f'{preffered_actions[i, j]}', ha='center', va='bottom', color='red', fontsize=16)
+    plot_image(fig, ax, entropy, title)
     return fig
 
 def plot_to_tensor(fig):

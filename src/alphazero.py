@@ -301,16 +301,15 @@ def train_alphazero():
     # env_id = "CartPole-v1"
     env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
-    # env_id = "Taxi-v3"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=2)
+    selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
-    iterations = 30
+    iterations = 100
 
-    model = AlphaZeroModel(env, hidden_dim=256, layers=5, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=2**10, layers=1, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
-    regularization_weight = 5e-5
+    regularization_weight = 1e-4
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
     workers = multiprocessing.cpu_count()
@@ -327,9 +326,9 @@ def train_alphazero():
         replay_buffer = replay_buffer,
         max_episode_length=200,
         compute_budget=100,
-        training_epochs=50,
+        training_epochs=100,
         value_loss_weight=1.0,
-        policy_loss_weight=50.0,
+        policy_loss_weight=10.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
