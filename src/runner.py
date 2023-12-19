@@ -26,7 +26,7 @@ def run_episode(
     For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
     """
     assert isinstance(env.action_space, gym.spaces.Discrete)
-    n = env.action_space.n
+    n = int(env.action_space.n)
 
     observation, info = env.reset(seed=seed)
 
@@ -35,10 +35,12 @@ def run_episode(
         source={
             "observations": th.zeros(max_steps, gym.spaces.flatdim(env.observation_space), dtype=observation_tensor.dtype),
             "rewards": th.zeros(max_steps, dtype=th.float32),
-            "policy_distributions": th.zeros(max_steps, int(n), dtype=th.float32),
+            "policy_distributions": th.zeros(max_steps, n, dtype=th.float32),
             "actions": th.zeros(max_steps, dtype=th.int64),
             "mask": th.zeros(max_steps, dtype=th.bool),
             "terminals": th.zeros(max_steps, dtype=th.bool),
+            "root_values": th.zeros(max_steps, dtype=th.float32),
+            "child_q_values": th.zeros(max_steps, n, dtype=th.float32),
         },
         batch_size=[max_steps],
     )
@@ -51,6 +53,8 @@ def run_episode(
     root_node.value_evaluation = value
     for step in range(max_steps):
         tree = solver.build_tree(root_node, compute_budget)
+        root_value = tree.value_evaluation
+        child_q_values = th.tensor([child.default_value() for child in tree.get_children()], dtype=th.float32)
         policy_dist = tree_evaluation_policy.distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
@@ -66,6 +70,8 @@ def run_episode(
         trajectory["actions"][step] = action
         trajectory["mask"][step] = True
         trajectory["terminals"][step] = next_terminal
+        trajectory["root_values"][step] = th.tensor(root_value, dtype=th.float32)
+        trajectory["child_q_values"][step] = child_q_values
 
         if verbose:
             if goal_obs is not None:

@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Dict, Generic, TypeVar, Optional, Any, Callable, Tuple
+from typing import Dict, Generic, List, TypeVar, Optional, Any, Callable, Tuple
 import gymnasium as gym
 import numpy as np
 import torch as th
@@ -129,6 +129,13 @@ class Node(Generic[ObservationType]):
             counter.update(child.state_visitation_counts())
 
         return counter
+
+    def get_children(self):
+        # return a list of all children
+        l: List[Node | None] = [None] * self.action_space.n
+        for key, child in self.children.items():
+            l[key] = child
+        return l
 
     def __str__(self):
         return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_sum}\nRollout: {self.default_value()}"

@@ -116,10 +116,12 @@ class AlphaZeroController:
                 value_losses,
                 policy_losses,
                 total_losses,
+                value_sims,
             ) = self.learn()
 
             self.writer.add_scalar("Loss/Value_loss", np.mean(value_losses), i)
             self.writer.add_scalar("Loss/Policy_loss", np.mean(policy_losses), i)
+            self.writer.add_scalar("Loss/Value_Simularities", np.mean(value_sims), i)
 
             # the regularization loss is the squared l2 norm of the weights
             regularization_loss = th.tensor(0.0, device=self.agent.model.device)
@@ -243,6 +245,7 @@ class AlphaZeroController:
         policy_losses = []
         # regularization_losses = []
         total_losses = []
+        value_sims = []
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
@@ -259,13 +262,17 @@ class AlphaZeroController:
             # the terminal at index i is True if we stepped into a terminal state by taking action i
             # the policy at index i is the policy we used to take action i
 
+            with th.no_grad():
+                # this value estimates how on policy the trajectories are. If the trajectories are on policy, this value should be close to 1
+                value_simularities = th.exp(-th.sum((trajectories["mask"] * (1 - trajectories["root_values"] / values)) ** 2, dim=-1) / trajectories["mask"].sum(dim=-1))
+
             # the target value is the reward we got + the value of the next state if it is not terminal
             targets = trajectories["rewards"][:, :-1] + values[:, 1:] * ~trajectories["terminals"][:, :-1]
             # the td error is the difference between the target and the current value
             td = targets.detach() - values[:, :-1]
             mask = trajectories["mask"][:, :-1]
             # compute the value loss
-            value_loss = th.sum((td * mask) ** 2) / th.sum(mask)
+            value_loss = th.sum(th.sum((td * mask) ** 2, dim=-1) * value_simularities) / th.sum(mask)
 
 
 
@@ -292,8 +299,9 @@ class AlphaZeroController:
             policy_losses.append(policy_loss.item())
             # regularization_losses.append(regularization_loss.item())
             total_losses.append(loss.item())
+            value_sims.append(value_simularities.mean().item())
 
-        return value_losses, policy_losses, total_losses
+        return value_losses, policy_losses, total_losses, value_sims
 
 
 
@@ -312,10 +320,10 @@ def train_alphazero():
     regularization_weight = 1e-4
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
-    workers = multiprocessing.cpu_count()
+    workers = 1 # multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
-    replay_buffer_size = 10 * self_play_games_per_iteration
+    replay_buffer_size = 20 * self_play_games_per_iteration
     sample_batch_size = replay_buffer_size // 5
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
@@ -324,11 +332,11 @@ def train_alphazero():
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=200,
+        max_episode_length=50,
         compute_budget=100,
         training_epochs=100,
         value_loss_weight=1.0,
-        policy_loss_weight=10.0,
+        policy_loss_weight=1.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
