@@ -66,6 +66,7 @@ class AlphaZeroController:
         self_play_workers = 1,
         secheduler = None,
         value_sim_loss = False,
+        discount_factor = 1.0,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -88,6 +89,7 @@ class AlphaZeroController:
         os.makedirs(self.run_dir, exist_ok=True)
 
         self.checkpoint_interval = checkpoint_interval
+        self.discount_factor = np.float32(discount_factor)
         # Log the model
         if self.agent.model.device == th.device("cpu"):
             self.writer.add_graph(
@@ -269,7 +271,7 @@ class AlphaZeroController:
                 value_simularities = th.exp(-th.sum((trajectories["mask"] * (1 - trajectories["root_values"] / values)) ** 2, dim=-1) / trajectories["mask"].sum(dim=-1))
 
             # the target value is the reward we got + the value of the next state if it is not terminal
-            targets = trajectories["rewards"][:, :-1] + values[:, 1:] * ~trajectories["terminals"][:, :-1]
+            targets = trajectories["rewards"][:, :-1] + self.discount_factor * values[:, 1:] * ~trajectories["terminals"][:, :-1]
             # the td error is the difference between the target and the current value
             td = targets.detach() - values[:, :-1]
             mask = trajectories["mask"][:, :-1]
@@ -319,13 +321,14 @@ def train_alphazero():
     selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
     iterations = 100
+    discount_factor = .99
 
-    model = AlphaZeroModel(env, hidden_dim=2**10, layers=1, pref_gpu=False)
-    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
+    model = AlphaZeroModel(env, hidden_dim=2**8, layers=1, pref_gpu=False)
+    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor)
     regularization_weight = 1e-4
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
-    workers = 1 # multiprocessing.cpu_count()
+    workers = multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
     replay_buffer_size = 20 * self_play_games_per_iteration
@@ -337,7 +340,7 @@ def train_alphazero():
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=50,
+        max_episode_length=200,
         compute_budget=100,
         training_epochs=100,
         value_loss_weight=1.0,
@@ -346,6 +349,7 @@ def train_alphazero():
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
         secheduler=scheduler,
+        discount_factor=discount_factor,
     )
     controller.iterate(iterations)
 

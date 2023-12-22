@@ -25,9 +25,11 @@ class MCTS(Generic[ObservationType]):
         self,
         selection_policy: OptionalPolicy[ObservationType],
         expansion_policy: Policy[ObservationType] | None = None,
+        discount_factor: float = 1.0,
     ):
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
         self.expansion_policy = expansion_policy
+        self.discount_factor = np.float32(discount_factor)
 
     def search(
         self,
@@ -66,7 +68,7 @@ class MCTS(Generic[ObservationType]):
                 # the value (sum of future reward) of the node is 0
                 # the backup will still propagate the visit and reward
                 selected_node_for_expansion.value_evaluation = np.float32(0.0)
-                selected_node_for_expansion.backup(np.float32(0))
+                self.backup(selected_node_for_expansion, np.float32(0))
             else:
                 self.handle_selected_node(selected_node_for_expansion)
 
@@ -91,7 +93,7 @@ class MCTS(Generic[ObservationType]):
         value = self.value_function(eval_node)
         # backupagate the value
         eval_node.value_evaluation = value
-        eval_node.backup(value)
+        self.backup(eval_node, value)
 
     def handle_all(
         self, node: Node[ObservationType],
@@ -142,7 +144,7 @@ class MCTS(Generic[ObservationType]):
         Note that the function will modify the env and the input node
         """
         # if this is the last child to be expanded, we do not need to copy the env
-        if len(node.children) == node.action_space.n - 1:
+        if len(node.children) == int(node.action_space.n) - 1:
             env = node.env
             node.env = None
         else:
@@ -169,6 +171,19 @@ class MCTS(Generic[ObservationType]):
         node.children[action] = new_child
         return new_child
 
+    def backup(self, start_node: Node, value: np.float32, new_visits: int = 1) -> None:
+        # add the value and the reward to all parent nodes
+        # we weight the reward by visit count of node (from mathematically derived formula)
+        # for example, the immidiate reward will have the highest weight
+        node = start_node
+        cum_reward = value
+        while node is not None:
+            cum_reward *= self.discount_factor
+            cum_reward += node.reward
+            node.subtree_sum += cum_reward
+            node.visits += new_visits
+            # parent is None if node is root
+            node = node.parent
 
 class RandomRolloutMCTS(MCTS):
     def __init__(self, rollout_budget=40, *args, **kwargs):
