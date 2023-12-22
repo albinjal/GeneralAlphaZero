@@ -65,6 +65,7 @@ class AlphaZeroController:
         self_play_iterations=10,
         self_play_workers = 1,
         secheduler = None,
+        value_sim_loss = False,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -82,6 +83,7 @@ class AlphaZeroController:
         log_dir = f"{tensorboard_dir}/{self.run_name}"
         self.writer = SummaryWriter(log_dir=log_dir)
         self.run_dir = f"{runs_dir}/{self.run_name}"
+        self.value_sim_loss = value_sim_loss
         # create run dir if it does not exist
         os.makedirs(self.run_dir, exist_ok=True)
 
@@ -145,8 +147,8 @@ class AlphaZeroController:
 
             # if the env is CliffWalking-v0, plot the output of the value and policy networks
             assert self.env.spec is not None
-            assert self.env.observation_space is not None
             if self.env.spec.id == "CliffWalking-v0":
+                assert self.env.observation_space is not None
                 show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
 
 
@@ -272,7 +274,10 @@ class AlphaZeroController:
             td = targets.detach() - values[:, :-1]
             mask = trajectories["mask"][:, :-1]
             # compute the value loss
-            value_loss = th.sum(th.sum((td * mask) ** 2, dim=-1) * value_simularities) / th.sum(mask)
+            if self.value_sim_loss:
+                value_loss = th.sum(th.sum((td * mask) ** 2, dim=-1) * value_simularities) / th.sum(mask)
+            else:
+                value_loss = th.sum((td * mask) ** 2) / th.sum(mask)
 
 
 
