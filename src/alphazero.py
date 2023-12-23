@@ -21,12 +21,15 @@ import os
 import numpy as np
 
 import multiprocessing
-
+from learning import n_step_value_targets, one_step_value_targets
 from mcts import MCTS
 from model import AlphaZeroModel
 from node import Node
 from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 from runner import run_episode
+
+
+
 
 
 def run_episode_process(args):
@@ -67,6 +70,7 @@ class AlphaZeroController:
         secheduler = None,
         value_sim_loss = False,
         discount_factor = 1.0,
+        n_steps_learning: int = 1,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -89,7 +93,8 @@ class AlphaZeroController:
         os.makedirs(self.run_dir, exist_ok=True)
 
         self.checkpoint_interval = checkpoint_interval
-        self.discount_factor = np.float32(discount_factor)
+        self.discount_factor = discount_factor
+        self.n_steps_learning = n_steps_learning
         # Log the model
         if self.agent.model.device == th.device("cpu"):
             self.writer.add_graph(
@@ -266,14 +271,15 @@ class AlphaZeroController:
             # the terminal at index i is True if we stepped into a terminal state by taking action i
             # the policy at index i is the policy we used to take action i
 
+
             with th.no_grad():
                 # this value estimates how on policy the trajectories are. If the trajectories are on policy, this value should be close to 1
                 value_simularities = th.exp(-th.sum((trajectories["mask"] * (1 - trajectories["root_values"] / values)) ** 2, dim=-1) / trajectories["mask"].sum(dim=-1))
 
             # the target value is the reward we got + the value of the next state if it is not terminal
-            targets = trajectories["rewards"][:, :-1] + self.discount_factor * values[:, 1:] * ~trajectories["terminals"][:, :-1]
+            targets = n_step_value_targets(trajectories["rewards"], values.detach(), trajectories["terminals"], self.discount_factor, self.n_steps_learning)
             # the td error is the difference between the target and the current value
-            td = targets.detach() - values[:, :-1]
+            td = targets - values[:, :-1]
             mask = trajectories["mask"][:, :-1]
             # compute the value loss
             if self.value_sim_loss:
@@ -313,6 +319,8 @@ class AlphaZeroController:
 
 
 def train_alphazero():
+    # set seed
+    np.random.seed(0)
     # env_id = "CartPole-v1"
     env_id = "CliffWalking-v0"
     # env_id = "FrozenLake-v1"
@@ -320,11 +328,12 @@ def train_alphazero():
 
     selection_policy = PUCT(c=1)
     tree_evaluation_policy = DefaultTreeEvaluator()
+
     iterations = 100
     discount_factor = .99
 
     model = AlphaZeroModel(env, hidden_dim=2**8, layers=1, pref_gpu=False)
-    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor)
+    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
     regularization_weight = 1e-4
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
@@ -350,6 +359,7 @@ def train_alphazero():
         self_play_workers=workers,
         secheduler=scheduler,
         discount_factor=discount_factor,
+        n_steps_learning=1,
     )
     controller.iterate(iterations)
 
