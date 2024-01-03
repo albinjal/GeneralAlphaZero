@@ -40,6 +40,8 @@ class AlphaZeroModel(th.nn.Module):
 
         self.layers = th.nn.ModuleList()
         self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
+        self.layers.append(th.nn.ReLU())
+
         for _ in range(layers):
             self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
             self.layers.append(th.nn.ReLU())
@@ -59,6 +61,17 @@ class AlphaZeroModel(th.nn.Module):
         )
         self.to(self.device)
         self.nlayers = layers
+
+        # print the model parameters
+        print(f"Model initialized on {self.device} with the following parameters:")
+        total_params = 0
+        for name, param in self.named_parameters():
+            if not param.requires_grad:
+                continue
+            print(name, param.numel())
+            total_params += param.numel()
+        print(f"Total number of trainable parameters: {total_params}")
+
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
