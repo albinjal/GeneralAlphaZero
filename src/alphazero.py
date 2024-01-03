@@ -16,7 +16,7 @@ from torchrl.data import (
     TensorDictReplayBuffer,
     TensorDictPrioritizedReplayBuffer
 )
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard.writer import SummaryWriter
 import os
 import numpy as np
 
@@ -27,6 +27,7 @@ from model import AlphaZeroModel
 from node import Node
 from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
 from runner import run_episode
+from t_board import add_self_play_metrics, add_training_metrics, log_model
 
 
 
@@ -67,7 +68,7 @@ class AlphaZeroController:
         policy_loss_weight=1.0,
         self_play_iterations=10,
         self_play_workers = 1,
-        secheduler = None,
+        secheduler: th.optim.lr_scheduler.LRScheduler | None= None,
         value_sim_loss = False,
         discount_factor = 1.0,
         n_steps_learning: int = 1,
@@ -96,18 +97,9 @@ class AlphaZeroController:
         self.discount_factor = discount_factor
         self.n_steps_learning = n_steps_learning
         # Log the model
-        if self.agent.model.device == th.device("cpu"):
-            self.writer.add_graph(
-                self.agent.model,
-                th.tensor(
-                    [
-                        gym.spaces.flatten(
-                            self.env.observation_space, self.env.reset()[0]
-                        )
-                    ],
-                    dtype=th.float32,
-                ),
-            )
+        log_model(self.writer, self.agent.model, self.env)
+
+
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
@@ -128,22 +120,13 @@ class AlphaZeroController:
                 value_sims,
             ) = self.learn()
 
-            self.writer.add_scalar("Loss/Value_loss", np.mean(value_losses), i)
-            self.writer.add_scalar("Loss/Policy_loss", np.mean(policy_losses), i)
-            self.writer.add_scalar("Loss/Value_Simularities", np.mean(value_sims), i)
-
             # the regularization loss is the squared l2 norm of the weights
             regularization_loss = th.tensor(0.0, device=self.agent.model.device)
-
             for param in self.agent.model.parameters():
                 regularization_loss += th.sum(th.square(param))
-            self.writer.add_scalar(
-                "Loss/Regularization_loss", regularization_loss, i
-            )
-            self.writer.add_scalar("Loss/Total_loss", np.mean(total_losses), i)
 
-            # Log the size of the replay buffer
-            self.writer.add_scalar("Replay_Buffer/Size", len(self.replay_buffer), i)
+            add_training_metrics(self.writer, value_losses, policy_losses, value_sims, regularization_loss, total_losses, len(self.replay_buffer),
+                                 self.scheduler.get_last_lr() if self.scheduler else None, i)
 
             if i % self.checkpoint_interval == 0:
                 print(f"Saving model at iteration {i}")
@@ -155,10 +138,8 @@ class AlphaZeroController:
             # if the env is CliffWalking-v0, plot the output of the value and policy networks
             assert self.env.spec is not None
             if self.env.spec.id == "CliffWalking-v0":
-                assert self.env.observation_space is not None
+                assert isinstance(self.env.observation_space, gym.spaces.Discrete)
                 show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
-
-
 
         # save the final model
         self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
@@ -224,28 +205,9 @@ class AlphaZeroController:
         # Calculate statistics
         mean_reward = np.mean(rewards)
         reward_variance = np.var(rewards, ddof=1)
+        add_self_play_metrics(self.writer, mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step)
 
 
-        # Log the statistics
-        self.writer.add_scalar("Self_Play/Mean_Reward", mean_reward, global_step)
-        self.writer.add_scalar(
-            "Self_Play/Reward_STD", np.sqrt(reward_variance), global_step
-        )
-        self.writer.add_scalar(
-            "Self_Play/Mean_Timesteps", np.mean(time_steps), global_step
-        )
-        self.writer.add_scalar(
-            "Self_Play/Timesteps_STD", np.sqrt(np.var(time_steps, ddof=1)), global_step
-        )
-        self.writer.add_scalar(
-            "Self_Play/Runtime_per_Timestep",
-            tot_tim.microseconds / np.sum(time_steps),
-            global_step,
-        )
-
-        self.writer.add_scalar(
-            "Self_Play/Mean_Entropy", np.mean(entropies), global_step
-        )
 
         return mean_reward
 
@@ -349,11 +311,11 @@ def train_alphazero():
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=200,
-        compute_budget=100,
+        max_episode_length=300,
+        compute_budget=50,
         training_epochs=100,
         value_loss_weight=1.0,
-        policy_loss_weight=1.0,
+        policy_loss_weight=10.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
