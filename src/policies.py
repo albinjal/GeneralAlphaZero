@@ -108,3 +108,23 @@ class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
             visits[action] = child.visits
 
         return th.distributions.Categorical(visits)
+
+
+
+class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
+    """
+    Same as DefaultTreeEvaluator but with softmax applied to the visits. temperature controls the softmax temperature.
+    """
+
+    def __init__(self, temperature: float):
+        self.temperature = temperature
+    # the default tree evaluator selects the action with the most visits
+    def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
+        visits = th.zeros(int(node.action_space.n), dtype=th.float32)
+        for action, child in node.children.items():
+            visits[action] = child.visits
+
+        return th.distributions.Categorical(th.softmax(visits / self.temperature, dim=-1))
+
+
+

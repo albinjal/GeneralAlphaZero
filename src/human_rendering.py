@@ -102,7 +102,7 @@ def main_runviss():
         f"runs/{env_id}*",
         env_args,
         DefaultTreeEvaluator(),
-        compute_budget=4**3,
+        compute_budget=1000,
         max_steps=1000,
         verbose=True,
         goal_obs=None,

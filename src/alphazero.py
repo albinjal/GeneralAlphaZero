@@ -25,7 +25,7 @@ from learning import n_step_value_targets, one_step_value_targets
 from mcts import MCTS
 from model import AlphaZeroModel
 from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy, SoftmaxDefaultTreeEvaluator
 from runner import run_episode
 from t_board import add_self_play_metrics, add_training_metrics, log_model
 
@@ -289,7 +289,7 @@ def train_alphazero():
     env = gym.make(env_id)
 
     selection_policy = PUCT(c=1)
-    tree_evaluation_policy = DefaultTreeEvaluator()
+    tree_evaluation_policy = SoftmaxDefaultTreeEvaluator(temperature=10)
 
     iterations = 100
     discount_factor = .99

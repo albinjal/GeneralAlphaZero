@@ -66,8 +66,6 @@ class AlphaZeroModel(th.nn.Module):
         print(f"Model initialized on {self.device} with the following parameters:")
         total_params = 0
         for name, param in self.named_parameters():
-            if not param.requires_grad:
-                continue
             print(name, param.numel())
             total_params += param.numel()
         print(f"Total number of trainable parameters: {total_params}")
