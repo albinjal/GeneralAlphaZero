@@ -31,8 +31,8 @@ def obs_to_tensor_onehot(observation_space: gym.Space, observation, *args, **kwa
 def obs_dim_onehot(observation_space: gym.Space):
     return gym.spaces.flatdim(observation_space)
 
-obs_to_tensor = obs_to_tensor_onehot
-obs_dim = obs_dim_onehot
+obs_to_tensor = obs_to_tensor_coordinates
+obs_dim = obs_dim_coordinates
 
 @th.no_grad()
 def investigate_model(observation_space: gym.spaces.Discrete, model: th.nn.Module):
