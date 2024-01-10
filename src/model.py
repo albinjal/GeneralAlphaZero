@@ -39,7 +39,7 @@ class AlphaZeroModel(th.nn.Module):
         self.env = env
         self.hidden_dim = hidden_dim
         self.state_dim = obs_dim(env.observation_space)
-        self.action_dim = obs_dim(env.action_space)
+        self.action_dim = gym.spaces.flatdim(env.action_space)
 
         self.layers = th.nn.ModuleList()
         self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))

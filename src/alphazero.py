@@ -288,7 +288,7 @@ def train_alphazero():
     # env_id = "FrozenLake-v1"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=1)
+    selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     iterations = 100
@@ -296,14 +296,14 @@ def train_alphazero():
 
     model = AlphaZeroModel(env, hidden_dim=2**8, layers=1, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
-    regularization_weight = 1e-4
+    regularization_weight = 1e-5
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = None # th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
     workers = multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
-    replay_buffer_size = 20 * self_play_games_per_iteration
-    sample_batch_size = replay_buffer_size // 5
+    replay_buffer_size = 10 * self_play_games_per_iteration
+    sample_batch_size = replay_buffer_size // 10
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
     controller = AlphaZeroController(
@@ -315,13 +315,13 @@ def train_alphazero():
         compute_budget=50,
         training_epochs=100,
         value_loss_weight=1.0,
-        policy_loss_weight=10.0,
+        policy_loss_weight=1.0,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
         secheduler=scheduler,
         discount_factor=discount_factor,
-        n_steps_learning=1,
+        n_steps_learning=5,
     )
     controller.iterate(iterations)
 

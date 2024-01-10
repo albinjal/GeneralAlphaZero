@@ -8,17 +8,31 @@ from PIL import Image
 import io
 
 
-def obs_to_tensor(observation_space: gym.Space, observation, *args, **kwargs):
+
+def obs_to_tensor_coordinates(observation_space: gym.Space, observation, ncols=12, *args, **kwargs):
+    """
+    Returns a tensor of shape (2,) with the coordinates of the observation
+    """
+    cords = divmod(observation, ncols)
+    return th.tensor(cords, *args, **kwargs)
+
+
+def obs_dim_coordinates(observation_space: gym.Space):
+    return 2
+
+
+def obs_to_tensor_onehot(observation_space: gym.Space, observation, *args, **kwargs):
     return th.tensor(
         gym.spaces.flatten(observation_space, observation),
         *args,
         **kwargs,
     )
 
-
-def obs_dim(observation_space: gym.Space):
+def obs_dim_onehot(observation_space: gym.Space):
     return gym.spaces.flatdim(observation_space)
 
+obs_to_tensor = obs_to_tensor_onehot
+obs_dim = obs_dim_onehot
 
 @th.no_grad()
 def investigate_model(observation_space: gym.spaces.Discrete, model: th.nn.Module):
@@ -91,7 +105,7 @@ def plot_policy_network(
 
 
 def plot_to_tensor(fig):
-    """Convert a Matplotlib figure to a 4D tensor for TensorBoard."""
+    """Convert a Matplotlib figure to a 3D tensor for TensorBoard."""
     buf = io.BytesIO()
     fig.savefig(buf, format="png")
     buf.seek(0)

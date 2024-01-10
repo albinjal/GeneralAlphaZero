@@ -7,16 +7,14 @@ from node import Node
 ObservationType = TypeVar("ObservationType")
 
 
-
 class Policy(ABC, Generic[ObservationType]):
-
     def __call__(self, node: Node[ObservationType]) -> np.int64:
         return self.sample(node)
-
 
     @abstractmethod
     def sample(self, node: Node[ObservationType]) -> np.int64:
         """Take a node and return an action"""
+
 
 class PolicyDistribution(Policy[ObservationType]):
     """Also lets us view the full distribution of the policy, not only sample from it.
@@ -37,18 +35,14 @@ class PolicyDistribution(Policy[ObservationType]):
         pass
 
 
-
 class OptionalPolicy(ABC, Generic[ObservationType]):
     def __call__(self, node: Node[ObservationType]) -> np.int64 | None:
         return self.sample(node)
 
-
     @abstractmethod
     def sample(self, node: Node[ObservationType]) -> np.int64 | None:
-        """Take a node and return an action"""
-
-
-
+        """Take a node and return an action or None if no action is chosen"""
+        pass
 
 
 class UCT(OptionalPolicy[ObservationType]):
@@ -69,7 +63,6 @@ class UCT(OptionalPolicy[ObservationType]):
         return child.default_value() + self.c * (node.visits / child.visits) ** 0.5
 
 
-
 class PUCT(OptionalPolicy[ObservationType]):
     def __init__(self, c: float):
         self.c = c
@@ -87,8 +80,9 @@ class PUCT(OptionalPolicy[ObservationType]):
     def puct(self, node: Node, action: np.int64) -> float:
         child = node.children[action]
         prior = node.prior_policy[action]
-        return child.default_value() + self.c * prior * (node.visits ** 0.5) / (child.visits + 1)
-
+        return child.default_value() + self.c * prior * (node.visits**0.5) / (
+            child.visits + 1
+        )
 
 
 class RandomPolicy(Policy[ObservationType]):
@@ -112,7 +106,6 @@ class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
         return th.distributions.Categorical(visits)
 
 
-
 class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
     """
     Same as DefaultTreeEvaluator but with softmax applied to the visits. temperature controls the softmax temperature.
@@ -120,11 +113,13 @@ class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
 
     def __init__(self, temperature: float):
         self.temperature = temperature
+
     # the default tree evaluator selects the action with the most visits
     def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
         visits = th.zeros(int(node.action_space.n), dtype=th.float32)
         for action, child in node.children.items():
             visits[action] = child.visits
 
-        return th.distributions.Categorical(th.softmax(visits / self.temperature, dim=-1))
-
+        return th.distributions.Categorical(
+            th.softmax(visits / self.temperature, dim=-1)
+        )
