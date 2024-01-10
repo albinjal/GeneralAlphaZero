@@ -6,6 +6,8 @@ from node import Node
 
 ObservationType = TypeVar("ObservationType")
 
+
+
 class Policy(ABC, Generic[ObservationType]):
 
     def __call__(self, node: Node[ObservationType]) -> np.int64:
@@ -125,6 +127,4 @@ class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
             visits[action] = child.visits
 
         return th.distributions.Categorical(th.softmax(visits / self.temperature, dim=-1))
-
-
 

@@ -2,6 +2,9 @@ from typing import Tuple
 import torch as th
 import gymnasium as gym
 
+from environment import obs_dim
+
+
 class AlphaZeroModel(th.nn.Module):
     """
     The point of this class is to make sure the model is compatible with MCTS:
@@ -35,8 +38,8 @@ class AlphaZeroModel(th.nn.Module):
 
         self.env = env
         self.hidden_dim = hidden_dim
-        self.state_dim = gym.spaces.flatdim(env.observation_space)
-        self.action_dim = gym.spaces.flatdim(env.action_space)
+        self.state_dim = obs_dim(env.observation_space)
+        self.action_dim = obs_dim(env.action_space)
 
         self.layers = th.nn.ModuleList()
         self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
@@ -70,7 +73,6 @@ class AlphaZeroModel(th.nn.Module):
             total_params += param.numel()
         print(f"Total number of trainable parameters: {total_params}")
 
-
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
         for layer in self.layers:
@@ -82,7 +84,6 @@ class AlphaZeroModel(th.nn.Module):
         policy = th.nn.functional.softmax(policy, dim=-1)
         return value.squeeze(-1), policy
 
-
     def save_model(self, filename: str):
         model_info = {
             "state_dict": self.state_dict(),
@@ -93,7 +94,6 @@ class AlphaZeroModel(th.nn.Module):
             # Add other relevant model configuration here
         }
         th.save(model_info, filename)
-
 
     @staticmethod
     def load_model(filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128):
@@ -107,8 +107,10 @@ class AlphaZeroModel(th.nn.Module):
         model = AlphaZeroModel(
             env=env,
             hidden_dim=hidden_dim,
-            layers=model_info["layers"],  # Subtracting 1 because the first layer is added by default
-            pref_gpu=pref_gpu
+            layers=model_info[
+                "layers"
+            ],  # Subtracting 1 because the first layer is added by default
+            pref_gpu=pref_gpu,
         )
 
         # Load the state dict into the newly created model

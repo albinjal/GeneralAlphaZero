@@ -25,7 +25,7 @@ from learning import n_step_value_targets, one_step_value_targets
 from mcts import MCTS
 from model import AlphaZeroModel
 from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy, SoftmaxDefaultTreeEvaluator
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy, PolicyDistribution, SoftmaxDefaultTreeEvaluator
 from runner import run_episode
 from t_board import add_self_play_metrics, add_training_metrics, log_model
 
@@ -58,7 +58,7 @@ class AlphaZeroController:
         optimizer: th.optim.Optimizer,
         replay_buffer = TensorDictReplayBuffer(),
         training_epochs=10,
-        tree_evaluation_policy=DefaultTreeEvaluator(),
+        tree_evaluation_policy: PolicyDistribution =DefaultTreeEvaluator(),
         compute_budget=100,
         max_episode_length=500,
         tensorboard_dir="./tensorboard_logs",
@@ -289,16 +289,16 @@ def train_alphazero():
     env = gym.make(env_id)
 
     selection_policy = PUCT(c=1)
-    tree_evaluation_policy = SoftmaxDefaultTreeEvaluator(temperature=10)
+    tree_evaluation_policy = DefaultTreeEvaluator()
 
     iterations = 100
-    discount_factor = .99
+    discount_factor = 1.0
 
     model = AlphaZeroModel(env, hidden_dim=2**8, layers=1, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
     regularization_weight = 1e-4
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
-    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
+    scheduler = None # th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
     workers = multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers

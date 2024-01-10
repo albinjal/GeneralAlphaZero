@@ -5,7 +5,7 @@ import copy
 from typing import Any, List, Tuple
 import gymnasium as gym
 import numpy as np
-from environment import obs_to_tensor
+from environment import obs_dim, obs_to_tensor
 from mcts import MCTS, RandomRolloutMCTS
 from node import Node
 from policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution
@@ -30,10 +30,16 @@ def run_episode(
 
     observation, info = env.reset(seed=seed)
 
-    observation_tensor = obs_to_tensor(env.observation_space, observation, dtype=th.float32)
+    observation_tensor = obs_to_tensor(
+        env.observation_space, observation, dtype=th.float32
+    )
     trajectory = TensorDict(
         source={
-            "observations": th.zeros(max_steps, gym.spaces.flatdim(env.observation_space), dtype=observation_tensor.dtype),
+            "observations": th.zeros(
+                max_steps,
+                obs_dim(env.observation_space),
+                dtype=observation_tensor.dtype,
+            ),
             "rewards": th.zeros(max_steps, dtype=th.float32),
             "policy_distributions": th.zeros(max_steps, n, dtype=th.float32),
             "actions": th.zeros(max_steps, dtype=th.int64),
@@ -47,14 +53,19 @@ def run_episode(
 
     root_node = Node(
         env=copy.deepcopy(env),
-        parent=None, reward=np.float32(.0), action_space=env.action_space, observation=observation
+        parent=None,
+        reward=np.float32(0.0),
+        action_space=env.action_space,
+        observation=observation,
     )
     value = solver.value_function(root_node)
     root_node.value_evaluation = value
     for step in range(max_steps):
         tree = solver.build_tree(root_node, compute_budget)
         root_value = tree.value_evaluation
-        child_q_values = th.tensor([child.default_value() for child in tree.get_children()], dtype=th.float32)
+        child_q_values = th.tensor(
+            [child.default_value() for child in tree.get_children()], dtype=th.float32
+        )
         policy_dist = tree_evaluation_policy.distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
@@ -79,25 +90,21 @@ def run_episode(
                 print(f"Visits to goal state: {vis_counter[goal_obs]}")
             norm_entropy = policy_dist.entropy() / np.log(n)
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
-            print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {next_terminal}")
-
+            print(
+                f"{step}. O: {observation}, A: {action}, R: {reward}, T: {next_terminal}"
+            )
 
         new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         observation_tensor = new_observation_tensor
         if next_terminal:
             break
 
-
     # if we terminated early, we need to add the final observation to the trajectory as well for value estimation
     # trajectory.append((observation, None, None, None, None))
     # observations.append(observation)
     # convert render to tensor
 
-
     return trajectory
-
-
-
 
 
 def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):

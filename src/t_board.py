@@ -4,6 +4,8 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torch as th
 import gymnasium as gym
 
+from environment import obs_to_tensor
+
 def add_training_metrics(writer: SummaryWriter, value_losses, policy_losses, value_sims,regularization_loss, total_losses,buffer_size, learning_rate, i):
     writer.add_scalar("Training/Value_loss", np.mean(value_losses), i)
     writer.add_scalar("Training/Policy_loss", np.mean(policy_losses), i)
@@ -43,14 +45,8 @@ def add_self_play_metrics(writer: SummaryWriter, mean_reward, reward_variance, t
 
 def log_model(writer: SummaryWriter, model: th.nn.Module, env: gym.Env):
     if model.device == th.device("cpu"):
+        obs = env.reset()[0]
         writer.add_graph(
             model,
-            th.tensor(
-                [
-                    gym.spaces.flatten(
-                        env.observation_space, env.reset()[0]
-                    )
-                ],
-                dtype=th.float32,
-            ),
+            obs_to_tensor(env.observation_space, obs, dtype=th.float32),
         )
