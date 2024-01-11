@@ -45,20 +45,18 @@ def investigate_model(observation_space: gym.spaces.Discrete, model: th.nn.Modul
         output[obs] = model(obs_to_tensor(observation_space, obs, dtype=th.float32))
     return output
 
-
 def create_figure_and_axes():
     fig, ax = plt.subplots()
     ax.grid(False)
     ax.axis("off")
     return fig, ax
 
-
 def plot_image(fig, ax, image, title):
     ax.imshow(image, interpolation="nearest")
     ax.set_title(title)
     plt.tight_layout(pad=0)
-    plt.close(fig)
-
+    if fig is not None:
+        plt.close(fig)
 
 def plot_value_network(outputs, nrows=4, ncols=12):
     plt.ioff()
@@ -72,7 +70,6 @@ def plot_value_network(outputs, nrows=4, ncols=12):
             ax.text(j, i, f"{grid[i, j]:.0f}", ha="center", va="center", color="blue")
     plot_image(fig, ax, grid, "Cliff Walking Value Network")
     return fig
-
 
 def plot_policy_network(
     outputs, nrows=4, ncols=12, title="Cliff Walking Policy Network"
@@ -103,17 +100,6 @@ def plot_policy_network(
     plot_image(fig, ax, entropy, title)
     return fig
 
-
-def plot_to_tensor(fig):
-    """Convert a Matplotlib figure to a 3D tensor for TensorBoard."""
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png")
-    buf.seek(0)
-    img = Image.open(buf).convert("RGB")  # Convert image to RGB mode
-    tensor = ToTensor()(img).unsqueeze(0)
-    return tensor
-
-
 def show_model_in_tensorboard(
     observation_space: gym.spaces.Discrete, model: th.nn.Module, writer, step
 ):
@@ -121,7 +107,5 @@ def show_model_in_tensorboard(
     outputs = investigate_model(observation_space, model)
     value_fig = plot_value_network(outputs, nrows=rows, ncols=cols)
     policy_fig = plot_policy_network(outputs, nrows=rows, ncols=cols)
-    value_tensor = plot_to_tensor(value_fig)
-    policy_tensor = plot_to_tensor(policy_fig)
-    writer.add_image("value_network", value_tensor, step, dataformats="NCHW")
-    writer.add_image("policy_network", policy_tensor, step, dataformats="NCHW")
+    writer.add_figure("value_network", value_fig, global_step=step)
+    writer.add_figure("policy_network", policy_fig, global_step=step)
