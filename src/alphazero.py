@@ -68,7 +68,7 @@ class AlphaZeroController:
         policy_loss_weight=1.0,
         self_play_iterations=10,
         self_play_workers = 1,
-        secheduler: th.optim.lr_scheduler.LRScheduler | None= None,
+        scheduler: th.optim.lr_scheduler.LRScheduler | None= None,
         value_sim_loss = False,
         discount_factor = 1.0,
         n_steps_learning: int = 1,
@@ -98,14 +98,15 @@ class AlphaZeroController:
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
         self.self_play_iterations = self_play_iterations
-        self.scheduler = secheduler
+        self.scheduler = scheduler
 
     def iterate(self, iterations=10):
-
+        total_reward = last_reward = 0.0
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            self.self_play(i)
+            last_reward = self.self_play(i)
+            total_reward += last_reward
             print("Learning...")
             (
                 value_losses,
@@ -138,8 +139,8 @@ class AlphaZeroController:
         # save the final model
         self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
 
-        # close the writer
-        self.writer.close()
+
+        return {"last_reward": last_reward, "average_reward": total_reward / iterations}
 
     def self_play(self, global_step):
         """Play games in parallel and store the data in the replay buffer."""
@@ -203,7 +204,7 @@ class AlphaZeroController:
 
 
 
-        return mean_reward
+        return float(mean_reward)
 
     def learn(self):
         value_losses = []
@@ -292,7 +293,7 @@ def train_alphazero():
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
     regularization_weight = 1e-5
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
-    scheduler = None # th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
+    scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99, verbose=True)
     workers = multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
@@ -324,14 +325,13 @@ def train_alphazero():
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
-        secheduler=scheduler,
+        scheduler=scheduler,
         discount_factor=discount_factor,
         n_steps_learning=5,
     )
     controller.iterate(iterations)
-
     env.close()
-
+    writer.close()
 
 if __name__ == "__main__":
     train_alphazero()
