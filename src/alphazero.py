@@ -61,8 +61,8 @@ class AlphaZeroController:
         tree_evaluation_policy: PolicyDistribution =DefaultTreeEvaluator(),
         compute_budget=100,
         max_episode_length=500,
-        tensorboard_dir="./tensorboard_logs",
-        runs_dir="./runs",
+        writer: SummaryWriter = SummaryWriter(),
+        run_dir="./logs",
         checkpoint_interval=5,
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
@@ -72,6 +72,7 @@ class AlphaZeroController:
         value_sim_loss = False,
         discount_factor = 1.0,
         n_steps_learning: int = 1,
+
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -82,13 +83,8 @@ class AlphaZeroController:
         self.compute_budget = compute_budget
         self.max_episode_length = max_episode_length
         self.self_play_workers = self_play_workers
-        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        assert env.spec is not None
-        env_id = env.spec.id
-        self.run_name = f"{env_id}_{current_time}"
-        log_dir = f"{tensorboard_dir}/{self.run_name}"
-        self.writer = SummaryWriter(log_dir=log_dir)
-        self.run_dir = f"{runs_dir}/{self.run_name}"
+        self.writer = writer
+        self.run_dir = run_dir
         self.value_sim_loss = value_sim_loss
         # create run dir if it does not exist
         os.makedirs(self.run_dir, exist_ok=True)
@@ -98,8 +94,6 @@ class AlphaZeroController:
         self.n_steps_learning = n_steps_learning
         # Log the model
         log_model(self.writer, self.agent.model, self.env)
-
-
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
@@ -306,6 +300,15 @@ def train_alphazero():
     sample_batch_size = replay_buffer_size // 10
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
+
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    assert env.spec is not None
+    env_id = env.spec.id
+    run_name = f"{env_id}_{current_time}"
+    log_dir = f"./tensorboard_logs/{run_name}"
+    writer = SummaryWriter(log_dir=log_dir)
+    run_dir = f"./runs/{run_name}"
+
     controller = AlphaZeroController(
         env,
         agent,
@@ -316,6 +319,8 @@ def train_alphazero():
         training_epochs=100,
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
+        writer=writer,
+        run_dir=run_dir,
         self_play_iterations=self_play_games_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
