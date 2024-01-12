@@ -21,6 +21,7 @@ def run_episode(
     goal_obs=None,
     seed=None,
     render=False,
+    step_into= False,
 ):
     """Runs an episode using the given solver and environment.
     For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
@@ -58,8 +59,7 @@ def run_episode(
         action_space=env.action_space,
         observation=observation,
     )
-    value = solver.value_function(root_node)
-    root_node.value_evaluation = value
+    root_node.value_evaluation = solver.value_function(root_node)
     for step in range(max_steps):
         tree = solver.build_tree(root_node, compute_budget)
         root_value = tree.value_evaluation
@@ -70,8 +70,20 @@ def run_episode(
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         new_obs, reward, terminated, truncated, _ = env.step(action.item())
-        root_node = tree.step(np.int64(action.item()))
-        root_node.parent = None
+
+        if step_into:
+            root_node = tree.step(np.int64(action.item()))
+            root_node.parent = None
+        else:
+            root_node = Node(
+                env=copy.deepcopy(env),
+                parent=None,
+                reward=np.float32(reward),
+                action_space=env.action_space,
+                observation=new_obs,
+            )
+            root_node.value_evaluation = solver.value_function(root_node)
+
 
         # TODO: check the difference between terminated and truncated
         next_terminal = terminated or truncated

@@ -64,22 +64,31 @@ class UCT(OptionalPolicy[ObservationType]):
 
 
 class PUCT(OptionalPolicy[ObservationType]):
-    def __init__(self, c: float):
+    def __init__(self, c: float, dir_alpha: float = 0.0):
         self.c = c
+        self.dir_alpha = dir_alpha
+
 
     def sample(self, node: Node) -> np.int64 | None:
         # if not fully expanded, return None
         if not node.is_fully_expanded():
             return None
 
+        # sample from the dirichlet distribution
+        dirichlet = th.distributions.dirichlet.Dirichlet(
+            th.ones(int(node.action_space.n)) * self.dir_alpha
+        ).sample()
+
+
+
         # if fully expanded, return the action with the highest UCB value
         # Idea: potentially mess around with making this stochastic
-        return max(node.children, key=lambda action: self.puct(node, action))
+        return max(node.children, key=lambda action: self.puct(node, action, dirichlet))
 
     # TODO: this can def be sped up (calculate the denominator once)
-    def puct(self, node: Node, action: np.int64) -> float:
+    def puct(self, node: Node, action: np.int64, dirichlet: th.Tensor) -> float:
         child = node.children[action]
-        prior = node.prior_policy[action]
+        prior = node.prior_policy[action] * (1 - self.dir_alpha) + dirichlet[action]
         return child.default_value() + self.c * prior * (node.visits**0.5) / (
             child.visits + 1
         )
