@@ -88,7 +88,7 @@ class PUCT(OptionalPolicy[ObservationType]):
     # TODO: this can def be sped up (calculate the denominator once)
     def puct(self, node: Node, action: np.int64, dirichlet: th.Tensor) -> float:
         child = node.children[action]
-        prior = node.prior_policy[action] * (1 - self.dir_alpha) + dirichlet[action]
+        prior = node.prior_policy[action] * (1 - self.dir_alpha) + dirichlet[action] * self.dir_alpha
         return child.default_value() + self.c * prior * (node.visits**0.5) / (
             child.visits + 1
         )
