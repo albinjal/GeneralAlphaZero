@@ -283,13 +283,13 @@ def train_alphazero():
     # env_id = "FrozenLake-v1"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=1, dir_alpha=0.03)
+    selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     iterations = 50
     discount_factor = 1.0
 
-    model = AlphaZeroModel(env, hidden_dim=2**7, layers=1, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=2**8, layers=1, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
     regularization_weight = 1e-6
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
@@ -315,11 +315,11 @@ def train_alphazero():
         agent,
         optimizer,
         replay_buffer = replay_buffer,
-        max_episode_length=200,
-        compute_budget=100,
+        max_episode_length=100,
+        compute_budget=50,
         training_epochs=50,
         value_loss_weight=1.0,
-        policy_loss_weight=10.0,
+        policy_loss_weight=1.0,
         writer=writer,
         run_dir=run_dir,
         self_play_iterations=self_play_games_per_iteration,
