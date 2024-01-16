@@ -4,9 +4,11 @@ import gymnasium as gym
 import numpy as np
 import torch as th
 
+
 ObservationType = TypeVar("ObservationType")
 
 NodeType = TypeVar("NodeType", bound="Node")
+
 
 
 class Node(Generic[ObservationType]):
@@ -54,6 +56,8 @@ class Node(Generic[ObservationType]):
         """
         return self.subtree_sum / np.float32(self.visits)
 
+
+
     def is_fully_expanded(self) -> bool:
         return len(self.children) == self.action_space.n
 
@@ -93,7 +97,7 @@ class Node(Generic[ObservationType]):
     ) -> None:
         if max_depth is not None and max_depth == 0:
             return
-        label = f"O: {self.observation}, R: {self.reward}, MS: {self.default_value(): .2f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
+        label = f"O: {self.observation}, R: {self.reward}, MS: {self.default_value(): .5f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
         if var_fn is not None:
             label += f", Var: {var_fn(self)}"
         dot.node(str(id(self)), label=label)

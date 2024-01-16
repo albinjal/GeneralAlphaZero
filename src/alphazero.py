@@ -1,12 +1,9 @@
-import copy
 import datetime
-import time
-from typing import List, Tuple
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
 from azmcts import AlphaZeroMCTS
-from environment import obs_to_tensor, show_model_in_tensorboard
+from environment import show_model_in_tensorboard
 import torch as th
 from torchrl.data import (
     ReplayBuffer,
@@ -25,7 +22,7 @@ from learning import n_step_value_targets, one_step_value_targets
 from mcts import MCTS
 from model import AlphaZeroModel
 from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, Policy, PolicyDistribution, SoftmaxDefaultTreeEvaluator
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, Policy, PolicyDistribution, SoftmaxDefaultTreeEvaluator
 from runner import run_episode
 from t_board import add_self_play_metrics, add_training_metrics, log_model
 
@@ -285,16 +282,17 @@ def train_alphazero():
 
     selection_policy = PUCT(c=2)
     tree_evaluation_policy = DefaultTreeEvaluator()
+    expansion_policy = ExpandFromPriorPolicy()
 
     iterations = 50
     discount_factor = 1.0
 
     model = AlphaZeroModel(env, hidden_dim=2**8, layers=1, pref_gpu=False)
-    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
+    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=expansion_policy)
     regularization_weight = 1e-6
     optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=1, verbose=True)
-    workers = multiprocessing.cpu_count()
+    workers = 1 # multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
     replay_buffer_size = 10 * self_play_games_per_iteration

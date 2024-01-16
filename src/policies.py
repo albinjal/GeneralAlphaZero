@@ -30,7 +30,7 @@ class PolicyDistribution(Policy[ObservationType]):
         return self.distribution(node).sample()
 
     @abstractmethod
-    def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
+    def distribution(self, node: Node[ObservationType], include_self=False) -> th.distributions.Categorical:
         """The distribution of the policy. Must sum to 1 and be all positive."""
         pass
 
@@ -121,10 +121,13 @@ class ExpandFromPriorPolicy(Policy[ObservationType]):
 
 class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
     # the default tree evaluator selects the action with the most visits
-    def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
-        visits = th.zeros(int(node.action_space.n), dtype=th.float32)
+    def distribution(self, node: Node[ObservationType], include_self = False) -> th.distributions.Categorical:
+        visits = th.zeros(int(node.action_space.n) + include_self)
         for action, child in node.children.items():
             visits[action] = child.visits
+
+        if include_self:
+            visits[-1] = 1
 
         return th.distributions.Categorical(visits)
 
@@ -138,7 +141,7 @@ class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
         self.temperature = temperature
 
     # the default tree evaluator selects the action with the most visits
-    def distribution(self, node: Node[ObservationType]) -> th.distributions.Categorical:
+    def distribution(self, node: Node[ObservationType], include_self=False) -> th.distributions.Categorical:
         visits = th.zeros(int(node.action_space.n), dtype=th.float32)
         for action, child in node.children.items():
             visits[action] = child.visits
@@ -146,3 +149,21 @@ class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
         return th.distributions.Categorical(
             th.softmax(visits / self.temperature, dim=-1)
         )
+
+
+def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float):
+    # return the q value the node with the given policy
+    pi = policy.distribution(node, include_self=True)
+
+    probabilities = pi.probs
+    own_propability = probabilities[-1]
+    child_propabilities = probabilities[:-1]
+    child_values = th.zeros_like(child_propabilities, dtype=th.float32)
+    for action, child in node.children.items():
+        child_values[action] = policy_value(child, policy, discount_factor)
+
+
+    return node.reward + discount_factor * (
+        own_propability * node.value_evaluation
+        + (child_propabilities * child_values).sum()
+    )

@@ -60,11 +60,12 @@ def run_episode(
         observation=observation,
     )
     root_node.value_evaluation = solver.value_function(root_node)
+    solver.backup(root_node, root_node.value_evaluation)
     for step in range(max_steps):
         tree = solver.build_tree(root_node, compute_budget)
         root_value = tree.value_evaluation
         child_q_values = th.tensor(
-            [child.default_value() for child in tree.get_children()], dtype=th.float32
+            [child.default_value() for child in tree.get_children() if child is not None], dtype=th.float32
         )
         policy_dist = tree_evaluation_policy.distribution(tree)
         action = policy_dist.sample()
@@ -83,6 +84,7 @@ def run_episode(
                 observation=new_obs,
             )
             root_node.value_evaluation = solver.value_function(root_node)
+            solver.backup(root_node, root_node.value_evaluation)
 
 
         # TODO: check the difference between terminated and truncated
