@@ -109,6 +109,15 @@ class DefaultExpansionPolicy(Policy[ObservationType]):
         # returns a uniformly random unexpanded action
         return node.sample_unexplored_action()
 
+class ExpandFromPriorPolicy(Policy[ObservationType]):
+    def sample(self, node: Node[ObservationType]):
+        prior = node.prior_policy
+        # return the action with the highest prior that has not been expanded yet
+        for action in reversed(np.argsort(prior)):
+            action = np.int64(action)
+            if action not in node.children:
+                return action
+
 
 class DefaultTreeEvaluator(PolicyDistribution[ObservationType]):
     # the default tree evaluator selects the action with the most visits
