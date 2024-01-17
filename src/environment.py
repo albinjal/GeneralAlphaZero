@@ -21,14 +21,14 @@ def obs_dim_coordinates(observation_space: gym.Space):
     return 2
 
 
-def obs_to_tensor_onehot(observation_space: gym.Space, observation, *args, **kwargs):
+def obs_to_tensor_flat(observation_space: gym.Space, observation, *args, **kwargs):
     return th.tensor(
         gym.spaces.flatten(observation_space, observation),
         *args,
         **kwargs,
     )
 
-def obs_dim_onehot(observation_space: gym.Space):
+def obs_dim_flat(observation_space: gym.Space):
     return gym.spaces.flatdim(observation_space)
 
 obs_to_tensor = obs_to_tensor_coordinates
@@ -103,7 +103,7 @@ def plot_policy_network(
 def show_model_in_tensorboard(
     observation_space: gym.spaces.Discrete, model: th.nn.Module, writer, step
 ):
-    rows, cols = 10, 12
+    rows, cols = 6, 12
     outputs = investigate_model(observation_space, model)
     value_fig = plot_value_network(outputs, nrows=rows, ncols=cols)
     policy_fig = plot_policy_network(outputs, nrows=rows, ncols=cols)

@@ -150,14 +150,36 @@ class SoftmaxDefaultTreeEvaluator(PolicyDistribution[ObservationType]):
             th.softmax(visits / self.temperature, dim=-1)
         )
 
+class InverseVarianceTreeEvaluator(PolicyDistribution[ObservationType]):
+    """
+    Selects the action with the highest inverse variance of the q value.
+    Should return the same as the default tree evaluator
+    """
 
+    def distribution(self, node: Node[ObservationType], include_self=False) -> th.distributions.Categorical:
+        inverse_variances = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+
+        for action, child in node.children.items():
+            inverse_variances[action] = 1.0 / independent_policy_value_variance(child, self, 1.0)
+
+
+        if include_self:
+            # check if this is correct
+            inverse_variances[-1] = value_evaluation_variance(node)
+
+        return th.distributions.Categorical(
+            inverse_variances
+        )
+
+# TODO: can improve this implementation
 def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float):
     # return the q value the node with the given policy
+    # with the defualt tree evaluator, this should return the same as the default value
     pi = policy.distribution(node, include_self=True)
 
     probabilities = pi.probs
-    own_propability = probabilities[-1]
-    child_propabilities = probabilities[:-1]
+    own_propability = probabilities[-1] # type: ignore
+    child_propabilities = probabilities[:-1] # type: ignore
     child_values = th.zeros_like(child_propabilities, dtype=th.float32)
     for action, child in node.children.items():
         child_values[action] = policy_value(child, policy, discount_factor)
@@ -166,4 +188,31 @@ def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float)
     return node.reward + discount_factor * (
         own_propability * node.value_evaluation
         + (child_propabilities * child_values).sum()
+    )
+
+
+def reward_variance(node: Node):
+    return 0.0
+
+def value_evaluation_variance(node: Node):
+    if node.terminal:
+        return 1e-6
+    else:
+        return 1.0
+
+
+def independent_policy_value_variance(node: Node, policy: PolicyDistribution, discount_factor: float):
+    # return the variance of the q value the node with the given policy
+    pi = policy.distribution(node, include_self=True)
+
+    probabilities_squared = pi.probs ** 2 # type: ignore
+    own_propability_squared = probabilities_squared[-1]
+    child_propabilities_squared = probabilities_squared[:-1]
+    child_variances = th.zeros_like(child_propabilities_squared, dtype=th.float32)
+    for action, child in node.children.items():
+        child_variances[action] = independent_policy_value_variance(child, policy, discount_factor)
+
+    return reward_variance(node) + discount_factor ** 2 * (
+        own_propability_squared * value_evaluation_variance(node)
+        + (child_propabilities_squared * child_variances).sum()
     )
