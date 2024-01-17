@@ -1,3 +1,4 @@
+from collections import Counter
 import torch as th
 import numpy as np
 
@@ -57,3 +58,34 @@ def one_step_value_targets(
 ):
     targets = rewards[:, :-1] + discount_factor * values[:, 1:] * ~terminals[:, :-1]
     return targets
+
+
+
+
+def calculate_visit_counts(observations):
+    """
+    Calculate the visit counts for each observation in the trajectories, with output shape (batch_size, max_steps).
+    Observations are assumed to be a tensor of shape (batch_size, max_steps, obs_dim).
+    """
+
+    batch_size, max_steps, obs_dim = observations.shape
+
+    # Create a tensor to hold the visit counts for each observation, initially all zeros
+    visit_counts = th.zeros(batch_size, max_steps)
+
+    visit_counts_mapping = Counter()
+
+    for b in range(batch_size):
+        for t in range(max_steps):
+            current_observation = observations[b, t]
+            # Convert the observation to a tuple to use it as a dictionary key
+            obs_key = tuple(current_observation.tolist())
+
+            # Compare this observation with all observations in the same batch
+            mask = th.all(observations[b] == current_observation, dim=1)
+            count = th.sum(mask)
+
+            visit_counts[b, t] = count
+            visit_counts_mapping.update({obs_key: count.item()})
+
+    return visit_counts, visit_counts_mapping

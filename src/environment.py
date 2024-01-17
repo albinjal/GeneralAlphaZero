@@ -1,3 +1,4 @@
+from collections import Counter
 import torch as th
 import gymnasium as gym
 import numpy as np
@@ -109,3 +110,39 @@ def show_model_in_tensorboard(
     policy_fig = plot_policy_network(outputs, nrows=rows, ncols=cols)
     writer.add_figure("value_network", value_fig, global_step=step)
     writer.add_figure("policy_network", policy_fig, global_step=step)
+
+
+def plot_visits_to_tensorboard_with_counter(visit_counts: Counter, observation_space, nrows, ncols, writer, step, title="State Visit Counts"):
+    """
+    Plots the visit counts and logs the plot to Tensorboard using a Counter object.
+    visit_counts: Counter object mapping observation tensors to visit counts.
+    observation_space: The observation space of the environment.
+    nrows, ncols: Dimensions of the grid representing the observation space.
+    writer: Tensorboard SummaryWriter instance.
+    step: The current step in training (for tracking in Tensorboard).
+    obs_to_tensor: Function to convert observation index to tensor.
+    title: Title of the plot.
+    """
+    grid = np.zeros((nrows, ncols))
+
+    # Iterate over all possible observations
+    for obs in range(observation_space.n):
+        obs_tensor = tuple(obs_to_tensor(observation_space, obs, dtype=th.float32).tolist())
+        count = visit_counts.get(obs_tensor, 0)  # Get the visit count for this observation
+
+        # Convert observation index to grid position
+        row, col = divmod(obs, ncols)
+        grid[row, col] = count
+
+    # Create a plot
+    fig, ax = plt.subplots()
+    ax.imshow(grid, cmap="viridis", interpolation="nearest")
+    ax.set_title(title)
+    for obs in range(observation_space.n):
+        row, col = divmod(obs, ncols)
+        ax.text(col, row, f"{grid[row, col]:.0f}", ha="center", va="center", color="white")
+    plt.tight_layout()
+
+    # Log the figure to Tensorboard
+    writer.add_figure("visit_counts", fig, global_step=step)
+    plt.close(fig)
