@@ -49,13 +49,15 @@ class MCTS(Generic[ObservationType]):
         # # backupagate the value (just updates value est)
         # root_node.backup(value)
         # return self.build_tree(root_node, iterations - 1)
-
-        root_node = Node[ObservationType](
+        root_node = Node(
             env=copy.deepcopy(env),
-            parent=None, reward=reward, action_space=env.action_space, observation=obs
+            parent=None,
+            reward=reward,
+            action_space=env.action_space,
+            observation=obs,
         )
-        value = self.value_function(root_node)
-        root_node.value_evaluation = value
+        root_node.value_evaluation = self.value_function(root_node)
+        self.backup(root_node, root_node.value_evaluation)
         return self.build_tree(root_node, iterations)
 
     def build_tree(self, from_node: Node, iterations: int) -> Node:

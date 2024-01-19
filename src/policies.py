@@ -165,7 +165,7 @@ class InverseVarianceTreeEvaluator(PolicyDistribution[ObservationType]):
 
         if include_self:
             # check if this is correct
-            inverse_variances[-1] = value_evaluation_variance(node)
+            inverse_variances[-1] = 1 / value_evaluation_variance(node)
 
         return th.distributions.Categorical(
             inverse_variances
@@ -196,12 +196,14 @@ def reward_variance(node: Node):
 
 def value_evaluation_variance(node: Node):
     if node.terminal:
-        return 1e-6
+        return 1.0 / float(node.visits)
     else:
         return 1.0
 
 
 def independent_policy_value_variance(node: Node, policy: PolicyDistribution, discount_factor: float):
+    if node.variance is not None:
+        return node.variance
     # return the variance of the q value the node with the given policy
     pi = policy.distribution(node, include_self=True)
 
@@ -211,6 +213,7 @@ def independent_policy_value_variance(node: Node, policy: PolicyDistribution, di
     child_variances = th.zeros_like(child_propabilities_squared, dtype=th.float32)
     for action, child in node.children.items():
         child_variances[action] = independent_policy_value_variance(child, policy, discount_factor)
+        child.variance = child_variances[action].item()
 
     return reward_variance(node) + discount_factor ** 2 * (
         own_propability_squared * value_evaluation_variance(node)

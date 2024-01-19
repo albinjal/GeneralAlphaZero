@@ -303,7 +303,7 @@ def train_alphazero():
     env = gym.make(env_id)
 
     selection_policy = PUCT(c=1)
-    tree_evaluation_policy = DefaultTreeEvaluator()
+    tree_evaluation_policy = InverseVarianceTreeEvaluator()
     expansion_policy = ExpandFromPriorPolicy()
 
     iterations = 100

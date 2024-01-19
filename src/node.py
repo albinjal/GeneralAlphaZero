@@ -23,6 +23,7 @@ class Node(Generic[ObservationType]):
     observation: Optional[ObservationType]
     prior_policy: th.Tensor
     env: Optional[gym.Env]
+    variance: float | None = None
 
     def __init__(
         self,

@@ -8,7 +8,12 @@ from environment import obs_to_tensor
 from mcts import MCTS
 
 from model import AlphaZeroModel
-from policies import PUCT, DefaultTreeEvaluator, PolicyDistribution
+from policies import (
+    PUCT,
+    DefaultTreeEvaluator,
+    InverseVarianceTreeEvaluator,
+    PolicyDistribution,
+)
 
 
 def run_vis(
@@ -25,13 +30,12 @@ def run_vis(
     env = gym.make(**env_args)
     render_env = gym.make(**env_args, render_mode="human")
 
-    selection_policy = PUCT(c=1)
+    selection_policy = PUCT(c=2)
     # if checkpoint_path contains a wildcard, we need to expand it
     if "*" in checkpoint_path:
         matches = glob.glob(checkpoint_path)
         dir = max(matches)
         checkpoint_path = os.path.join(dir, "checkpoint.pth")
-
 
     model = AlphaZeroModel.load_model(checkpoint_path, env)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
@@ -53,10 +57,8 @@ def run_vis(
     render_env.close()
 
 
-
-
-
-def visualize_gameplay(solver: MCTS,
+def visualize_gameplay(
+    solver: MCTS,
     env: gym.Env,
     render_env: gym.Env,
     tree_evaluation_policy: PolicyDistribution,
@@ -65,7 +67,8 @@ def visualize_gameplay(solver: MCTS,
     verbose=True,
     goal_obs=None,
     seed=None,
-    sleep_time=.0):
+    sleep_time=0.0,
+):
     """Runs an episode using the given solver and environment."""
     assert isinstance(env.action_space, gym.spaces.Discrete)
     n = env.action_space.n
@@ -89,10 +92,13 @@ def visualize_gameplay(solver: MCTS,
             norm_entropy = policy_dist.entropy() / np.log(n)
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
             print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
+            default = DefaultTreeEvaluator()
+            print(f"default {default.distribution(tree).probs }")
+            diff = default.distribution(tree).probs - policy_dist.probs
+            print(f"diff {(diff ** 2).sum()}, {diff}")
 
         if terminal:
             break
-
 
 
 def main_runviss():
@@ -101,7 +107,7 @@ def main_runviss():
     run_vis(
         f"runs/{env_id}*",
         env_args,
-        DefaultTreeEvaluator(),
+        InverseVarianceTreeEvaluator(),
         compute_budget=1000,
         max_steps=1000,
         verbose=True,
