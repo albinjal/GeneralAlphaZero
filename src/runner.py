@@ -51,18 +51,8 @@ def run_episode(
         },
         batch_size=[max_steps],
     )
-
-    root_node = Node(
-        env=copy.deepcopy(env),
-        parent=None,
-        reward=np.float32(0.0),
-        action_space=env.action_space,
-        observation=observation,
-    )
-    root_node.value_evaluation = solver.value_function(root_node)
-    solver.backup(root_node, root_node.value_evaluation)
+    tree = solver.search(env, compute_budget, observation, np.float32(0.0))
     for step in range(max_steps):
-        tree = solver.build_tree(root_node, compute_budget)
         root_value = tree.value_evaluation
         child_q_values = th.tensor(
             [child.default_value() for child in tree.get_children() if child is not None], dtype=th.float32
@@ -71,21 +61,6 @@ def run_episode(
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         new_obs, reward, terminated, truncated, _ = env.step(action.item())
-
-        if step_into:
-            root_node = tree.step(np.int64(action.item()))
-            root_node.parent = None
-        else:
-            root_node = Node(
-                env=copy.deepcopy(env),
-                parent=None,
-                reward=np.float32(reward),
-                action_space=env.action_space,
-                observation=new_obs,
-            )
-            root_node.value_evaluation = solver.value_function(root_node)
-            solver.backup(root_node, root_node.value_evaluation)
-
 
         # TODO: check the difference between terminated and truncated
         next_terminal = terminated or truncated
@@ -107,11 +82,19 @@ def run_episode(
             print(
                 f"{step}. O: {observation}, A: {action}, R: {reward}, T: {next_terminal}"
             )
+        if next_terminal:
+            break
+
+        if step_into:
+            root_node = tree.step(np.int64(action.item()))
+            root_node.parent = None
+            tree = solver.build_tree(root_node, compute_budget)
+        else:
+            tree = solver.search(env, compute_budget, observation, np.float32(reward))
 
         new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         observation_tensor = new_observation_tensor
-        if next_terminal:
-            break
+
 
     # if we terminated early, we need to add the final observation to the trajectory as well for value estimation
     # trajectory.append((observation, None, None, None, None))
