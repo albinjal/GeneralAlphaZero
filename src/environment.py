@@ -32,8 +32,8 @@ def obs_to_tensor_flat(observation_space: gym.Space, observation, *args, **kwarg
 def obs_dim_flat(observation_space: gym.Space):
     return gym.spaces.flatdim(observation_space)
 
-obs_to_tensor = obs_to_tensor_flat
-obs_dim = obs_dim_flat
+obs_to_tensor = obs_to_tensor_coordinates
+obs_dim = obs_dim_coordinates
 
 @th.no_grad()
 def investigate_model(observation_space: gym.spaces.Discrete, model: th.nn.Module):
