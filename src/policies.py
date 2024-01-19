@@ -155,26 +155,75 @@ class InverseVarianceTreeEvaluator(PolicyDistribution[ObservationType]):
     Selects the action with the highest inverse variance of the q value.
     Should return the same as the default tree evaluator
     """
+    def __init__(self, discount_factor = 1.0):
+        self.discount_factor = discount_factor
 
     def distribution(self, node: Node[ObservationType], include_self=False) -> th.distributions.Categorical:
         inverse_variances = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
 
         for action, child in node.children.items():
-            inverse_variances[action] = 1.0 / independent_policy_value_variance(child, self, 1.0)
+            inverse_variances[action] = 1.0 / independent_policy_value_variance(child, self, self.discount_factor)
 
 
         if include_self:
-            # check if this is correct
-            inverse_variances[-1] = 1 / value_evaluation_variance(node)
+            # check if this is correct, might need to add discount factor
+            inverse_variances[-1] = 1.0 / (self.discount_factor ** 2 * value_evaluation_variance(node))
 
         return th.distributions.Categorical(
             inverse_variances
         )
 
+
+# minimal-variance constraint policy
+class MinimalVarianceConstraintPolicy(PolicyDistribution[ObservationType]):
+    """
+    Selects the action with the highest inverse variance of the q value.
+    Should return the same as the default tree evaluator
+    """
+    def __init__(self, beta: float, discount_factor = 1.0):
+        self.beta = beta
+        self.discount_factor = discount_factor
+
+    def distribution(self, node: Node[ObservationType], include_self=False) -> th.distributions.Categorical:
+        vals = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+        inv_vars = th.zeros_like(vals, dtype=th.float32)
+
+        for action, child in node.children.items():
+            vals[action] = policy_value(child, self, self.discount_factor)
+            inv_vars[action] = 1/independent_policy_value_variance(child, self, self.discount_factor)
+
+        # risk for numerical instability if vals are large/small
+        # Solution: subtract the mean
+        # This should be equivalent to muliplying by a constant which we can ignore
+        policy = th.exp(self.beta * (vals - vals.max())) * inv_vars
+
+        if include_self:
+            # TODO: this probably has to be updated
+            policy[-1] = 1.0 / (self.discount_factor ** 2 * value_evaluation_variance(node))
+
+        # make a numerical check. If the policy is all 0, then we should return a uniform distribution
+        if policy.sum() == 0:
+            return th.distributions.Categorical(
+                th.ones_like(policy)
+            )
+        # if we have some infinities, we should return a uniform distribution over the infinities
+        elif th.isinf(policy).any():
+            return th.distributions.Categorical(
+                th.isinf(policy)
+            )
+        else:
+            return th.distributions.Categorical(
+                policy
+            )
+
 # TODO: can improve this implementation
 def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float):
     # return the q value the node with the given policy
     # with the defualt tree evaluator, this should return the same as the default value
+
+    if node.terminal:
+        return th.tensor(node.reward, dtype=th.float32)
+
     if node.policy_value:
         return node.policy_value
 

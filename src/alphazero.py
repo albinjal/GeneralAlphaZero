@@ -23,7 +23,7 @@ from learning import n_step_value_targets, one_step_value_targets, calculate_vis
 from mcts import MCTS
 from model import AlphaZeroModel
 from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, InverseVarianceTreeEvaluator, Policy, PolicyDistribution, SoftmaxDefaultTreeEvaluator
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy, Policy, PolicyDistribution, SoftmaxDefaultTreeEvaluator
 from runner import run_episode
 from t_board import add_self_play_metrics, add_training_metrics, log_model
 
@@ -302,24 +302,24 @@ def train_alphazero():
     # env_id = "FrozenLake-v1"
     env = gym.make(env_id)
 
-    selection_policy = PUCT(c=2)
-    tree_evaluation_policy = InverseVarianceTreeEvaluator()
-    expansion_policy = ExpandFromPriorPolicy()
-
     iterations = 100
     discount_factor = 1.0
+
+    selection_policy = PUCT(c=2)
+    tree_evaluation_policy = MinimalVarianceConstraintPolicy(1.0, discount_factor)
+    expansion_policy = ExpandFromPriorPolicy()
 
     model = AlphaZeroModel(env, hidden_dim=2**7, layers=1, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=expansion_policy)
     regularization_weight = 1e-9
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-3, weight_decay=regularization_weight)
+    optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=1, verbose=True)
     debug = False
     workers = 1 if debug else multiprocessing.cpu_count()
 
     self_play_games_per_iteration = workers
     replay_buffer_size = 10 * self_play_games_per_iteration
-    sample_batch_size = replay_buffer_size // 1
+    sample_batch_size = replay_buffer_size // 5
 
     replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
 
@@ -338,7 +338,7 @@ def train_alphazero():
         replay_buffer = replay_buffer,
         max_episode_length=200,
         compute_budget=100,
-        training_epochs=1,
+        training_epochs=100,
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         writer=writer,
@@ -348,8 +348,8 @@ def train_alphazero():
         self_play_workers=workers,
         scheduler=scheduler,
         discount_factor=discount_factor,
-        n_steps_learning=10,
-        use_visit_count=True
+        n_steps_learning=1,
+        use_visit_count=False
     )
     controller.iterate(iterations)
     env.close()
