@@ -14,15 +14,15 @@ from torchrl.data import (
 from alphazero import AlphaZeroController
 from azmcts import AlphaZeroMCTS
 from model import AlphaZeroModel
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, MinimalVarianceConstraintPolicy
 def tune_alphazero(hparams):
     np.random.seed(0)
     env_id = hparams['env_id']
     env = gym.make(env_id)
 
+    discount_factor = hparams['discount_factor']
     selection_policy = PUCT(c=hparams['puct_c'])
     tree_evaluation_policy = DefaultTreeEvaluator()
-    discount_factor = hparams['discount_factor']
 
     model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'])
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
@@ -63,6 +63,7 @@ def tune_alphazero(hparams):
         discount_factor=discount_factor,
         n_steps_learning=hparams['n_steps_learning'],
         checkpoint_interval=50,
+        use_visit_count=hparams['use_visit_count']
     )
 
     metrics = controller.iterate(hparams['iterations'])
@@ -99,18 +100,20 @@ def search_hyperparams():
         'max_episode_length': [100],
         'iterations': [10],
         'compute_budget': [30],
-        'training_epochs': [1, 10, 100],
+        'training_epochs': [1, 10],
         'value_loss_weight': [1.0],
         'policy_loss_weight': [1.0],
         'lr_gamma': [1.0],
-        'n_steps_learning': [1],
+        'n_steps_learning': [1, 10],
         'puct_c': [1, 3],
-        'hidden_dim': [64],
+        'hidden_dim': [128],
         'layers': [1],
-        'regularization_weight': [1e-4],
+        'regularization_weight': [1e-3, 1e-4],
         'learning_rate': [1e-4],
         'replay_buffer_multiplier': [10],
-        'sample_batch_ratio': [10],
+        'sample_batch_ratio': [5],
+        'eval_param': [1.0],
+        'use_visit_count': [True, False]
     }
 
     grid_search(tune_alphazero, param_distributions)

@@ -12,6 +12,7 @@ from policies import (
     PUCT,
     DefaultTreeEvaluator,
     InverseVarianceTreeEvaluator,
+    MinimalVarianceConstraintPolicy,
     PolicyDistribution,
 )
 
@@ -107,8 +108,8 @@ def main_runviss():
     run_vis(
         f"runs/{env_id}*",
         env_args,
-        InverseVarianceTreeEvaluator(),
-        compute_budget=1000,
+        MinimalVarianceConstraintPolicy(1.0),
+        compute_budget=200,
         max_steps=1000,
         verbose=True,
         goal_obs=None,

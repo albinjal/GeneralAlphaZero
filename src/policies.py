@@ -185,6 +185,11 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution[ObservationType]):
         self.discount_factor = discount_factor
 
     def distribution(self, node: Node[ObservationType], include_self=False) -> th.distributions.Categorical:
+        if len(node.children) == 0:
+            d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+            d[-1] = 1.0
+            return th.distributions.Categorical(d)
+
         vals = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
         inv_vars = th.zeros_like(vals, dtype=th.float32)
 
@@ -192,29 +197,36 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution[ObservationType]):
             vals[action] = policy_value(child, self, self.discount_factor)
             inv_vars[action] = 1/independent_policy_value_variance(child, self, self.discount_factor)
 
+        # if include_self:
+        #     # TODO: this probably has to be updated
+        #     vals[-1] = th.tensor(node.value_evaluation)
+        #     inv_vars[-1] = 1.0 / (self.discount_factor ** 2 * value_evaluation_variance(node))
+
         # risk for numerical instability if vals are large/small
         # Solution: subtract the mean
         # This should be equivalent to muliplying by a constant which we can ignore
         policy = th.exp(self.beta * (vals - vals.max())) * inv_vars
 
-        if include_self:
-            # TODO: this probably has to be updated
-            policy[-1] = 1.0 / (self.discount_factor ** 2 * value_evaluation_variance(node))
 
         # make a numerical check. If the policy is all 0, then we should return a uniform distribution
         if policy.sum() == 0:
-            return th.distributions.Categorical(
-                th.ones_like(policy)
-            )
-        # if we have some infinities, we should return a uniform distribution over the infinities
-        elif th.isinf(policy).any():
-            return th.distributions.Categorical(
-                th.isinf(policy)
-            )
-        else:
-            return th.distributions.Categorical(
-                policy
-            )
+            policy[:-1] = th.ones_like(policy[:-1])
+
+
+        # # if we have some infinities, we should return a uniform distribution over the infinities
+        # if th.isinf(policy).any():
+        #     return th.distributions.Categorical(
+        #         th.isinf(policy)
+        #     )
+
+        if include_self:
+            # set it to 1/visits
+            policy[-1] = policy.sum() / (node.visits - 1)
+
+
+        return th.distributions.Categorical(
+            policy
+        )
 
 # TODO: can improve this implementation
 def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float):
@@ -252,7 +264,7 @@ def value_evaluation_variance(node: Node):
     # if we want to duplicate the default tree evaluator, we can return 1 / visits
     # In reality, the variance should be lower for terminal nodes
     if node.terminal:
-        return 1e-3 / float(node.visits)
+        return 1.0 / float(node.visits)
     else:
         return 1.0
 

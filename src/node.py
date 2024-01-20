@@ -101,7 +101,12 @@ class Node(Generic[ObservationType]):
             return
         label = f"O: {self.observation}, R: {self.reward}, MS: {self.default_value(): .5f}, V: {self.value_evaluation: .2f}\nVisit: {self.visits}, T: {int(self.terminal)}"
         if var_fn is not None:
-            label += f", Var: {var_fn(self)}"
+            label += f", VarFn: {var_fn(self)}"
+
+        if self.policy_value is not None:
+            label += f", PV: {self.policy_value: .2f}"
+        if self.variance is not None:
+            label += f", Var: {self.variance: .2f}"
         dot.node(str(id(self)), label=label)
         for action, child in self.children.items():
             child._add_node_to_graph(

@@ -24,7 +24,7 @@ class MCTS(Generic[ObservationType]):
     def __init__(
         self,
         selection_policy: OptionalPolicy[ObservationType],
-        expansion_policy: Policy[ObservationType] | None = None,
+        expansion_policy: Policy[ObservationType] | None = DefaultExpansionPolicy(),
         discount_factor: float = 1.0,
     ):
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
