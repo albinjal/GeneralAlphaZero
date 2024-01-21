@@ -185,6 +185,9 @@ class MCTS(Generic[ObservationType]):
             node.subtree_sum += cum_reward
             node.visits += new_visits
             # parent is None if node is root
+            # NEW: reset the prior policy and value evaluation (mark as needing update)
+            node.variance = None
+            node.policy_value = None
             node = node.parent
 
 class RandomRolloutMCTS(MCTS):

@@ -23,7 +23,7 @@ from learning import n_step_value_targets, one_step_value_targets, calculate_vis
 from mcts import MCTS
 from model import AlphaZeroModel
 from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy, Policy, PolicyDistribution, SoftmaxDefaultTreeEvaluator
+from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy, Policy, PolicyDistribution, PolicyPUCT, PolicyUCT, SoftmaxDefaultTreeEvaluator
 from runner import run_episode
 from t_board import add_self_play_metrics, add_training_metrics, log_model
 
@@ -305,8 +305,8 @@ def train_alphazero():
     iterations = 100
     discount_factor = 1.0
 
-    selection_policy = PUCT(c=2)
     tree_evaluation_policy = MinimalVarianceConstraintPolicy(1.0, discount_factor)
+    selection_policy = PolicyUCT(c=1, policy=tree_evaluation_policy, discount_factor=discount_factor)
     expansion_policy = ExpandFromPriorPolicy()
 
     model = AlphaZeroModel(env, hidden_dim=2**7, layers=1, pref_gpu=False)

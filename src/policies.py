@@ -98,6 +98,37 @@ class PUCT(OptionalPolicy[ObservationType]):
             child.visits + 1
         )
 
+class PolicyUCT(UCT):
+    def __init__(self, c: float, policy: PolicyDistribution, discount_factor: float = 1.0):
+        super().__init__(c)
+        self.policy = policy
+        self.discount_factor = discount_factor
+
+    def ucb(self, node: Node, action: np.int64) -> float:
+        child = node.children[action]
+        # replace the default value with the policy value
+        return policy_value(child, self.policy, self.discount_factor) + self.c * (node.visits / child.visits) ** 0.5
+
+
+
+class PolicyPUCT(PUCT):
+    def __init__(self, c: float, policy: PolicyDistribution, discount_factor: float = 1.0):
+        super().__init__(c)
+        self.policy = policy
+        self.discount_factor = discount_factor
+
+    def puct(self, node: Node, action: np.int64, dirichlet: th.Tensor | None) -> float:
+        child = node.children[action]
+        if dirichlet is None:
+            prior = node.prior_policy[action]
+        else:
+            prior = node.prior_policy[action] * (1.0 - self.dir_alpha) + dirichlet[action] * self.dir_alpha
+        val = policy_value(child, self.policy, self.discount_factor)
+
+        return val + self.c * prior * (node.visits**0.5) / (
+            child.visits + 1
+        )
+
 
 class RandomPolicy(Policy[ObservationType]):
     def sample(self, node: Node[ObservationType]) -> np.int64:
@@ -194,8 +225,9 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution[ObservationType]):
         inv_vars = th.zeros_like(vals, dtype=th.float32)
 
         for action, child in node.children.items():
-            vals[action] = policy_value(child, self, self.discount_factor)
-            inv_vars[action] = 1/independent_policy_value_variance(child, self, self.discount_factor)
+            pi = self.distribution(child, include_self=True)
+            vals[action] = policy_value(child, pi, self.discount_factor)
+            inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
 
         # if include_self:
         #     # TODO: this probably has to be updated
@@ -229,7 +261,7 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution[ObservationType]):
         )
 
 # TODO: can improve this implementation
-def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float):
+def policy_value(node: Node, policy: PolicyDistribution | th.distributions.Categorical, discount_factor: float):
     # return the q value the node with the given policy
     # with the defualt tree evaluator, this should return the same as the default value
 
@@ -239,7 +271,10 @@ def policy_value(node: Node, policy: PolicyDistribution, discount_factor: float)
     if node.policy_value:
         return node.policy_value
 
-    pi = policy.distribution(node, include_self=True)
+    if isinstance(policy, th.distributions.Categorical):
+        pi = policy
+    else:
+        pi = policy.distribution(node, include_self=True)
 
     probabilities = pi.probs
     own_propability = probabilities[-1] # type: ignore
@@ -269,11 +304,15 @@ def value_evaluation_variance(node: Node):
         return 1.0
 
 
-def independent_policy_value_variance(node: Node, policy: PolicyDistribution, discount_factor: float):
+def independent_policy_value_variance(node: Node, policy: PolicyDistribution | th.distributions.Categorical, discount_factor: float):
     if node.variance is not None:
         return node.variance
     # return the variance of the q value the node with the given policy
-    pi = policy.distribution(node, include_self=True)
+    if isinstance(policy, th.distributions.Categorical):
+        pi = policy
+    else:
+        pi = policy.distribution(node, include_self=True)
+
 
     probabilities_squared = pi.probs ** 2 # type: ignore
     own_propability_squared = probabilities_squared[-1]

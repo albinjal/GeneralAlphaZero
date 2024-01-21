@@ -14,6 +14,8 @@ from policies import (
     InverseVarianceTreeEvaluator,
     MinimalVarianceConstraintPolicy,
     PolicyDistribution,
+    PolicyPUCT,
+    PolicyUCT,
 )
 
 
@@ -21,6 +23,7 @@ def run_vis(
     checkpoint_path,
     env_args,
     tree_eval_policy,
+    selection_policy,
     compute_budget=1000,
     max_steps=1000,
     verbose=True,
@@ -31,7 +34,6 @@ def run_vis(
     env = gym.make(**env_args)
     render_env = gym.make(**env_args, render_mode="human")
 
-    selection_policy = PUCT(c=2)
     # if checkpoint_path contains a wildcard, we need to expand it
     if "*" in checkpoint_path:
         matches = glob.glob(checkpoint_path)
@@ -105,10 +107,14 @@ def visualize_gameplay(
 def main_runviss():
     env_id = "CliffWalking-v0"
     env_args = {"id": env_id}
+    discount = 1.0
+    tree_policy = MinimalVarianceConstraintPolicy(1.0, discount_factor=discount)
+    selection_policy = PolicyUCT(c=1, policy=tree_policy, discount_factor=discount)
     run_vis(
         f"runs/{env_id}*",
         env_args,
-        MinimalVarianceConstraintPolicy(1.0),
+        tree_policy,
+        selection_policy,
         compute_budget=200,
         max_steps=1000,
         verbose=True,
