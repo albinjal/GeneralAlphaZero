@@ -303,7 +303,7 @@ def train_alphazero():
     env = gym.make(env_id)
 
     iterations = 100
-    discount_factor = 1.0
+    discount_factor = .99
 
     tree_evaluation_policy = MinimalVarianceConstraintPolicy(1.0, discount_factor)
     selection_policy = PolicyUCT(c=1, policy=tree_evaluation_policy, discount_factor=discount_factor)

@@ -10,9 +10,12 @@ from mcts import MCTS
 from model import AlphaZeroModel
 from policies import (
     PUCT,
+    DefaultExpansionPolicy,
     DefaultTreeEvaluator,
+    ExpandFromPriorPolicy,
     InverseVarianceTreeEvaluator,
     MinimalVarianceConstraintPolicy,
+    Policy,
     PolicyDistribution,
     PolicyPUCT,
     PolicyUCT,
@@ -30,6 +33,8 @@ def run_vis(
     goal_obs=None,
     seed=None,
     sleep_time=0.0,
+    expansion_policy: Policy =DefaultExpansionPolicy(),
+    discount = 1.0
 ):
     env = gym.make(**env_args)
     render_env = gym.make(**env_args, render_mode="human")
@@ -41,7 +46,7 @@ def run_vis(
         checkpoint_path = os.path.join(dir, "checkpoint.pth")
 
     model = AlphaZeroModel.load_model(checkpoint_path, env)
-    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model)
+    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,expansion_policy=expansion_policy, discount_factor=discount)
 
     visualize_gameplay(
         agent,
@@ -107,9 +112,10 @@ def visualize_gameplay(
 def main_runviss():
     env_id = "CliffWalking-v0"
     env_args = {"id": env_id}
-    discount = 1.0
-    tree_policy = MinimalVarianceConstraintPolicy(1.0, discount_factor=discount)
-    selection_policy = PolicyUCT(c=1, policy=tree_policy, discount_factor=discount)
+    discount = .95
+    tree_policy = MinimalVarianceConstraintPolicy(5.0, discount_factor=discount)
+    selection_policy = PolicyUCT(c=2, policy=tree_policy, discount_factor=discount)
+    expansion_policy = ExpandFromPriorPolicy()
     run_vis(
         f"runs/{env_id}*",
         env_args,
@@ -121,6 +127,8 @@ def main_runviss():
         goal_obs=None,
         seed=1,
         sleep_time=0,
+        expansion_policy=expansion_policy,
+        discount=discount
     )
 
 
