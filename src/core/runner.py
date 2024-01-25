@@ -5,10 +5,10 @@ import copy
 from typing import Any, List, Tuple
 import gymnasium as gym
 import numpy as np
-from environment import obs_dim, obs_to_tensor
-from mcts import MCTS, RandomRolloutMCTS
-from node import Node
-from policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution, InverseVarianceTreeEvaluator
+from env.environment import obs_dim, obs_to_tensor
+from core.mcts import MCTS, RandomRolloutMCTS
+from core.node import Node
+from policies.policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution, InverseVarianceTreeEvaluator
 
 
 def run_episode(

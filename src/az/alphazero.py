@@ -1,10 +1,13 @@
 from collections import Counter
 import datetime
+import multiprocessing
+import os
+import sys
+sys.path.append("src/")
+
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
-from azmcts import AlphaZeroMCTS
-from environment import plot_visits_to_tensorboard_with_counter, show_model_in_tensorboard
 import torch as th
 from torchrl.data import (
     ReplayBuffer,
@@ -15,18 +18,17 @@ from torchrl.data import (
     TensorDictPrioritizedReplayBuffer
 )
 from torch.utils.tensorboard.writer import SummaryWriter
-import os
 import numpy as np
 
-import multiprocessing
-from learning import n_step_value_targets, one_step_value_targets, calculate_visit_counts
-from mcts import MCTS
-from model import AlphaZeroModel
-from node import Node
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy, Policy, PolicyDistribution, PolicyPUCT, PolicyUCT, SoftmaxDefaultTreeEvaluator
-from runner import run_episode
-from t_board import add_self_play_metrics, add_training_metrics, log_model
-
+from az.azmcts import AlphaZeroMCTS
+from az.learning import n_step_value_targets, one_step_value_targets, calculate_visit_counts
+from az.model import AlphaZeroModel
+from env.environment import plot_visits_to_tensorboard_with_counter, show_model_in_tensorboard
+from core.mcts import MCTS
+from core.node import Node
+from core.runner import run_episode
+from policies.policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, ExpandFromPriorPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy, Policy, PolicyDistribution, PolicyPUCT, PolicyUCT, SoftmaxDefaultTreeEvaluator
+from experiments.t_board import add_self_play_metrics, add_training_metrics, log_model
 
 
 
@@ -330,7 +332,7 @@ def train_alphazero():
     log_dir = f"./tensorboard_logs/{run_name}"
     writer = SummaryWriter(log_dir=log_dir)
     run_dir = f"./runs/{run_name}"
-    
+
 
     controller = AlphaZeroController(
         env,

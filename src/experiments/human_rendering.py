@@ -3,12 +3,14 @@ import os
 import time
 import gymnasium as gym
 import numpy as np
-from azmcts import AlphaZeroMCTS
-from environment import obs_to_tensor
-from mcts import MCTS
+import sys
+sys.path.append("src/")
 
-from model import AlphaZeroModel
-from policies import (
+from az.azmcts import AlphaZeroMCTS
+from env.environment import obs_to_tensor
+from core.mcts import MCTS
+from az.model import AlphaZeroModel
+from policies.policies import (
     PUCT,
     DefaultExpansionPolicy,
     DefaultTreeEvaluator,

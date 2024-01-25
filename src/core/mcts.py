@@ -2,9 +2,9 @@ import copy
 import gymnasium as gym
 from typing import Generic, TypeVar, Tuple
 import numpy as np
-from node import Node
+from core.node import Node
 
-from policies import DefaultExpansionPolicy, OptionalPolicy, Policy
+from policies.policies import DefaultExpansionPolicy, OptionalPolicy, Policy
 
 ObservationType = TypeVar("ObservationType")
 

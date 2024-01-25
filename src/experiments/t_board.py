@@ -4,7 +4,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torch as th
 import gymnasium as gym
 
-from environment import obs_to_tensor
+from env.environment import obs_to_tensor
 
 def add_training_metrics(writer: SummaryWriter, value_losses, policy_losses, value_sims,regularization_loss, total_losses,buffer_size, learning_rate, i):
     writer.add_scalar("Training/Value_loss", np.mean(value_losses), i)

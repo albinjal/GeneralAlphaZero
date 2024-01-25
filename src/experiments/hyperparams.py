@@ -10,11 +10,14 @@ from torchrl.data import (
     LazyTensorStorage,
     TensorDictReplayBuffer,
 )
+import sys
+sys.path.append("src/")
 
-from alphazero import AlphaZeroController
-from azmcts import AlphaZeroMCTS
-from model import AlphaZeroModel
-from policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, MinimalVarianceConstraintPolicy
+from az.alphazero import AlphaZeroController
+from az.azmcts import AlphaZeroMCTS
+from az.model import AlphaZeroModel
+from policies.policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, MinimalVarianceConstraintPolicy
+
 def tune_alphazero(hparams):
     np.random.seed(0)
     env_id = hparams['env_id']

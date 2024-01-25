@@ -2,7 +2,7 @@ from typing import Tuple
 import torch as th
 import gymnasium as gym
 
-from environment import obs_dim
+from env.environment import obs_dim
 
 
 class AlphaZeroModel(th.nn.Module):

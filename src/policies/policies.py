@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 import torch as th
 import numpy as np
-from node import Node
+from core.node import Node
 
 ObservationType = TypeVar("ObservationType")
 

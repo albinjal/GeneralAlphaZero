@@ -4,7 +4,7 @@ import pytest
 
 sys.path.append("src/")
 
-from learning import n_step_value_targets, one_step_value_targets
+from az.learning import n_step_value_targets, one_step_value_targets
 
 # [Include the definitions of n_step_value_targets and one_step_value_targets here]
 

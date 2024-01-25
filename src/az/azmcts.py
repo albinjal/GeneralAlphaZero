@@ -1,13 +1,13 @@
 from typing import List
 import torch as th
 import gymnasium as gym
-from environment import obs_to_tensor
+from env.environment import obs_to_tensor
 import copy
 import numpy as np
 
-from mcts import MCTS
-from model import AlphaZeroModel
-from node import Node
+from core.mcts import MCTS
+from az.model import AlphaZeroModel
+from core.node import Node
 
 
 class AlphaZeroMCTS(MCTS):
