@@ -309,10 +309,10 @@ def train_alphazero():
     selection_policy = PolicyUCT(c=1, policy=tree_evaluation_policy, discount_factor=discount_factor)
     expansion_policy = ExpandFromPriorPolicy()
 
-    model = AlphaZeroModel(env, hidden_dim=2**7, layers=1, pref_gpu=False)
+    model = AlphaZeroModel(env, hidden_dim=2**5, layers=10, pref_gpu=False)
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=expansion_policy)
     regularization_weight = 1e-9
-    optimizer = th.optim.Adam(model.parameters(), lr=1e-4, weight_decay=regularization_weight)
+    optimizer = th.optim.Adam(model.parameters(), lr=5e-4, weight_decay=regularization_weight)
     scheduler = th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=1, verbose=True)
     debug = False
     workers = 1 if debug else multiprocessing.cpu_count()
@@ -330,6 +330,7 @@ def train_alphazero():
     log_dir = f"./tensorboard_logs/{run_name}"
     writer = SummaryWriter(log_dir=log_dir)
     run_dir = f"./runs/{run_name}"
+    
 
     controller = AlphaZeroController(
         env,
@@ -338,7 +339,7 @@ def train_alphazero():
         replay_buffer = replay_buffer,
         max_episode_length=200,
         compute_budget=100,
-        training_epochs=100,
+        training_epochs=10,
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         writer=writer,
@@ -348,8 +349,8 @@ def train_alphazero():
         self_play_workers=workers,
         scheduler=scheduler,
         discount_factor=discount_factor,
-        n_steps_learning=1,
-        use_visit_count=False
+        n_steps_learning=10,
+        use_visit_count=True,
     )
     controller.iterate(iterations)
     env.close()

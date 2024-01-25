@@ -117,7 +117,7 @@ def main_runviss():
     selection_policy = PolicyUCT(c=2, policy=tree_policy, discount_factor=discount)
     expansion_policy = ExpandFromPriorPolicy()
     run_vis(
-        f"runs/{env_id}*",
+        f"runs/CliffWalking-v0_20240121*",
         env_args,
         tree_policy,
         selection_policy,
