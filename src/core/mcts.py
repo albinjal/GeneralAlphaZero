@@ -1,30 +1,27 @@
 import copy
 import gymnasium as gym
-from typing import Generic, TypeVar, Tuple
 import numpy as np
 from core.node import Node
+from policies.expansion import DefaultExpansionPolicy
 
-from policies.policies import DefaultExpansionPolicy, OptionalPolicy, Policy
-
-ObservationType = TypeVar("ObservationType")
+from policies.policies import OptionalPolicy, Policy
 
 
-#test
-class MCTS(Generic[ObservationType]):
+
+
+class MCTS:
     """
     This class contains the basic MCTS algorithm without assumtions on the value function.
     """
 
-    env: gym.Env[ObservationType, np.int64]
-    selection_policy: OptionalPolicy[ObservationType]
-    expansion_policy: Policy[
-        ObservationType
-    ] | None  # the expansion policy is usually "pick uniform non explored action"
+    env: gym.Env
+    selection_policy: OptionalPolicy
+    expansion_policy: Policy  # the expansion policy is usually "pick uniform non explored action"
 
     def __init__(
         self,
-        selection_policy: OptionalPolicy[ObservationType],
-        expansion_policy: Policy[ObservationType] | None = DefaultExpansionPolicy(),
+        selection_policy: OptionalPolicy,
+        expansion_policy: Policy = DefaultExpansionPolicy(),
         discount_factor: float = 1.0,
     ):
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
@@ -33,15 +30,15 @@ class MCTS(Generic[ObservationType]):
 
     def search(
         self,
-        env: gym.Env[ObservationType, np.int64],
+        env: gym.Env,
         iterations: int,
-        obs: ObservationType,
+        obs,
         reward: np.float32,
-    ) -> Node[ObservationType]:
+    ) -> Node:
         # the env should be in the state we want to search from
         # assert that the type of the action space is discrete
         assert isinstance(env.action_space, gym.spaces.Discrete)
-        # root_node = Node[ObservationType](
+        # root_node = Node(
         #     parent=None, reward=reward, action_space=env.action_space, observation=obs
         # )
         # # evaluate the root node
@@ -77,7 +74,7 @@ class MCTS(Generic[ObservationType]):
         return from_node
 
     def handle_selected_node(
-        self, node: Node[ObservationType]
+        self, node: Node
     ):
         if self.expansion_policy is None:
             self.handle_all(node)
@@ -87,7 +84,7 @@ class MCTS(Generic[ObservationType]):
 
     def handle_single(
         self,
-        node: Node[ObservationType],
+        node: Node,
         action: np.int64,
     ):
         eval_node = self.expand(node, action)
@@ -98,14 +95,14 @@ class MCTS(Generic[ObservationType]):
         self.backup(eval_node, value)
 
     def handle_all(
-        self, node: Node[ObservationType],
+        self, node: Node,
     ):
         for action in range(node.action_space.n):
             self.handle_single(node, np.int64(action))
 
     def value_function(
         self,
-        node: Node[ObservationType],
+        node: Node,
     ) -> np.float32:
         """The point of the value function is to estimate the value of the node.
         The value is defined as the expected future reward if we get to the node given some policy.
@@ -207,13 +204,13 @@ class RandomRolloutMCTS(MCTS):
             return np.float32(0.0)
 
         # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
-        accumulated_reward = np.float32(0.0)
+        accumulated_reward = 0.0
         env = copy.deepcopy(node.env)
         assert env is not None
         for _ in range(self.rollout_budget):
             _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
-            accumulated_reward += np.float32(reward)
+            accumulated_reward += float(reward)
             if terminated or truncated:
                 break
 
-        return accumulated_reward
+        return np.float32(accumulated_reward)

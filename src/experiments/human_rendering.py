@@ -4,24 +4,17 @@ import time
 import gymnasium as gym
 import numpy as np
 import sys
+from policies.expansion import DefaultExpansionPolicy, ExpandFromPriorPolicy
+
+from policies.policies import Policy, PolicyDistribution
+from policies.selection import PolicyUCT
+from policies.tree import DefaultTreeEvaluator, MinimalVarianceConstraintPolicy
 sys.path.append("src/")
 
 from az.azmcts import AlphaZeroMCTS
 from env.environment import obs_to_tensor
 from core.mcts import MCTS
 from az.model import AlphaZeroModel
-from policies.policies import (
-    PUCT,
-    DefaultExpansionPolicy,
-    DefaultTreeEvaluator,
-    ExpandFromPriorPolicy,
-    InverseVarianceTreeEvaluator,
-    MinimalVarianceConstraintPolicy,
-    Policy,
-    PolicyDistribution,
-    PolicyPUCT,
-    PolicyUCT,
-)
 
 
 def run_vis(
@@ -35,7 +28,7 @@ def run_vis(
     goal_obs=None,
     seed=None,
     sleep_time=0.0,
-    expansion_policy: Policy =DefaultExpansionPolicy(),
+    expansion_policy: Policy = DefaultExpansionPolicy(),
     discount = 1.0
 ):
     env = gym.make(**env_args)
@@ -102,10 +95,10 @@ def visualize_gameplay(
             norm_entropy = policy_dist.entropy() / np.log(n)
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
             print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
-            default = DefaultTreeEvaluator()
-            print(f"default {default.distribution(tree).probs }")
-            diff = default.distribution(tree).probs - policy_dist.probs
-            print(f"diff {(diff ** 2).sum()}, {diff}")
+            # default = DefaultTreeEvaluator()
+            # print(f"default {default.distribution(tree).probs }")
+            # diff = default.distribution(tree).probs - policy_dist.probs
+            # print(f"diff {(diff ** 2).sum()}, {diff}")
 
         if terminal:
             break

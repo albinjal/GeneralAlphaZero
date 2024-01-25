@@ -1,14 +1,11 @@
-import time
-from tensordict import TensorDict, tensorclass
+from tensordict import TensorDict
 import torch as th
-import copy
-from typing import Any, List, Tuple
 import gymnasium as gym
 import numpy as np
 from env.environment import obs_dim, obs_to_tensor
-from core.mcts import MCTS, RandomRolloutMCTS
-from core.node import Node
-from policies.policies import PUCT, UCT, DefaultTreeEvaluator, Policy, PolicyDistribution, InverseVarianceTreeEvaluator
+from core.mcts import MCTS
+from policies.policies import PolicyDistribution
+
 
 
 def run_episode(
@@ -104,34 +101,36 @@ def run_episode(
     return trajectory
 
 
-def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
-    observation, _ = env.reset()
-    tree = solver.search(env, compute_budget, observation, np.float32(0.0))
-    return tree.visualize(max_depth=max_depth)
+# def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
+#     observation, _ = env.reset()
+#     tree = solver.search(env, compute_budget, observation, np.float32(0.0))
+#     return tree.visualize(max_depth=max_depth)
 
 
-if __name__ == "__main__":
-    seed = 0
-    actType = np.int64
-    env_id = "CliffWalking-v0"
-    # env_id = "FrozenLake-v1"
-    # env_id = "Taxi-v3"
-    env: gym.Env[Any, actType] = gym.make(env_id, render_mode="rgb_array")
+# if __name__ == "__main__":
+#     from policies.selection import UCT
+#     from policies.tree import DefaultTreeEvaluator
+#     seed = 0
+#     actType = np.int64
+#     env_id = "CliffWalking-v0"
+#     # env_id = "FrozenLake-v1"
+#     # env_id = "Taxi-v3"
+#     env: gym.Env[Any, actType] = gym.make(env_id, render_mode="rgb_array")
 
-    selection_policy = UCT(c=1)
-    tree_evaluation_policy = DefaultTreeEvaluator()
+#     selection_policy = UCT(c=1)
+#     tree_evaluation_policy = DefaultTreeEvaluator()
 
-    mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
-    # vis_tree(mcts, env, compute_budget=100, max_depth=None)
-    trajectory = run_episode(
-        mcts,
-        env,
-        tree_evaluation_policy,
-        compute_budget=100,
-        verbose=True,
-        goal_obs=47,
-        seed=seed,
-        max_steps=200,
-    )
-    env.close()
-    print(trajectory)
+#     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
+#     # vis_tree(mcts, env, compute_budget=100, max_depth=None)
+#     trajectory = run_episode(
+#         mcts,
+#         env,
+#         tree_evaluation_policy,
+#         compute_budget=100,
+#         verbose=True,
+#         goal_obs=47,
+#         seed=seed,
+#         max_steps=200,
+#     )
+#     env.close()
+#     print(trajectory)

@@ -11,12 +11,15 @@ from torchrl.data import (
     TensorDictReplayBuffer,
 )
 import sys
+from policies.expansion import DefaultExpansionPolicy
+
+from policies.selection import PUCT
+from policies.tree import DefaultTreeEvaluator
 sys.path.append("src/")
 
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
 from az.model import AlphaZeroModel
-from policies.policies import PUCT, UCT, DefaultExpansionPolicy, DefaultTreeEvaluator, MinimalVarianceConstraintPolicy
 
 def tune_alphazero(hparams):
     np.random.seed(0)
@@ -28,7 +31,8 @@ def tune_alphazero(hparams):
     tree_evaluation_policy = DefaultTreeEvaluator()
 
     model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'])
-    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model, discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
+    agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,
+                          discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
     regularization_weight = hparams['regularization_weight']
     optimizer = th.optim.Adam(model.parameters(), lr=hparams['learning_rate'], weight_decay=regularization_weight)
 
