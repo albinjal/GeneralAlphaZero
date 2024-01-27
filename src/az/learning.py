@@ -2,7 +2,7 @@ from collections import Counter
 import torch as th
 import numpy as np
 
-
+@th.no_grad()
 def n_step_value_targets(
     rewards: th.Tensor,
     values: th.Tensor,
@@ -52,7 +52,7 @@ def n_step_value_targets(
 
     return targets
 
-
+@th.no_grad()
 def one_step_value_targets(
     rewards: th.Tensor, values: th.Tensor, terminals: th.Tensor, discount_factor: float
 ):

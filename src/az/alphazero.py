@@ -15,6 +15,8 @@ from torchrl.data import (
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 import numpy as np
+import wandb
+from experiments.wandb_logs import add_self_play_metrics_wandb, add_training_metrics_wandb, plot_visits_to_wandb_with_counter, show_model_in_wandb
 
 from policies.tree import DefaultTreeEvaluator
 from policies.policies import PolicyDistribution
@@ -123,6 +125,9 @@ class AlphaZeroController:
             add_training_metrics(self.writer, value_losses, policy_losses, value_sims, regularization_loss, total_losses, len(self.replay_buffer),
                                  self.scheduler.get_last_lr() if self.scheduler else None, i)
 
+            add_training_metrics_wandb(value_losses, policy_losses, value_sims, regularization_loss, total_losses, len(self.replay_buffer),
+                                 self.scheduler.get_last_lr() if self.scheduler else None, i)
+
             if i % self.checkpoint_interval == 0:
                 print(f"Saving model at iteration {i}")
                 self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
@@ -137,8 +142,13 @@ class AlphaZeroController:
                 show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
                 plot_visits_to_tensorboard_with_counter(self.train_obs_counter, self.env.observation_space, 6, 12, self.writer, i)
 
+                # wandb
+                show_model_in_wandb(self.env.observation_space, self.agent.model, i)
+                plot_visits_to_wandb_with_counter(self.train_obs_counter, self.env.observation_space, 6, 12, i)
+
         # save the final model
         self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
+
 
 
         return {"last_reward": last_reward, "average_reward": total_reward / iterations}
@@ -202,7 +212,7 @@ class AlphaZeroController:
         mean_reward = np.mean(rewards)
         reward_variance = np.var(rewards, ddof=1)
         add_self_play_metrics(self.writer, mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step)
-
+        add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step)
 
 
         return float(mean_reward)

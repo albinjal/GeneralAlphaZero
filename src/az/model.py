@@ -1,6 +1,7 @@
 from typing import Tuple
 import torch as th
 import gymnasium as gym
+import wandb
 
 from env.environment import obs_dim
 
