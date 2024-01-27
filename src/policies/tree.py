@@ -52,8 +52,12 @@ class InverseVarianceTreeEvaluator(PolicyDistribution):
 
 
         if include_self:
-            # check if this is correct, might need to add discount factor
-            inverse_variances[-1] = 1.0 / (self.discount_factor ** 2 * value_evaluation_variance(node))
+            # if we have no children, the policy should be 1 for the self action
+            if len(node.children) == 0:
+                inverse_variances[-1] = 1.0
+            else:
+                # set it to 1/visits
+                inverse_variances[-1] = inverse_variances.sum() / (node.visits - 1)
 
         return th.distributions.Categorical(
             inverse_variances
@@ -107,8 +111,12 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         #     )
 
         if include_self:
-            # set it to 1/visits
-            policy[-1] = policy.sum() / (node.visits - 1)
+            # if we have no children, the policy should be 1 for the self action
+            if len(node.children) == 0:
+                policy[-1] = 1.0
+            else:
+                # set it to 1/visits
+                policy[-1] = policy.sum() / (node.visits - 1)
 
 
         return th.distributions.Categorical(
