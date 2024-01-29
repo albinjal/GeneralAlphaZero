@@ -144,7 +144,7 @@ default_config = lambda: {
         },
         "hidden_dim": {"min": 2, "max": 10, "distribution": "q_log_uniform"},
         "policy_loss_weight": {"min": 1, "max": 5, "distribution": "log_uniform"},
-        "learning_rate": {"min": -9, "max": -3, "distribution": "log_uniform"},
+        "learning_rate": {"min": -15, "max": -3, "distribution": "log_uniform"},
         "sample_batch_ratio": {"min": 1, "max": 10, "distribution": "int_uniform"},
         "n_steps_learning": {"min": 1, "max": 50, "distribution": "int_uniform"},
         "training_epochs": {"min": 1, "max": 100, "distribution": "int_uniform"},
