@@ -109,7 +109,7 @@ class AlphaZeroController:
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            last_reward = self.self_play(i)
+            last_reward = self.self_play(i, total_reward)
             total_reward += last_reward
             print("Learning...")
             (
@@ -156,7 +156,7 @@ class AlphaZeroController:
 
         return {"last_reward": last_reward, "average_reward": total_reward / iterations}
 
-    def self_play(self, global_step):
+    def self_play(self, global_step, total_reward):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
 
@@ -215,7 +215,7 @@ class AlphaZeroController:
         mean_reward = np.mean(rewards)
         reward_variance = np.var(rewards, ddof=1)
         add_self_play_metrics(self.writer, mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step)
-        add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step)
+        add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entropies, tot_tim, total_reward, global_step)
 
 
         return float(mean_reward)

@@ -25,7 +25,7 @@ def log_model_wandb(model: th.nn.Module, env: gym.Env):
 
 
 
-def add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step):
+def add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entropies, tot_tim, cumulative_reward, global_step):
     wandb.log({"Self_Play/Mean_Reward": mean_reward,
                "Self_Play/Reward_STD": np.sqrt(reward_variance),
                "Self_Play/Mean_Timesteps": np.mean(time_steps),
@@ -33,6 +33,7 @@ def add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entrop
                "Self_Play/Runtime_per_Timestep": tot_tim.microseconds / np.sum(time_steps),
                "Self_Play/Mean_Entropy": np.mean(entropies),
                "Self_Play/Total_Timesteps": np.sum(time_steps),
+               "Self_Play/Cumulative_Reward": cumulative_reward+mean_reward,
                }, step=global_step)
 
 

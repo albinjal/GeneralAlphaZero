@@ -125,8 +125,8 @@ import datetime
 default_config = lambda: {
     "name": f"AlphaZero_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
     "method": "bayes",
-    "metric": {"goal": "maximize", "name": "Self_Play/Mean_Reward"},
-    "run_cap": 100,
+    "metric": {"goal": "maximize", "name": "Self_Play/Cumulative_Reward"},
+    "run_cap": 1000,
     "parameters": {
         "use_visit_count": {"values": [True, False], "distribution": "categorical"},
         "regularization_weight": {
@@ -142,7 +142,7 @@ default_config = lambda: {
             "values": list(expanded_tree_dict(1.0).keys()),
             "distribution": "categorical",
         },
-        "hidden_dim": {"min": 2, "max": 6, "distribution": "q_log_uniform"},
+        "hidden_dim": {"min": 2, "max": 10, "distribution": "q_log_uniform"},
         "policy_loss_weight": {"min": 1, "max": 5, "distribution": "log_uniform"},
         "learning_rate": {"min": -9, "max": -3, "distribution": "log_uniform"},
         "sample_batch_ratio": {"min": 1, "max": 10, "distribution": "int_uniform"},
@@ -153,7 +153,7 @@ default_config = lambda: {
         "layers": {"min": 1, "max": 3, "distribution": "int_uniform"},
         "replay_buffer_multiplier": {
             "min": 1,
-            "max": 10,
+            "max": 20,
             "distribution": "int_uniform",
         },
         "discount_factor": {"value": 0.99, "distribution": "constant"},
