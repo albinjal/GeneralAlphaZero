@@ -61,7 +61,7 @@ class AlphaZeroController:
         max_episode_length=500,
         writer: SummaryWriter = SummaryWriter(),
         run_dir="./logs",
-        checkpoint_interval=5,
+        checkpoint_interval = -1, # -1 means no checkpoints
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         self_play_iterations=10,
@@ -71,6 +71,7 @@ class AlphaZeroController:
         discount_factor = 1.0,
         n_steps_learning: int = 1,
         use_visit_count = False,
+        save_plots = True,
 
     ) -> None:
         self.replay_buffer = replay_buffer
@@ -100,6 +101,7 @@ class AlphaZeroController:
         self.scheduler = scheduler
         self.train_obs_counter = Counter()
         self.use_visit_count = use_visit_count
+        self.save_plots = save_plots
 
 
     def iterate(self, iterations=10):
@@ -128,7 +130,7 @@ class AlphaZeroController:
             add_training_metrics_wandb(value_losses, policy_losses, value_sims, regularization_loss, total_losses, len(self.replay_buffer),
                                  self.scheduler.get_last_lr() if self.scheduler else None, i)
 
-            if i % self.checkpoint_interval == 0:
+            if self.checkpoint_interval != -1 and i % self.checkpoint_interval == 0:
                 print(f"Saving model at iteration {i}")
                 self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
 
@@ -137,7 +139,7 @@ class AlphaZeroController:
 
             # if the env is CliffWalking-v0, plot the output of the value and policy networks
             assert self.env.spec is not None
-            if self.env.spec.id == "CliffWalking-v0":
+            if self.env.spec.id == "CliffWalking-v0" and self.save_plots:
                 assert isinstance(self.env.observation_space, gym.spaces.Discrete)
                 show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
                 plot_visits_to_tensorboard_with_counter(self.train_obs_counter, self.env.observation_space, 6, 12, self.writer, i)
@@ -146,8 +148,9 @@ class AlphaZeroController:
                 show_model_in_wandb(self.env.observation_space, self.agent.model, i)
                 plot_visits_to_wandb_with_counter(self.train_obs_counter, self.env.observation_space, 6, 12, i)
 
-        # save the final model
-        self.agent.model.save_model(f"{self.run_dir}/final_model.pth")
+        if self.checkpoint_interval != -1:
+            print(f"Saving model at iteration {iterations}")
+            self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
 
 
 
@@ -252,11 +255,14 @@ class AlphaZeroController:
                 """
                 # lets first construct a tensor with the same shape as the observations tensor but with the number of visits instead of the observations
                 # note that the observations tensor has shape (batch_size, max_steps, obs_dim)
-                visit_counts_tensor, counter = calculate_visit_counts(trajectories["observations"])
-                # add the counter to the train_obs_counter
-                self.train_obs_counter.update(counter)
-                if not self.use_visit_count:
-                    visit_counts_tensor = th.ones_like(visit_counts_tensor)
+                visit_counts_tensor = th.ones_like(values)
+                if self.use_visit_count or self.save_plots:
+                    tens, counter = calculate_visit_counts(trajectories["observations"])
+                    # add the counter to the train_obs_counter
+                    self.train_obs_counter.update(counter)
+                    if self.use_visit_count:
+                        visit_counts_tensor = tens
+
 
 
 

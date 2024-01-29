@@ -5,6 +5,8 @@ from policies.policies import PolicyDistribution
 from policies.utility_functions import independent_policy_value_variance, policy_value, value_evaluation_variance
 
 
+
+
 class DefaultTreeEvaluator(PolicyDistribution):
     # the default tree evaluator selects the action with the most visits
     def distribution(self, node: Node, include_self = False) -> th.distributions.Categorical:
@@ -122,3 +124,22 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         return th.distributions.Categorical(
             policy
         )
+
+
+tree_eval_dict = lambda param, discount: {
+    "default": DefaultTreeEvaluator(),
+    "softmax": SoftmaxDefaultTreeEvaluator(temperature=param),
+    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
+    "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param)
+}
+
+expanded_tree_dict = lambda discount: {
+    "default": DefaultTreeEvaluator(),
+    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
+    "softmax_1": SoftmaxDefaultTreeEvaluator(temperature=1.0),
+    "softmax_3": SoftmaxDefaultTreeEvaluator(temperature=3.0),
+    "softmax_5": SoftmaxDefaultTreeEvaluator(temperature=5.0),
+    "minimal_variance_constraint_1": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=1.0),
+    "minimal_variance_constraint_3": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=3.0),
+    "minimal_variance_constraint_5": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=5.0),
+}

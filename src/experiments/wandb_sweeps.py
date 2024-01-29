@@ -12,36 +12,38 @@ from torchrl.data import (
     TensorDictReplayBuffer,
 )
 import wandb
-from policies.expansion import DefaultExpansionPolicy
+from policies.expansion import DefaultExpansionPolicy, ExpandFromPriorPolicy
 from policies.selection import PUCT
 from policies.tree import DefaultTreeEvaluator
 
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
 from az.model import AlphaZeroModel
-from experiments.hyperparams import grid_search
+from experiments.sweep_configs import default_config
+from policies.tree import expanded_tree_dict
+from policies.selection import selection_dict_fn
 
 
-def tune_alphazero_with_wandb(hparams, project_name="AlphaZero", entity = None, job_name = None):
+def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name = None):
     # Initialize Weights & Biases
     settings = wandb.Settings(job_name=job_name)
-    run = wandb.init(project=project_name, config=hparams, entity=entity, settings=settings)
+    run = wandb.init(project=project_name, entity=entity, settings=settings)
     assert run is not None
-
-    np.random.seed(0)
+    hparams = wandb.config
+    print(hparams)
     env = gym.make(hparams['env_id'])
 
-
     discount_factor = hparams['discount_factor']
-    selection_policy = PUCT(c=hparams['puct_c'])
-    tree_evaluation_policy = DefaultTreeEvaluator()
+    tree_evaluation_policy = expanded_tree_dict(discount_factor)[hparams['tree_evaluation_policy']]
+    selection_policy = selection_dict_fn(hparams['puct_c'], tree_evaluation_policy, discount_factor)[hparams['selection_policy']]
+    print(selection_policy)
+    expansion_policy = ExpandFromPriorPolicy()
 
     model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'])
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,
-                          discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
+                          discount_factor=discount_factor, expansion_policy=expansion_policy)
 
-    regularization_weight = hparams['regularization_weight']
-    optimizer = th.optim.Adam(model.parameters(), lr=hparams['learning_rate'], weight_decay=regularization_weight)
+    optimizer = th.optim.Adam(model.parameters(), lr=hparams['learning_rate'], weight_decay=hparams['regularization_weight'])
 
     workers = multiprocessing.cpu_count()
     self_play_games_per_iteration = workers
@@ -72,47 +74,28 @@ def tune_alphazero_with_wandb(hparams, project_name="AlphaZero", entity = None, 
         scheduler=th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=hparams['lr_gamma'], verbose=True),
         discount_factor=discount_factor,
         n_steps_learning=hparams['n_steps_learning'],
-        checkpoint_interval=10,
+        checkpoint_interval=-1,
         use_visit_count=hparams['use_visit_count'],
-        writer=writer
+        writer=writer,
+        save_plots=False,
     )
 
     metrics = controller.iterate(hparams['iterations'])
 
     env.close()
+    run.log_code(root="./src")
     # Finish the WandB run
     run.finish()
-
     return metrics
 
+def sweep_agent():
+    tune_alphazero_with_wandb()
 
-def run():
-    # Some are only a single value
-    base_config = {
-        'env_id': ['CliffWalking-v0'],
-        'discount_factor': [1.0],
-        'max_episode_length': [200],
-        'iterations': [30],
-        'compute_budget': [50],
-        'training_epochs': [5],
-        'value_loss_weight': [1.0],
-        'policy_loss_weight': [1.0],
-        'lr_gamma': [1.0],
-        'n_steps_learning': [10],
-        'puct_c': [3],
-        'hidden_dim': [128],
-        'layers': [1],
-        'regularization_weight': [1e-4],
-        'learning_rate': [1e-4],
-        'replay_buffer_multiplier': [10],
-        'sample_batch_ratio': [5],
-        'eval_param': [1.0],
-        'use_visit_count': [False]
-    }
-
-    grid_search(tune_alphazero_with_wandb, base_config)
 
 
 
 if __name__ == '__main__':
-    run()
+
+    sweep_id = wandb.sweep(sweep=default_config, project="AlphaZero")
+
+    wandb.agent(sweep_id, function=sweep_agent)

@@ -89,3 +89,11 @@ class PolicyPUCT(PUCT):
         return val + self.c * prior * (node.visits**0.5) / (
             child.visits + 1
         )
+
+
+selection_dict_fn = lambda c, policy, discount: {
+    "UCT": UCT(c),
+    "PUCT": PUCT(c),
+    "PolicyUCT": PolicyUCT(c, policy, discount),
+    "PolicyPUCT": PolicyPUCT(c, policy, discount),
+}
