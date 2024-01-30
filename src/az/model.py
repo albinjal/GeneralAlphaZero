@@ -61,7 +61,7 @@ class AlphaZeroModel(th.nn.Module):
         self.policy_head = th.nn.Sequential(
             th.nn.Linear(hidden_dim, hidden_dim),
             th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, self.action_dim, bias=False), # I want the policy to be un-biased, TODO: check this
+            th.nn.Linear(hidden_dim, self.action_dim), # TODO: potentially remove bias
         )
         self.to(self.device)
         self.nlayers = layers

@@ -21,7 +21,7 @@ class UCT(OptionalPolicy):
 
     def ucb(self, node: Node, action: np.int64) -> float:
         child = node.children[action]
-        return child.default_value() + self.c * (node.visits / child.visits) ** 0.5
+        return child.default_value() + self.c * (np.log(node.visits) / child.visits) ** 0.5
 
 
 class PUCT(OptionalPolicy):
@@ -68,7 +68,7 @@ class PolicyUCT(UCT):
     def ucb(self, node: Node, action: np.int64) -> float:
         child = node.children[action]
         # replace the default value with the policy value
-        return policy_value(child, self.policy, self.discount_factor) + self.c * (node.visits / child.visits) ** 0.5
+        return policy_value(child, self.policy, self.discount_factor) + self.c * (np.log(node.visits) / child.visits) ** 0.5
 
 
 

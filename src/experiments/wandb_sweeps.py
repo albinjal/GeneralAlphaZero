@@ -24,10 +24,10 @@ from policies.tree import expanded_tree_dict, tree_eval_dict
 from policies.selection import selection_dict_fn
 
 
-def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name = None):
+def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name = None, config= None, performance=True):
     # Initialize Weights & Biases
     settings = wandb.Settings(job_name=job_name)
-    run = wandb.init(project=project_name, entity=entity, settings=settings)
+    run = wandb.init(project=project_name, entity=entity, settings=settings, config=config)
     assert run is not None
     hparams = wandb.config
     print(hparams)
@@ -74,10 +74,10 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
         scheduler=th.optim.lr_scheduler.ExponentialLR(optimizer, gamma=hparams['lr_gamma'], verbose=True),
         discount_factor=discount_factor,
         n_steps_learning=hparams['n_steps_learning'],
-        checkpoint_interval=-1,
+        checkpoint_interval=-1 if performance else 10,
         use_visit_count=hparams['use_visit_count'],
         writer=writer,
-        save_plots=False,
+        save_plots=not performance,
     )
 
     metrics = controller.iterate(hparams['iterations'])
@@ -92,10 +92,36 @@ def sweep_agent():
     tune_alphazero_with_wandb()
 
 
+def run_single():
+    parameters = {
+    "selection_policy": "PolicyPUCT",
+    "puct_c": 5.0,
+    "eval_param": 1.0,
+    "use_visit_count": 0,
+    "regularization_weight": 1e-3,
+    "tree_evaluation_policy": "minimal_variance_constraint",
+    "hidden_dim": 128,
+    "policy_loss_weight": 3,
+    "learning_rate": 2e-4,
+    "sample_batch_ratio": 8,
+    "n_steps_learning": 1,
+    "training_epochs": 30,
+    "compute_budget": 40,
+    "layers": 2,
+    "replay_buffer_multiplier": 10,
+    "discount_factor": 0.99,
+    "lr_gamma": 1.0,
+    "iterations": 20,
+    "env_id": "CliffWalking-v0",
+    "value_loss_weight": 1.0,
+    "max_episode_length": 200
+    }
+    return tune_alphazero_with_wandb(config=parameters, performance=False)
 
 
 if __name__ == '__main__':
 
-    sweep_id = wandb.sweep(sweep=beta_vs_c_2, project="AlphaZero")
+    # sweep_id = wandb.sweep(sweep=beta_vs_c_2, project="AlphaZero")
 
-    wandb.agent(sweep_id, function=sweep_agent)
+    # wandb.agent(sweep_id, function=sweep_agent)
+    run_single()
