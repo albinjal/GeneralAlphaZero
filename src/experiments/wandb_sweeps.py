@@ -19,8 +19,8 @@ from policies.tree import DefaultTreeEvaluator
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
 from az.model import AlphaZeroModel
-from experiments.sweep_configs import default_config
-from policies.tree import expanded_tree_dict
+from experiments.sweep_configs import default_config, beta_vs_c, beta_vs_c_2
+from policies.tree import expanded_tree_dict, tree_eval_dict
 from policies.selection import selection_dict_fn
 
 
@@ -34,7 +34,7 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
     env = gym.make(hparams['env_id'])
 
     discount_factor = hparams['discount_factor']
-    tree_evaluation_policy = expanded_tree_dict(discount_factor)[hparams['tree_evaluation_policy']]
+    tree_evaluation_policy = tree_eval_dict(hparams['eval_param'], discount_factor)[hparams['tree_evaluation_policy']]
     selection_policy = selection_dict_fn(hparams['puct_c'], tree_evaluation_policy, discount_factor)[hparams['selection_policy']]
     print(selection_policy)
     expansion_policy = ExpandFromPriorPolicy()
@@ -96,6 +96,6 @@ def sweep_agent():
 
 if __name__ == '__main__':
 
-    sweep_id = wandb.sweep(sweep=default_config, project="AlphaZero")
+    sweep_id = wandb.sweep(sweep=beta_vs_c_2, project="AlphaZero")
 
     wandb.agent(sweep_id, function=sweep_agent)

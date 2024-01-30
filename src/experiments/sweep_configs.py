@@ -1,5 +1,6 @@
 from policies.tree import expanded_tree_dict
 from policies.selection import selection_dict_fn
+
 """
 Sweep configuration options
 A sweep configuration consists of nested key-value pairs. Use top-level keys within your sweep configuration to define qualities of your sweep search such as the parameters to search through (parameter key), the methodology to search the parameter space (method key), and more.
@@ -119,16 +120,13 @@ strict	Enable 'strict' mode that prunes runs aggressively, more closely followin
 import datetime
 
 
-
-
-
 default_config = lambda: {
     "name": f"AlphaZero_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
     "method": "bayes",
     "metric": {"goal": "maximize", "name": "Self_Play/Cumulative_Reward"},
     "run_cap": 1000,
     "parameters": {
-        "use_visit_count": {"values": [True, False], "distribution": "categorical"},
+        "use_visit_count": {"values": [1, 0], "distribution": "categorical"},
         "regularization_weight": {
             "min": -10.0,
             "max": -1.0,
@@ -149,7 +147,8 @@ default_config = lambda: {
         "n_steps_learning": {"min": 1, "max": 50, "distribution": "int_uniform"},
         "training_epochs": {"min": 1, "max": 100, "distribution": "int_uniform"},
         "compute_budget": {"min": 10, "max": 50, "distribution": "int_uniform"},
-        "puct_c": {"min": 1, "max": 10, "distribution": "int_uniform"},
+        "puct_c": {"min": 0, "max": 10, "distribution": "int_uniform"},
+        "eval_param": {"min": 0, "max": 10, "distribution": "int_uniform"},
         "layers": {"min": 1, "max": 3, "distribution": "int_uniform"},
         "replay_buffer_multiplier": {
             "min": 1,
@@ -157,11 +156,84 @@ default_config = lambda: {
             "distribution": "int_uniform",
         },
         "discount_factor": {"value": 0.99, "distribution": "constant"},
-        "eval_param": {"value": 1.0, "distribution": "constant"},
         "lr_gamma": {"value": 1.0, "distribution": "constant"},
         "iterations": {"value": 20, "distribution": "constant"},
         "env_id": {"value": "CliffWalking-v0", "distribution": "constant"},
         "value_loss_weight": {"value": 1.0, "distribution": "constant"},
         "max_episode_length": {"value": 100, "distribution": "constant"},
+    },
+}
+
+
+beta_vs_c = lambda: {
+    "name": f"AlphaZero_Beta_VS_C_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
+    "method": "grid",
+    "metric": {"goal": "maximize", "name": "Self_Play/Cumulative_Reward"},
+    "run_cap": 100,
+    "parameters": {
+        "selection_policy": {
+            "values": ["PUCT", "PolicyPUCT"],
+            "distribution": "categorical",
+        },
+        "puct_c": {"min": 0, "max": 10, "distribution": "int_uniform"},
+        "eval_param": {"min": 0, "max": 10, "distribution": "int_uniform"},
+        "use_visit_count": {"value": 0, "distribution": "constant"},
+        "regularization_weight": {"value": 1e-3, "distribution": "constant"},
+        "tree_evaluation_policy": {
+            "value": "minimal_variance_constraint",
+            "distribution": "constant",
+        },
+        "hidden_dim": {"value": 128, "distribution": "constant"},
+        "policy_loss_weight": {"value": 3, "distribution": "constant"},
+        "learning_rate": {"value": 2e-4, "distribution": "constant"},
+        "sample_batch_ratio": {"value": 8, "distribution": "constant"},
+        "n_steps_learning": {"value": 5, "distribution": "constant"},
+        "training_epochs": {"value": 30, "distribution": "constant"},
+        "compute_budget": {"value": 40, "distribution": "constant"},
+        "layers": {"value": 2, "distribution": "constant"},
+        "replay_buffer_multiplier": {"value": 10, "distribution": "constant"},
+        "discount_factor": {"value": 0.99, "distribution": "constant"},
+        "lr_gamma": {"value": 1.0, "distribution": "constant"},
+        "iterations": {"value": 30, "distribution": "constant"},
+        "env_id": {"value": "CliffWalking-v0", "distribution": "constant"},
+        "value_loss_weight": {"value": 1.0, "distribution": "constant"},
+        "max_episode_length": {"value": 200, "distribution": "constant"},
+    },
+}
+
+
+beta_vs_c_2 = lambda: {
+    "name": f"AlphaZero_Beta_VS_C_2_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
+    "method": "grid",
+    "metric": {"goal": "maximize", "name": "Self_Play/Cumulative_Reward"},
+    "run_cap": 100,
+    "parameters": {
+        "selection_policy": {
+            "value": "PolicyPUCT",
+            "distribution": "constant",
+        },
+        "puct_c": {"values": [0, 1, 5, 10]},
+        "eval_param": {"values": [0, 1, 5, 10]},
+        "use_visit_count": {"value": 0, "distribution": "constant"},
+        "regularization_weight": {"value": 1e-3, "distribution": "constant"},
+        "tree_evaluation_policy": {
+            "value": "minimal_variance_constraint",
+            "distribution": "constant",
+        },
+        "hidden_dim": {"value": 128, "distribution": "constant"},
+        "policy_loss_weight": {"value": 3, "distribution": "constant"},
+        "learning_rate": {"value": 2e-4, "distribution": "constant"},
+        "sample_batch_ratio": {"value": 8, "distribution": "constant"},
+        "n_steps_learning": {"value": 5, "distribution": "constant"},
+        "training_epochs": {"value": 30, "distribution": "constant"},
+        "compute_budget": {"value": 40, "distribution": "constant"},
+        "layers": {"value": 2, "distribution": "constant"},
+        "replay_buffer_multiplier": {"value": 10, "distribution": "constant"},
+        "discount_factor": {"value": 0.99, "distribution": "constant"},
+        "lr_gamma": {"value": 1.0, "distribution": "constant"},
+        "iterations": {"value": 30, "distribution": "constant"},
+        "env_id": {"value": "CliffWalking-v0", "distribution": "constant"},
+        "value_loss_weight": {"value": 1.0, "distribution": "constant"},
+        "max_episode_length": {"value": 200, "distribution": "constant"},
     },
 }
