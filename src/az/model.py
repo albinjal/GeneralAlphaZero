@@ -9,11 +9,11 @@ activation_function_dict = {
     'relu': th.nn.ReLU,
     'sigmoid': th.nn.Sigmoid,
     'tanh': th.nn.Tanh,
+    'leakyrelu': th.nn.LeakyReLU,
 }
 norm_dict = {
     'batch': th.nn.BatchNorm1d,
     'layer': th.nn.LayerNorm,
-    'instance': th.nn.InstanceNorm1d,
     'none': None,
 }
 

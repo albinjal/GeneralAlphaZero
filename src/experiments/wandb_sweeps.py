@@ -1,4 +1,6 @@
 import sys
+
+from sympy import per
 sys.path.append("src/")
 import datetime
 import multiprocessing
@@ -36,7 +38,6 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
     discount_factor = hparams['discount_factor']
     tree_evaluation_policy = tree_eval_dict(hparams['eval_param'], discount_factor)[hparams['tree_evaluation_policy']]
     selection_policy = selection_dict_fn(hparams['puct_c'], tree_evaluation_policy, discount_factor)[hparams['selection_policy']]
-    print(selection_policy)
     expansion_policy = ExpandFromPriorPolicy()
 
     model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'], activation_fn=activation_function_dict[hparams['activation_fn']], norm_layer=norm_dict[hparams['norm_layer']])
@@ -90,13 +91,13 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
     return metrics
 
 def sweep_agent():
-    tune_alphazero_with_wandb()
+    tune_alphazero_with_wandb(performance=True)
 
 
 def run_single():
     parameters = {
-        "activation_fn": "sigmoid",
-        "norm_layer": "layer",
+        "activation_fn": "tanh",
+        "norm_layer": "none",
         "selection_policy": "PUCT",
         "puct_c": 5.0,
         "eval_param": 1.0,
