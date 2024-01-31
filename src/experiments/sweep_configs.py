@@ -1,6 +1,6 @@
 from policies.tree import expanded_tree_dict
 from policies.selection import selection_dict_fn
-
+from az.model import activation_function_dict, norm_dict
 """
 Sweep configuration options
 A sweep configuration consists of nested key-value pairs. Use top-level keys within your sweep configuration to define qualities of your sweep search such as the parameters to search through (parameter key), the methodology to search the parameter space (method key), and more.
@@ -235,5 +235,52 @@ beta_vs_c_2 = lambda: {
         "env_id": {"value": "CliffWalking-v0", "distribution": "constant"},
         "value_loss_weight": {"value": 1.0, "distribution": "constant"},
         "max_episode_length": {"value": 200, "distribution": "constant"},
+    },
+}
+
+
+coord_search = lambda: {
+    "name": f"AlphaZero_Coord_architecture{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
+    "method": "bayes",
+    "metric": {"goal": "maximize", "name": "Self_Play/Cumulative_Reward"},
+    "run_cap": 1000,
+    "parameters": {
+        "activation_fn": activation_function_dict.keys(),
+        "norm_layer": norm_dict.keys(),
+        "use_visit_count": {"values": [1, 0], "distribution": "categorical"},
+        "regularization_weight": {
+            "min": -15.0,
+            "max": -1.0,
+            "distribution": "log_uniform",
+        },
+        "selection_policy": {
+            "value": "PUCT",
+            "distribution": "constant",
+        },
+        "tree_evaluation_policy": {
+            "value": "default",
+            "distribution": "constant",
+        },
+        "hidden_dim": {"min": 3, "max": 15, "distribution": "q_log_uniform"},
+        "policy_loss_weight": {"min": 1, "max": 5, "distribution": "log_uniform"},
+        "learning_rate": {"min": -15, "max": -3, "distribution": "log_uniform"},
+        "sample_batch_ratio": {"min": 1, "max": 10, "distribution": "int_uniform"},
+        "n_steps_learning": {"min": 1, "max": 10, "distribution": "int_uniform"},
+        "training_epochs": {"min": 1, "max": 30, "distribution": "int_uniform"},
+        "compute_budget": {"min": 20, "max": 50, "distribution": "int_uniform"},
+        "puct_c": {"min": 0, "max": 10, "distribution": "int_uniform"},
+        "eval_param": {"min": 0, "max": 10, "distribution": "int_uniform"},
+        "layers": {"min": 1, "max": 10, "distribution": "int_uniform"},
+        "replay_buffer_multiplier": {
+            "min": 1,
+            "max": 20,
+            "distribution": "int_uniform",
+        },
+        "discount_factor": {"value": 0.99, "distribution": "constant"},
+        "lr_gamma": {"value": 1.0, "distribution": "constant"},
+        "iterations": {"value": 20, "distribution": "constant"},
+        "env_id": {"value": "CliffWalking-v0", "distribution": "constant"},
+        "value_loss_weight": {"value": 1.0, "distribution": "constant"},
+        "max_episode_length": {"value": 100, "distribution": "constant"},
     },
 }

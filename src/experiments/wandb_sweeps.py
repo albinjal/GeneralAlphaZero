@@ -18,7 +18,7 @@ from policies.tree import DefaultTreeEvaluator
 
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
-from az.model import AlphaZeroModel
+from az.model import AlphaZeroModel, activation_function_dict, norm_dict
 from experiments.sweep_configs import default_config, beta_vs_c, beta_vs_c_2
 from policies.tree import expanded_tree_dict, tree_eval_dict
 from policies.selection import selection_dict_fn
@@ -39,7 +39,7 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
     print(selection_policy)
     expansion_policy = ExpandFromPriorPolicy()
 
-    model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'])
+    model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'], activation_fn=activation_function_dict[hparams['activation_fn']], norm_layer=norm_dict[hparams['norm_layer']])
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,
                           discount_factor=discount_factor, expansion_policy=expansion_policy)
 
@@ -95,27 +95,29 @@ def sweep_agent():
 
 def run_single():
     parameters = {
-    "selection_policy": "PolicyPUCT",
-    "puct_c": 5.0,
-    "eval_param": 1.0,
-    "use_visit_count": 0,
-    "regularization_weight": 0,
-    "tree_evaluation_policy": "minimal_variance_constraint",
-    "hidden_dim": 128,
-    "policy_loss_weight": 3,
-    "learning_rate": 1e-3,
-    "sample_batch_ratio": 1,
-    "n_steps_learning": 10,
-    "training_epochs": 1,
-    "compute_budget": 40,
-    "layers": 10,
-    "replay_buffer_multiplier": 10,
-    "discount_factor": 1.0,
-    "lr_gamma": 1.0,
-    "iterations": 20,
-    "env_id": "CliffWalking-v0",
-    "value_loss_weight": 1.0,
-    "max_episode_length": 100
+        "activation_fn": "relu",
+        "norm_layer": "none",
+        "selection_policy": "PolicyPUCT",
+        "puct_c": 5.0,
+        "eval_param": 1.0,
+        "use_visit_count": 1,
+        "regularization_weight": 0,
+        "tree_evaluation_policy": "minimal_variance_constraint",
+        "hidden_dim": 256,
+        "policy_loss_weight": 3,
+        "learning_rate": 1e-3,
+        "sample_batch_ratio": 3,
+        "n_steps_learning": 1,
+        "training_epochs": 10,
+        "compute_budget": 50,
+        "layers": 4,
+        "replay_buffer_multiplier": 10,
+        "discount_factor": 1.0,
+        "lr_gamma": 1.0,
+        "iterations": 20,
+        "env_id": "CliffWalking-v0",
+        "value_loss_weight": 1.0,
+        "max_episode_length": 150
     }
     return tune_alphazero_with_wandb(config=parameters, performance=False)
 

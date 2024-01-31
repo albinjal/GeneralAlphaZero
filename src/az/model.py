@@ -2,8 +2,22 @@ from typing import Tuple
 import torch as th
 import gymnasium as gym
 import wandb
-
 from environments.environment import obs_dim
+
+
+activation_function_dict = {
+    'relu': th.nn.ReLU,
+    'sigmoid': th.nn.Sigmoid,
+    'tanh': th.nn.Tanh,
+}
+norm_dict = {
+    'batch': th.nn.BatchNorm1d,
+    'layer': th.nn.LayerNorm,
+    'instance': th.nn.InstanceNorm1d,
+    'none': None,
+}
+
+
 
 
 class AlphaZeroModel(th.nn.Module):
@@ -25,6 +39,8 @@ class AlphaZeroModel(th.nn.Module):
         hidden_dim: int,
         layers: int,
         pref_gpu=False,
+        activation_fn=th.nn.ReLU,
+        norm_layer= None,
         *args,
         **kwargs,
     ):
@@ -44,22 +60,27 @@ class AlphaZeroModel(th.nn.Module):
 
         self.layers = th.nn.ModuleList()
         self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
-        # add  normalization
-        self.layers.append(th.nn.BatchNorm1d(hidden_dim))
-        self.layers.append(th.nn.Sigmoid())
+        self.layers.append(th.nn.ReLU())
 
         for _ in range(layers):
             self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
-            self.layers.append(th.nn.Sigmoid())
+            if norm_layer is not None:
+                self.layers.append(norm_layer(hidden_dim))
+            self.layers.append(activation_fn())
 
         # the value head should be two layers
         self.value_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, 1, bias=True),
+            th.nn.Linear(hidden_dim, hidden_dim),
+            th.nn.ReLU(),
+            th.nn.Linear(hidden_dim, 1),
         )
 
         # the policy head should be two layers
         self.policy_head = th.nn.Sequential(
+            th.nn.Linear(hidden_dim, hidden_dim),
+            th.nn.ReLU(),
             th.nn.Linear(hidden_dim, self.action_dim),
+            th.nn.Softmax(dim=-1),
         )
         self.to(self.device)
         self.nlayers = layers
@@ -79,8 +100,6 @@ class AlphaZeroModel(th.nn.Module):
         # run the heads
         value = self.value_head(x)
         policy = self.policy_head(x)
-        # apply softmax to the policy
-        policy = th.nn.functional.softmax(policy, dim=-1)
         return value.squeeze(-1), policy
 
     def save_model(self, filename: str):

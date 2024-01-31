@@ -80,8 +80,8 @@ def n_step_value_targets_no_reduce(
     # TODO: could also return n_steps - n dimension (only propoper n_steps)
     assert n > 0
 
-    # if n == 1:
-    #     return one_step_value_targets(rewards, values, terminals, discount_factor)
+    if n == 1:
+        return one_step_value_targets(rewards, values, terminals, discount_factor)
     batch_size, n_steps = rewards.shape
     # the target should be sum_{i=0}^{n-1}(discount_factor ** i * reward_i) + discount_factor ** n * value_n
     # if we encounter a terminal state, the target is just the reward sum up to that point
