@@ -19,7 +19,7 @@ from policies.tree import DefaultTreeEvaluator
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
 from az.model import AlphaZeroModel, activation_function_dict, norm_dict
-from experiments.sweep_configs import default_config, beta_vs_c, beta_vs_c_2
+from experiments.sweep_configs import default_config, beta_vs_c, beta_vs_c_2, coord_search
 from policies.tree import expanded_tree_dict, tree_eval_dict
 from policies.selection import selection_dict_fn
 
@@ -95,17 +95,17 @@ def sweep_agent():
 
 def run_single():
     parameters = {
-        "activation_fn": "relu",
-        "norm_layer": "none",
-        "selection_policy": "PolicyPUCT",
+        "activation_fn": "sigmoid",
+        "norm_layer": "layer",
+        "selection_policy": "PUCT",
         "puct_c": 5.0,
         "eval_param": 1.0,
         "use_visit_count": 1,
         "regularization_weight": 0,
-        "tree_evaluation_policy": "minimal_variance_constraint",
+        "tree_evaluation_policy": "default",
         "hidden_dim": 256,
         "policy_loss_weight": 3,
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "sample_batch_ratio": 3,
         "n_steps_learning": 1,
         "training_epochs": 10,
@@ -124,7 +124,7 @@ def run_single():
 
 if __name__ == '__main__':
 
-    # sweep_id = wandb.sweep(sweep=beta_vs_c_2, project="AlphaZero")
+    sweep_id = wandb.sweep(sweep=coord_search, project="AlphaZero")
 
-    # wandb.agent(sweep_id, function=sweep_agent)
-    run_single()
+    wandb.agent(sweep_id, function=sweep_agent)
+    # run_single()

@@ -242,7 +242,7 @@ beta_vs_c_2 = lambda: {
 coord_search = lambda: {
     "name": f"AlphaZero_Coord_architecture{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
     "method": "bayes",
-    "metric": {"goal": "maximize", "name": "Self_Play/Cumulative_Reward"},
+    "metric": {"goal": "maximize", "name": "Self_Play/EMA_Reward"},
     "run_cap": 1000,
     "parameters": {
         "activation_fn": activation_function_dict.keys(),
@@ -265,7 +265,7 @@ coord_search = lambda: {
         "policy_loss_weight": {"min": 1, "max": 5, "distribution": "log_uniform"},
         "learning_rate": {"min": -15, "max": -3, "distribution": "log_uniform"},
         "sample_batch_ratio": {"min": 1, "max": 10, "distribution": "int_uniform"},
-        "n_steps_learning": {"min": 1, "max": 10, "distribution": "int_uniform"},
+        "n_steps_learning": {"values": [1, 3, 10], "distribution": "categorical"},
         "training_epochs": {"min": 1, "max": 30, "distribution": "int_uniform"},
         "compute_budget": {"min": 20, "max": 50, "distribution": "int_uniform"},
         "puct_c": {"min": 0, "max": 10, "distribution": "int_uniform"},

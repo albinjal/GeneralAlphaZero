@@ -50,6 +50,7 @@ def add_self_play_metrics_wandb(
     entropies,
     tot_tim,
     cumulative_reward,
+    ema_reward,
     global_step,
 ):
     wandb.log(
@@ -61,7 +62,8 @@ def add_self_play_metrics_wandb(
             "Self_Play/Runtime_per_Timestep": tot_tim.microseconds / np.sum(time_steps),
             "Self_Play/Mean_Entropy": np.mean(entropies),
             "Self_Play/Total_Timesteps": np.sum(time_steps),
-            "Self_Play/Cumulative_Reward": cumulative_reward + mean_reward,
+            "Self_Play/EMA_Reward": ema_reward,
+            "Self_Play/Cumulative_Reward": cumulative_reward,
         },
         step=global_step,
     )

@@ -6,6 +6,7 @@ import os
 
 import gymnasium as gym
 import numpy as np
+from sympy import N
 from tqdm import tqdm
 import torch as th
 from torchrl.data import (
@@ -81,6 +82,7 @@ class AlphaZeroController:
         use_visit_count=False,
         save_plots=True,
         batch_size=32,
+        ema_beta = 0.3,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -111,13 +113,15 @@ class AlphaZeroController:
         self.use_visit_count = use_visit_count
         self.save_plots = save_plots
         self.batch_size = batch_size
+        self.ema_beta = ema_beta
 
     def iterate(self, iterations=10):
         total_reward = last_reward = 0.0
+        ema = None
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            last_reward = self.self_play(i, total_reward)
+            last_reward, ema = self.self_play(i, total_reward, ema)
             total_reward += last_reward
             print("Learning...")
             (
@@ -190,7 +194,7 @@ class AlphaZeroController:
 
         return {"last_reward": last_reward, "average_reward": total_reward / iterations}
 
-    def self_play(self, global_step, total_reward):
+    def self_play(self, global_step, total_reward, last_ema  = None):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
 
@@ -252,8 +256,12 @@ class AlphaZeroController:
             entropies.append(th.sum(entropy).item() / timesteps)
 
         # Calculate statistics
-        mean_reward = np.mean(rewards)
+        mean_reward = float(np.mean(rewards))
         reward_variance = np.var(rewards, ddof=1)
+        total_reward += mean_reward
+        if last_ema is None:
+            last_ema = mean_reward
+        ema_reward = mean_reward * self.ema_beta + last_ema * (1 - self.ema_beta)
         add_self_play_metrics(
             self.writer,
             mean_reward,
@@ -270,10 +278,11 @@ class AlphaZeroController:
             entropies,
             tot_tim,
             total_reward,
+            ema_reward,
             global_step,
         )
 
-        return float(mean_reward)
+        return mean_reward, ema_reward
 
     def learn(self):
         value_losses = []
