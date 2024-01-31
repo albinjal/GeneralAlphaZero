@@ -3,7 +3,7 @@ import torch as th
 import gymnasium as gym
 import wandb
 
-from env.environment import obs_dim
+from environments.environment import obs_dim
 
 
 class AlphaZeroModel(th.nn.Module):
@@ -44,24 +44,22 @@ class AlphaZeroModel(th.nn.Module):
 
         self.layers = th.nn.ModuleList()
         self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
-        self.layers.append(th.nn.ReLU())
+        # add  normalization
+        self.layers.append(th.nn.BatchNorm1d(hidden_dim))
+        self.layers.append(th.nn.Sigmoid())
 
         for _ in range(layers):
             self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
-            self.layers.append(th.nn.ReLU())
+            self.layers.append(th.nn.Sigmoid())
 
         # the value head should be two layers
         self.value_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, hidden_dim),
-            th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, 1),
+            th.nn.Linear(hidden_dim, 1, bias=True),
         )
 
         # the policy head should be two layers
         self.policy_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, hidden_dim),
-            th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, self.action_dim), # TODO: potentially remove bias
+            th.nn.Linear(hidden_dim, self.action_dim),
         )
         self.to(self.device)
         self.nlayers = layers

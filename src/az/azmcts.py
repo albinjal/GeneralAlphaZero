@@ -1,7 +1,7 @@
 from typing import List
 import torch as th
 import gymnasium as gym
-from env.environment import obs_to_tensor
+from environments.environment import obs_to_tensor
 import copy
 import numpy as np
 
@@ -31,19 +31,20 @@ class AlphaZeroMCTS(MCTS):
         # convert observation from int to tensor float 1x1 tensor
         assert node.env is not None
         tensor_obs = obs_to_tensor(
-            node.env.observation_space, observation, device=self.model.device, dtype=th.float32
+            node.env.observation_space,
+            observation,
+            device=self.model.device,
+            dtype=th.float32,
         )
-        value, policy = self.model.forward(tensor_obs)
+        value, policy = self.model.forward(tensor_obs.unsqueeze(0))
         # store the policy
-        node.prior_policy = policy
+        node.prior_policy = policy.squeeze(0)
         # return float 32 value
         return np.float32(value.item())
-
 
     @th.no_grad()
     def value_funciton_multiple(self, nodes: List[Node]):
         pass
-
 
     # @th.no_grad()
     # def handle_all(self, node: Node):
@@ -68,7 +69,6 @@ class AlphaZeroMCTS(MCTS):
     #             child.backup(value)
 
     #         return
-
 
     #     tensor_obs = th.stack([obs_to_tensor(obs_space, children[action].observation, device=self.model.device, dtype=th.float32)
     #                            for action in all_actions])  # actions x obs_dim tensor

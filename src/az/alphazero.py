@@ -31,7 +31,7 @@ from az.learning import (
     calculate_visit_counts,
 )
 from az.model import AlphaZeroModel
-from env.environment import (
+from environments.environment import (
     plot_visits_to_tensorboard_with_counter,
     show_model_in_tensorboard,
 )
@@ -101,7 +101,7 @@ class AlphaZeroController:
         self.discount_factor = discount_factor
         self.n_steps_learning = n_steps_learning
         # Log the model
-        log_model(self.writer, self.agent.model, self.env)
+        # log_model(self.writer, self.agent.model, self.env)
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
@@ -285,9 +285,20 @@ class AlphaZeroController:
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
 
-            trajectories = self.replay_buffer.sample(batch_size=min(self.batch_size, len(self.replay_buffer)))
+            trajectories = self.replay_buffer.sample(
+                batch_size=min(self.batch_size, len(self.replay_buffer))
+            )
+            # Trajectories["observations"] is Batch_size x max_steps x obs_dim
+            observations = trajectories["observations"]
+            batch_size, max_steps, obs_dim = observations.shape
 
-            values, policies = self.agent.model.forward(trajectories["observations"])
+            # flatten the observations into a batch of size (batch_size * max_steps, obs_dim)
+            flattened_observations = observations.view(-1, obs_dim)
+
+            flat_values, flat_policies = self.agent.model.forward(flattened_observations)
+            values = flat_values.view(batch_size, max_steps)
+            policies = flat_policies.view(batch_size, max_steps, -1)
+
 
             # compute the value targets via TD learning
             # the target should be the reward + the value of the next state
@@ -297,7 +308,6 @@ class AlphaZeroController:
             # the reward at index i is the reward obtained by taking action i
             # the terminal at index i is True if we stepped into a terminal state by taking action i
             # the policy at index i is the policy we used to take action i
-
 
             with th.no_grad():
                 # this value estimates how on policy the trajectories are. If the trajectories are on policy, this value should be close to 1
@@ -323,7 +333,7 @@ class AlphaZeroController:
                 # note that the observations tensor has shape (batch_size, max_steps, obs_dim)
                 visit_counts_tensor = th.ones_like(values)
                 if self.use_visit_count or self.save_plots:
-                    tens, counter = calculate_visit_counts(trajectories["observations"])
+                    tens, counter = calculate_visit_counts(observations)
                     # add the counter to the train_obs_counter
                     self.train_obs_counter.update(counter)
                     if self.use_visit_count:
@@ -379,7 +389,5 @@ class AlphaZeroController:
             # regularization_losses.append(regularization_loss.item())
             total_losses.append(loss.item())
             value_sims.append(value_simularities.mean().item())
-
-
 
         return value_losses, policy_losses, total_losses, value_sims

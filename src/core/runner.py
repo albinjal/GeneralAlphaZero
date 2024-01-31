@@ -2,10 +2,9 @@ from tensordict import TensorDict
 import torch as th
 import gymnasium as gym
 import numpy as np
-from env.environment import obs_dim, obs_to_tensor
+from environments.environment import obs_dim, obs_to_tensor
 from core.mcts import MCTS
 from policies.policies import PolicyDistribution
-
 
 
 def run_episode(
@@ -18,7 +17,7 @@ def run_episode(
     goal_obs=None,
     seed=None,
     render=False,
-    step_into= False,
+    step_into=False,
 ):
     """Runs an episode using the given solver and environment.
     For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
@@ -52,7 +51,12 @@ def run_episode(
     for step in range(max_steps):
         root_value = tree.value_evaluation
         child_q_values = th.tensor(
-            [child.default_value() for child in tree.get_children() if child is not None], dtype=th.float32
+            [
+                child.default_value()
+                for child in tree.get_children()
+                if child is not None
+            ],
+            dtype=th.float32,
         )
         policy_dist = tree_evaluation_policy.distribution(tree)
         action = policy_dist.sample()
@@ -91,7 +95,6 @@ def run_episode(
 
         new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
         observation_tensor = new_observation_tensor
-
 
     # if we terminated early, we need to add the final observation to the trajectory as well for value estimation
     # trajectory.append((observation, None, None, None, None))

@@ -50,7 +50,7 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
     replay_buffer_size = hparams['replay_buffer_multiplier'] * self_play_games_per_iteration
     sample_batch_size = replay_buffer_size // hparams['sample_batch_ratio']
 
-    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size), batch_size=sample_batch_size)
+    replay_buffer = TensorDictReplayBuffer(storage=LazyTensorStorage(replay_buffer_size))
 
     run_name = f"{hparams['env_id']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     log_dir = f"./tensorboard_logs/hyper/{run_name}"
@@ -78,6 +78,7 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
         use_visit_count=hparams['use_visit_count'],
         writer=writer,
         save_plots=not performance,
+        batch_size=sample_batch_size,
     )
 
     metrics = controller.iterate(hparams['iterations'])
@@ -98,23 +99,23 @@ def run_single():
     "puct_c": 5.0,
     "eval_param": 1.0,
     "use_visit_count": 0,
-    "regularization_weight": 1e-3,
+    "regularization_weight": 0,
     "tree_evaluation_policy": "minimal_variance_constraint",
     "hidden_dim": 128,
     "policy_loss_weight": 3,
-    "learning_rate": 2e-4,
-    "sample_batch_ratio": 8,
+    "learning_rate": 1e-3,
+    "sample_batch_ratio": 1,
     "n_steps_learning": 10,
-    "training_epochs": 5,
+    "training_epochs": 1,
     "compute_budget": 40,
-    "layers": 2,
+    "layers": 10,
     "replay_buffer_multiplier": 10,
-    "discount_factor": 0.99,
+    "discount_factor": 1.0,
     "lr_gamma": 1.0,
     "iterations": 20,
     "env_id": "CliffWalking-v0",
     "value_loss_weight": 1.0,
-    "max_episode_length": 200
+    "max_episode_length": 100
     }
     return tune_alphazero_with_wandb(config=parameters, performance=False)
 
