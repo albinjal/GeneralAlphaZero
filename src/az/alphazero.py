@@ -10,24 +10,33 @@ from tqdm import tqdm
 import torch as th
 from torchrl.data import (
     ReplayBuffer,
-
     TensorDictReplayBuffer,
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 import numpy as np
 import wandb
-from experiments.wandb_logs import add_self_play_metrics_wandb, add_training_metrics_wandb, plot_visits_to_wandb_with_counter, show_model_in_wandb
+from experiments.wandb_logs import (
+    add_self_play_metrics_wandb,
+    add_training_metrics_wandb,
+    plot_visits_to_wandb_with_counter,
+    show_model_in_wandb,
+)
 
 from policies.tree import DefaultTreeEvaluator
 from policies.policies import PolicyDistribution
 from az.azmcts import AlphaZeroMCTS
-from az.learning import n_step_value_targets, one_step_value_targets, calculate_visit_counts
+from az.learning import (
+    n_step_value_targets,
+    one_step_value_targets,
+    calculate_visit_counts,
+)
 from az.model import AlphaZeroModel
-from env.environment import plot_visits_to_tensorboard_with_counter, show_model_in_tensorboard
+from env.environment import (
+    plot_visits_to_tensorboard_with_counter,
+    show_model_in_tensorboard,
+)
 from core.runner import run_episode
 from experiments.t_board import add_self_play_metrics, add_training_metrics, log_model
-
-
 
 
 def run_episode_process(args):
@@ -36,7 +45,6 @@ def run_episode_process(args):
     return run_episode(
         agent, env, tree_evaluation_policy, compute_budget, max_episode_length
     )
-
 
 
 class AlphaZeroController:
@@ -54,25 +62,25 @@ class AlphaZeroController:
         env: gym.Env,
         agent: AlphaZeroMCTS,
         optimizer: th.optim.Optimizer,
-        replay_buffer = TensorDictReplayBuffer(),
+        replay_buffer=TensorDictReplayBuffer(),
         training_epochs=10,
         tree_evaluation_policy: PolicyDistribution = DefaultTreeEvaluator(),
         compute_budget=100,
         max_episode_length=500,
         writer: SummaryWriter = SummaryWriter(),
         run_dir="./logs",
-        checkpoint_interval = -1, # -1 means no checkpoints
+        checkpoint_interval=-1,  # -1 means no checkpoints
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
         self_play_iterations=10,
-        self_play_workers = 1,
-        scheduler: th.optim.lr_scheduler.LRScheduler | None= None,
-        value_sim_loss = False,
-        discount_factor = 1.0,
+        self_play_workers=1,
+        scheduler: th.optim.lr_scheduler.LRScheduler | None = None,
+        value_sim_loss=False,
+        discount_factor=1.0,
         n_steps_learning: int = 1,
-        use_visit_count = False,
-        save_plots = True,
-
+        use_visit_count=False,
+        save_plots=True,
+        batch_size=32,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -102,7 +110,7 @@ class AlphaZeroController:
         self.train_obs_counter = Counter()
         self.use_visit_count = use_visit_count
         self.save_plots = save_plots
-
+        self.batch_size = batch_size
 
     def iterate(self, iterations=10):
         total_reward = last_reward = 0.0
@@ -124,11 +132,28 @@ class AlphaZeroController:
             for param in self.agent.model.parameters():
                 regularization_loss += th.sum(th.square(param))
 
-            add_training_metrics(self.writer, value_losses, policy_losses, value_sims, regularization_loss, total_losses, len(self.replay_buffer),
-                                 self.scheduler.get_last_lr() if self.scheduler else None, i)
+            add_training_metrics(
+                self.writer,
+                value_losses,
+                policy_losses,
+                value_sims,
+                regularization_loss,
+                total_losses,
+                len(self.replay_buffer),
+                self.scheduler.get_last_lr() if self.scheduler else None,
+                i,
+            )
 
-            add_training_metrics_wandb(value_losses, policy_losses, value_sims, regularization_loss, total_losses, len(self.replay_buffer),
-                                 self.scheduler.get_last_lr() if self.scheduler else None, i)
+            add_training_metrics_wandb(
+                value_losses,
+                policy_losses,
+                value_sims,
+                regularization_loss,
+                total_losses,
+                len(self.replay_buffer),
+                self.scheduler.get_last_lr() if self.scheduler else None,
+                i,
+            )
 
             if self.checkpoint_interval != -1 and i % self.checkpoint_interval == 0:
                 print(f"Saving model at iteration {i}")
@@ -141,18 +166,27 @@ class AlphaZeroController:
             assert self.env.spec is not None
             if self.env.spec.id == "CliffWalking-v0" and self.save_plots:
                 assert isinstance(self.env.observation_space, gym.spaces.Discrete)
-                show_model_in_tensorboard(self.env.observation_space, self.agent.model, self.writer, i)
-                plot_visits_to_tensorboard_with_counter(self.train_obs_counter, self.env.observation_space, 6, 12, self.writer, i)
+                show_model_in_tensorboard(
+                    self.env.observation_space, self.agent.model, self.writer, i
+                )
+                plot_visits_to_tensorboard_with_counter(
+                    self.train_obs_counter,
+                    self.env.observation_space,
+                    6,
+                    12,
+                    self.writer,
+                    i,
+                )
 
                 # wandb
                 show_model_in_wandb(self.env.observation_space, self.agent.model, i)
-                plot_visits_to_wandb_with_counter(self.train_obs_counter, self.env.observation_space, 6, 12, i)
+                plot_visits_to_wandb_with_counter(
+                    self.train_obs_counter, self.env.observation_space, 6, 12, i
+                )
 
         if self.checkpoint_interval != -1:
             print(f"Saving model at iteration {iterations}")
             self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
-
-
 
         return {"last_reward": last_reward, "average_reward": total_reward / iterations}
 
@@ -206,17 +240,38 @@ class AlphaZeroController:
             time_steps.append(timesteps)
             assert isinstance(self.env.action_space, gym.spaces.Discrete)
             epsilon = 1e-8
-            entropy = - th.sum(trajectory["policy_distributions"] * th.log(trajectory["policy_distributions"] + epsilon), dim=-1) * trajectory["mask"] / np.log(self.env.action_space.n)
+            entropy = (
+                -th.sum(
+                    trajectory["policy_distributions"]
+                    * th.log(trajectory["policy_distributions"] + epsilon),
+                    dim=-1,
+                )
+                * trajectory["mask"]
+                / np.log(self.env.action_space.n)
+            )
             entropies.append(th.sum(entropy).item() / timesteps)
-
-
 
         # Calculate statistics
         mean_reward = np.mean(rewards)
         reward_variance = np.var(rewards, ddof=1)
-        add_self_play_metrics(self.writer, mean_reward, reward_variance, time_steps, entropies, tot_tim, global_step)
-        add_self_play_metrics_wandb(mean_reward, reward_variance, time_steps, entropies, tot_tim, total_reward, global_step)
-
+        add_self_play_metrics(
+            self.writer,
+            mean_reward,
+            reward_variance,
+            time_steps,
+            entropies,
+            tot_tim,
+            global_step,
+        )
+        add_self_play_metrics_wandb(
+            mean_reward,
+            reward_variance,
+            time_steps,
+            entropies,
+            tot_tim,
+            total_reward,
+            global_step,
+        )
 
         return float(mean_reward)
 
@@ -229,7 +284,8 @@ class AlphaZeroController:
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs)):
             # sample a batch from the replay buffer
-            trajectories = self.replay_buffer.sample()
+
+            trajectories = self.replay_buffer.sample(batch_size=min(self.batch_size, len(self.replay_buffer)))
 
             values, policies = self.agent.model.forward(trajectories["observations"])
 
@@ -245,7 +301,17 @@ class AlphaZeroController:
 
             with th.no_grad():
                 # this value estimates how on policy the trajectories are. If the trajectories are on policy, this value should be close to 1
-                value_simularities = th.exp(-th.sum((trajectories["mask"] * (1 - trajectories["root_values"] / values)) ** 2, dim=-1) / trajectories["mask"].sum(dim=-1))
+                value_simularities = th.exp(
+                    -th.sum(
+                        (
+                            trajectories["mask"]
+                            * (1 - trajectories["root_values"] / values)
+                        )
+                        ** 2,
+                        dim=-1,
+                    )
+                    / trajectories["mask"].sum(dim=-1)
+                )
 
                 """
                 Idea: count the number of times each observations are in the trajectories.
@@ -263,31 +329,42 @@ class AlphaZeroController:
                     if self.use_visit_count:
                         visit_counts_tensor = tens
 
-
-
-
             # the target value is the reward we got + the value of the next state if it is not terminal
-            targets = n_step_value_targets(trajectories["rewards"], values.detach(), trajectories["terminals"], self.discount_factor, self.n_steps_learning)
+            targets = n_step_value_targets(
+                trajectories["rewards"],
+                values.detach(),
+                trajectories["terminals"],
+                self.discount_factor,
+                self.n_steps_learning,
+            )
+            # returns a tensor of shape (batch_size, max_steps - n_steps_learning)
             # the td error is the difference between the target and the current value
-            td = targets - values[:, :-1]
-            mask = trajectories["mask"][:, :-1]
+            dim_red = self.n_steps_learning
+            td = targets - values[:, :-dim_red]
+            mask = trajectories["mask"][:, :-dim_red]
             # compute the value loss
             if self.value_sim_loss:
-                value_loss = th.sum(th.sum((td * mask) ** 2 / visit_counts_tensor[:, :-1], dim=-1) * value_simularities) / th.sum(mask)
+                value_loss = th.sum(
+                    th.sum((td * mask) ** 2 / visit_counts_tensor[:, :-dim_red], dim=-1)
+                    * value_simularities
+                ) / th.sum(mask)
             else:
-                value_loss = th.sum((td * mask) ** 2 / visit_counts_tensor[:, :-1]) / th.sum(mask)
-
+                value_loss = th.sum(
+                    (td * mask) ** 2 / visit_counts_tensor[:, :-dim_red]
+                ) / th.sum(mask)
 
             # compute the policy loss
             epsilon = 1e-8
-            step_loss = -th.sum(
-                trajectories["policy_distributions"] * th.log(policies + epsilon),
-                dim=-1,
+            step_loss = -th.einsum(
+                "ijk,ijk->ij",
+                trajectories["policy_distributions"],
+                th.log(policies + epsilon),
             )
 
             # we do not want to consider terminal states
-            policy_loss = th.sum(step_loss * trajectories["mask"] / visit_counts_tensor) / th.sum(trajectories["mask"])
-
+            policy_loss = th.sum(
+                step_loss * trajectories["mask"] / visit_counts_tensor
+            ) / th.sum(trajectories["mask"])
 
             loss = (
                 self.value_loss_weight * value_loss
@@ -302,5 +379,7 @@ class AlphaZeroController:
             # regularization_losses.append(regularization_loss.item())
             total_losses.append(loss.item())
             value_sims.append(value_simularities.mean().item())
+
+
 
         return value_losses, policy_losses, total_losses, value_sims
