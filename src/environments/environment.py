@@ -10,12 +10,15 @@ import io
 
 
 
-def obs_to_tensor_coordinates(observation_space: gym.Space, observation, ncols=12, *args, **kwargs):
+def obs_to_tensor_coordinates(observation_space: gym.Space, observation, ncols=12, nrows= 6, *args, **kwargs):
     """
     Returns a tensor of shape (2,) with the coordinates of the observation
     """
 
     cords = divmod(observation, ncols)
+    # make cords between -1 and 1
+    # cols between 0 and ncols-1, rows between 0 and nrows-1
+    cords = (np.array(cords) / np.array([nrows-1, ncols-1])) * 2 - 1
     return th.tensor(cords, *args, **kwargs)
 
 

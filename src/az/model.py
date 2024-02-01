@@ -37,7 +37,7 @@ class AlphaZeroModel(th.nn.Module):
         self,
         env: gym.Env,
         hidden_dim: int,
-        layers: int,
+        nlayers: int,
         pref_gpu=False,
         activation_fn=th.nn.ReLU,
         norm_layer= None,
@@ -58,15 +58,17 @@ class AlphaZeroModel(th.nn.Module):
         self.state_dim = obs_dim(env.observation_space)
         self.action_dim = gym.spaces.flatdim(env.action_space)
 
-        self.layers = th.nn.ModuleList()
-        self.layers.append(th.nn.Linear(self.state_dim, hidden_dim))
-        self.layers.append(th.nn.ReLU())
+        layers = []
+        layers.append(th.nn.Linear(self.state_dim, hidden_dim))
+        layers.append(th.nn.ReLU())
 
-        for _ in range(layers):
-            self.layers.append(th.nn.Linear(hidden_dim, hidden_dim))
+        for _ in range(nlayers):
+            layers.append(th.nn.Linear(hidden_dim, hidden_dim))
             if norm_layer is not None:
-                self.layers.append(norm_layer(hidden_dim))
-            self.layers.append(activation_fn())
+                layers.append(norm_layer(hidden_dim))
+            layers.append(activation_fn())
+
+        self.layers = th.nn.Sequential(*layers)
 
         # the value head should be two layers
         self.value_head = th.nn.Sequential(
@@ -83,7 +85,7 @@ class AlphaZeroModel(th.nn.Module):
             th.nn.Softmax(dim=-1),
         )
         self.to(self.device)
-        self.nlayers = layers
+        self.nlayers = nlayers
 
         # print the model parameters
         print(f"Model initialized on {self.device} with the following parameters:")
@@ -95,8 +97,8 @@ class AlphaZeroModel(th.nn.Module):
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
-        for layer in self.layers:
-            x = layer(x)
+        x = self.layers(x)
+
         # run the heads
         value = self.value_head(x)
         policy = self.policy_head(x)
@@ -125,7 +127,7 @@ class AlphaZeroModel(th.nn.Module):
         model = AlphaZeroModel(
             env=env,
             hidden_dim=hidden_dim,
-            layers=model_info[
+            nlayers=model_info[
                 "layers"
             ],  # Subtracting 1 because the first layer is added by default
             pref_gpu=pref_gpu,

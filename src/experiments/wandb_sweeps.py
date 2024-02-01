@@ -96,36 +96,36 @@ def sweep_agent():
 
 def run_single():
     parameters = {
-        "activation_fn": "tanh",
+        "activation_fn": "leakyrelu",
         "norm_layer": "none",
-        "selection_policy": "PUCT",
+        "selection_policy": "PolicyPUCT",
         "puct_c": 5.0,
         "eval_param": 1.0,
-        "use_visit_count": 1,
-        "regularization_weight": 0,
+        "use_visit_count": 0,
+        "regularization_weight": 1e-3,
         "tree_evaluation_policy": "default",
-        "hidden_dim": 256,
-        "policy_loss_weight": 3,
-        "learning_rate": 1e-4,
+        "hidden_dim": 64,
+        "policy_loss_weight": 50,
+        "learning_rate": 1e-3,
         "sample_batch_ratio": 3,
         "n_steps_learning": 1,
-        "training_epochs": 10,
+        "training_epochs": 5,
         "compute_budget": 50,
         "layers": 4,
         "replay_buffer_multiplier": 10,
-        "discount_factor": 1.0,
+        "discount_factor": .98,
         "lr_gamma": 1.0,
         "iterations": 20,
         "env_id": "CliffWalking-v0",
         "value_loss_weight": 1.0,
-        "max_episode_length": 150
+        "max_episode_length": 150,
     }
     return tune_alphazero_with_wandb(config=parameters, performance=False)
 
 
 if __name__ == '__main__':
 
-    sweep_id = wandb.sweep(sweep=coord_search, project="AlphaZero")
+    # sweep_id = wandb.sweep(sweep=coord_search, project="AlphaZero")
 
-    wandb.agent(sweep_id, function=sweep_agent)
-    # run_single()
+    # wandb.agent(sweep_id, function=sweep_agent)
+    run_single()
