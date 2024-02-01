@@ -1,3 +1,4 @@
+import copy
 from typing import Tuple
 import torch as th
 import gymnasium as gym
@@ -16,6 +17,8 @@ norm_dict = {
     "layer": th.nn.LayerNorm,
     "none": None,
 }
+
+
 
 
 class AlphaZeroModel(th.nn.Module):
@@ -38,7 +41,7 @@ class AlphaZeroModel(th.nn.Module):
         nlayers: int,
         pref_gpu=False,
         activation_fn=th.nn.ReLU,
-        norm_layer= None,
+        norm_layer=None,
         *args,
         **kwargs,
     ):
@@ -64,10 +67,8 @@ class AlphaZeroModel(th.nn.Module):
         self.create_model()
         self.print_stats()
 
-
     def create_model(self):
         raise NotImplementedError
-
 
     def print_stats(self):
         # print the model parameters
@@ -100,7 +101,9 @@ class AlphaZeroModel(th.nn.Module):
         th.save(model_info, filename)
 
     @classmethod
-    def load_model(cls, filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128):
+    def load_model(
+        cls, filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128
+    ):
         # Load the saved model information
         model_info = th.load(filename)
 
@@ -111,9 +114,7 @@ class AlphaZeroModel(th.nn.Module):
         model = cls(
             env=env,
             hidden_dim=hidden_dim,
-            nlayers=model_info[
-                "layers"
-            ],
+            nlayers=model_info["layers"],
             pref_gpu=pref_gpu,
         )
 
@@ -123,19 +124,31 @@ class AlphaZeroModel(th.nn.Module):
         return model
 
 
+def create_layers(state_dim, nlayers, hidden_dim, activation_fn, norm_layer):
+    layers = []
+    layers.append(th.nn.Linear(state_dim, hidden_dim))
+    layers.append(th.nn.ReLU())
+
+    for _ in range(nlayers):
+        layers.append(th.nn.Linear(hidden_dim, hidden_dim))
+        if norm_layer is not None:
+            layers.append(norm_layer(hidden_dim))
+        layers.append(activation_fn())
+
+    return layers
+
+
 class UnifiedModel(AlphaZeroModel):
     def create_model(self):
-        layers = []
-        layers.append(th.nn.Linear(self.state_dim, self.hidden_dim))
-        layers.append(th.nn.ReLU())
-
-        for _ in range(self.nlayers):
-            layers.append(th.nn.Linear(self.hidden_dim, self.hidden_dim))
-            if self.norm_layer is not None:
-                layers.append(self.norm_layer(self.hidden_dim))
-            layers.append(self.activation_fn())
-
-        self.core = th.nn.Sequential(*layers)
+        self.core = th.nn.Sequential(
+            *create_layers(
+                self.state_dim,
+                self.nlayers,
+                self.hidden_dim,
+                self.activation_fn,
+                self.norm_layer,
+            )
+        )
 
         # the value head should be two layers
         self.value_head = th.nn.Sequential(
@@ -147,3 +160,43 @@ class UnifiedModel(AlphaZeroModel):
             th.nn.Linear(self.hidden_dim, self.action_dim),
             th.nn.Softmax(dim=-1),
         )
+
+
+class SeperatedModel(AlphaZeroModel):
+    """
+    Keeps the value and policy heads seperate
+    """
+
+    def create_model(self):
+        self.core = None
+
+        # the value head should be two layers
+        self.value_head = th.nn.Sequential(
+            *create_layers(
+                self.state_dim,
+                self.nlayers,
+                self.hidden_dim,
+                self.activation_fn,
+                self.norm_layer,
+            ),
+            th.nn.Linear(self.hidden_dim, 1),
+        )
+
+        # the policy head should be two layers
+        self.policy_head = th.nn.Sequential(
+            *create_layers(
+                self.state_dim,
+                self.nlayers,
+                self.hidden_dim,
+                self.activation_fn,
+                self.norm_layer,
+            ),
+            th.nn.Linear(self.hidden_dim, self.action_dim),
+            th.nn.Softmax(dim=-1),
+        )
+
+
+models_dict = {
+    'unified': UnifiedModel,
+    'seperated': SeperatedModel,
+}

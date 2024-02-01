@@ -2,6 +2,8 @@ import numpy as np
 from core.node import Node
 from policies.policies import Policy
 
+
+
 class DefaultExpansionPolicy(Policy):
     def sample(self, node: Node) -> np.int64:
         # returns a uniformly random unexpanded action
@@ -15,3 +17,9 @@ class ExpandFromPriorPolicy(Policy):
             action = np.int64(action)
             if action not in node.children:
                 return action
+
+
+expansion_policy_dict = {
+    "default": DefaultExpansionPolicy,
+    "fromprior": ExpandFromPriorPolicy,
+}

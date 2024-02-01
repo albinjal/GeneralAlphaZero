@@ -64,6 +64,7 @@ def add_self_play_metrics_wandb(
             "Self_Play/Total_Timesteps": np.sum(time_steps),
             "Self_Play/EMA_Reward": ema_reward,
             "Self_Play/Cumulative_Reward": cumulative_reward,
+            "Self_Play/Total_Average_Reward": cumulative_reward / (global_step+1),
         },
         step=global_step,
     )
