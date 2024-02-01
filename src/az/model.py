@@ -6,18 +6,16 @@ from environments.environment import obs_dim
 
 
 activation_function_dict = {
-    'relu': th.nn.ReLU,
-    'sigmoid': th.nn.Sigmoid,
-    'tanh': th.nn.Tanh,
-    'leakyrelu': th.nn.LeakyReLU,
+    "relu": th.nn.ReLU,
+    "sigmoid": th.nn.Sigmoid,
+    "tanh": th.nn.Tanh,
+    "leakyrelu": th.nn.LeakyReLU,
 }
 norm_dict = {
-    'batch': th.nn.BatchNorm1d,
-    'layer': th.nn.LayerNorm,
-    'none': None,
+    "batch": th.nn.BatchNorm1d,
+    "layer": th.nn.LayerNorm,
+    "none": None,
 }
-
-
 
 
 class AlphaZeroModel(th.nn.Module):
@@ -53,40 +51,25 @@ class AlphaZeroModel(th.nn.Module):
         elif th.backends.mps.is_available():
             self.device = th.device("mps")
 
+        self.to(self.device)
+
         self.env = env
         self.hidden_dim = hidden_dim
         self.state_dim = obs_dim(env.observation_space)
         self.action_dim = gym.spaces.flatdim(env.action_space)
-
-        layers = []
-        layers.append(th.nn.Linear(self.state_dim, hidden_dim))
-        layers.append(th.nn.ReLU())
-
-        for _ in range(nlayers):
-            layers.append(th.nn.Linear(hidden_dim, hidden_dim))
-            if norm_layer is not None:
-                layers.append(norm_layer(hidden_dim))
-            layers.append(activation_fn())
-
-        self.layers = th.nn.Sequential(*layers)
-
-        # the value head should be two layers
-        self.value_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, hidden_dim),
-            th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, 1),
-        )
-
-        # the policy head should be two layers
-        self.policy_head = th.nn.Sequential(
-            th.nn.Linear(hidden_dim, hidden_dim),
-            th.nn.ReLU(),
-            th.nn.Linear(hidden_dim, self.action_dim),
-            th.nn.Softmax(dim=-1),
-        )
-        self.to(self.device)
         self.nlayers = nlayers
+        self.activation_fn = activation_fn
+        self.norm_layer = norm_layer
+        self.core = None
+        self.create_model()
+        self.print_stats()
 
+
+    def create_model(self):
+        raise NotImplementedError
+
+
+    def print_stats(self):
         # print the model parameters
         print(f"Model initialized on {self.device} with the following parameters:")
         total_params = 0
@@ -97,7 +80,8 @@ class AlphaZeroModel(th.nn.Module):
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         # run the layers
-        x = self.layers(x)
+        if self.core is not None:
+            x = self.core(x)
 
         # run the heads
         value = self.value_head(x)
@@ -115,8 +99,8 @@ class AlphaZeroModel(th.nn.Module):
         }
         th.save(model_info, filename)
 
-    @staticmethod
-    def load_model(filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128):
+    @classmethod
+    def load_model(cls, filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128):
         # Load the saved model information
         model_info = th.load(filename)
 
@@ -124,12 +108,12 @@ class AlphaZeroModel(th.nn.Module):
         hidden_dim = model_info.get("hidden_dim", default_hidden_dim)
 
         # Create a new instance of the model with the saved specifications
-        model = AlphaZeroModel(
+        model = cls(
             env=env,
             hidden_dim=hidden_dim,
             nlayers=model_info[
                 "layers"
-            ],  # Subtracting 1 because the first layer is added by default
+            ],
             pref_gpu=pref_gpu,
         )
 
@@ -137,3 +121,29 @@ class AlphaZeroModel(th.nn.Module):
         model.load_state_dict(model_info["state_dict"])
 
         return model
+
+
+class UnifiedModel(AlphaZeroModel):
+    def create_model(self):
+        layers = []
+        layers.append(th.nn.Linear(self.state_dim, self.hidden_dim))
+        layers.append(th.nn.ReLU())
+
+        for _ in range(self.nlayers):
+            layers.append(th.nn.Linear(self.hidden_dim, self.hidden_dim))
+            if self.norm_layer is not None:
+                layers.append(self.norm_layer(self.hidden_dim))
+            layers.append(self.activation_fn())
+
+        self.core = th.nn.Sequential(*layers)
+
+        # the value head should be two layers
+        self.value_head = th.nn.Sequential(
+            th.nn.Linear(self.hidden_dim, 1),
+        )
+
+        # the policy head should be two layers
+        self.policy_head = th.nn.Sequential(
+            th.nn.Linear(self.hidden_dim, self.action_dim),
+            th.nn.Softmax(dim=-1),
+        )

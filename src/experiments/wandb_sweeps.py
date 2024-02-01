@@ -20,8 +20,8 @@ from policies.tree import DefaultTreeEvaluator
 
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
-from az.model import AlphaZeroModel, activation_function_dict, norm_dict
-from experiments.sweep_configs import default_config, beta_vs_c, beta_vs_c_2, coord_search
+from az.model import AlphaZeroModel, UnifiedModel, activation_function_dict, norm_dict
+import experiments.sweep_configs as sweep_configs
 from policies.tree import expanded_tree_dict, tree_eval_dict
 from policies.selection import selection_dict_fn
 
@@ -40,13 +40,13 @@ def tune_alphazero_with_wandb(project_name="AlphaZero", entity = None, job_name 
     selection_policy = selection_dict_fn(hparams['puct_c'], tree_evaluation_policy, discount_factor)[hparams['selection_policy']]
     expansion_policy = ExpandFromPriorPolicy()
 
-    model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'], activation_fn=activation_function_dict[hparams['activation_fn']], norm_layer=norm_dict[hparams['norm_layer']])
+    model = UnifiedModel(env, hidden_dim=hparams['hidden_dim'], nlayers=hparams['layers'], activation_fn=activation_function_dict[hparams['activation_fn']], norm_layer=norm_dict[hparams['norm_layer']])
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,
                           discount_factor=discount_factor, expansion_policy=expansion_policy)
 
     optimizer = th.optim.Adam(model.parameters(), lr=hparams['learning_rate'], weight_decay=hparams['regularization_weight'])
 
-    workers = multiprocessing.cpu_count()
+    workers = 1 # multiprocessing.cpu_count()
     self_play_games_per_iteration = workers
     replay_buffer_size = hparams['replay_buffer_multiplier'] * self_play_games_per_iteration
     sample_batch_size = replay_buffer_size // hparams['sample_batch_ratio']
@@ -115,7 +115,7 @@ def run_single():
         "replay_buffer_multiplier": 10,
         "discount_factor": .98,
         "lr_gamma": 1.0,
-        "iterations": 20,
+        "iterations": 30,
         "env_id": "CliffWalking-v0",
         "value_loss_weight": 1.0,
         "max_episode_length": 150,
