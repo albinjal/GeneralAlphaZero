@@ -6,7 +6,6 @@ import os
 
 import gymnasium as gym
 import numpy as np
-from sympy import N
 from tqdm import tqdm
 import torch as th
 from torchrl.data import (
@@ -255,6 +254,7 @@ class AlphaZeroController:
             )
             entropies.append(th.sum(entropy).item() / timesteps)
 
+
         # Calculate statistics
         mean_reward = float(np.mean(rewards))
         reward_variance = np.var(rewards, ddof=1)
@@ -272,8 +272,7 @@ class AlphaZeroController:
             global_step,
         )
         add_self_play_metrics_wandb(
-            mean_reward,
-            reward_variance,
+            rewards,
             time_steps,
             entropies,
             tot_tim,

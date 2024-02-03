@@ -119,6 +119,34 @@ strict	Enable 'strict' mode that prunes runs aggressively, more closely followin
 
 import datetime
 
+base_parameters = {
+    "model_type": "unified",
+    "expansion_policy": "fromprior",
+    "activation_fn": "relu",
+    "norm_layer": "none",
+    "selection_policy": "PUCT",
+    "puct_c": 5.0,
+    "eval_param": 1.0,
+    "use_visit_count": 0,
+    "regularization_weight": 1e-4,
+    "tree_evaluation_policy": "default",
+    "hidden_dim": 64,
+    "policy_loss_weight": 30,
+    "learning_rate": 5e-4,
+    "sample_batch_ratio": 1,
+    "n_steps_learning": 1,
+    "training_epochs": 10,
+    "compute_budget": 50,
+    "layers": 3,
+    "replay_buffer_multiplier": 10,
+    "discount_factor": 1.0,
+    "lr_gamma": 1.0,
+    "iterations": 30,
+    "env_id": "CliffWalking-v0",
+    "value_loss_weight": 1.0,
+    "max_episode_length": 150,
+}
+
 
 default_config = lambda: {
     "name": f"AlphaZero_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",

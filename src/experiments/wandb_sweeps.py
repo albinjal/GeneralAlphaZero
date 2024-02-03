@@ -29,12 +29,17 @@ from policies.selection import selection_dict_fn
 
 
 def tune_alphazero_with_wandb(
-    project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True
+    project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True, tags = None
 ):
+    if tags is None:
+        tags = []
+
+    if performance:
+        tags.append("performance")
     # Initialize Weights & Biases
     settings = wandb.Settings(job_name=job_name)
     run = wandb.init(
-        project=project_name, entity=entity, settings=settings, config=config
+        project=project_name, entity=entity, settings=settings, config=config, tags=tags
     )
     assert run is not None
     hparams = wandb.config
@@ -128,34 +133,8 @@ def sweep_agent():
 
 
 def run_single():
-    parameters = {
-        "model_type": "unified",
-        "expansion_policy": "fromprior",
-        "activation_fn": "relu",
-        "norm_layer": "none",
-        "selection_policy": "PolicyPUCT",
-        "puct_c": 5.0,
-        "eval_param": 1.0,
-        "use_visit_count": 1,
-        "regularization_weight": 1e-4,
-        "tree_evaluation_policy": "minimal_variance_constraint",
-        "hidden_dim": 64,
-        "policy_loss_weight": 30,
-        "learning_rate": 1e-3,
-        "sample_batch_ratio": 1,
-        "n_steps_learning": 1,
-        "training_epochs": 10,
-        "compute_budget": 50,
-        "layers": 3,
-        "replay_buffer_multiplier": 10,
-        "discount_factor": 0.98,
-        "lr_gamma": 1.0,
-        "iterations": 30,
-        "env_id": "CliffWalking-v0",
-        "value_loss_weight": 1.0,
-        "max_episode_length": 150,
-    }
-    return tune_alphazero_with_wandb(config=parameters, performance=False)
+
+    return tune_alphazero_with_wandb(config=sweep_configs.base_parameters, performance=False)
 
 
 if __name__ == "__main__":
