@@ -34,8 +34,8 @@ if __name__ == '__main__':
     run_config = {**sweep_configs.base_parameters, **config_modifications}
 
 
-    variable_configs = [{"compute_budget": i} for i in [32, 64, 128]]
-    series_configs = [{'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
+    variable_configs = [{"eval_param": i} for i in [0.0, 0.01, 0.1, 1.0]]
+    series_configs = [#{'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
                      {'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
                      {'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PolicyPUCT'}]
     # try every combination of variable_configs and series_config n times
