@@ -33,24 +33,37 @@ def generate_mcts_tree(
     tree = solver.search(env, compute_budget, observation, np.float32(reward))
     return tree
 
-
-def default_tree(env_name = "CliffWalking-v0", seed = 0, discount = 1.0):
-    env = gym.make(env_name)
-    # model = UnifiedModel(env, 2, 0)
+def get_solver(env, tree_type, discount_factor):
     selection_policy = UCT(1.0)
-    solver = RandomRolloutMCTS(20, selection_policy, discount_factor=discount)
-    return generate_mcts_tree(solver, env, seed = seed)
+
+    if tree_type == "az":
+        model = UnifiedModel(env, 2, 0)
+        return AlphaZeroMCTS(model, selection_policy, discount_factor=discount_factor)
+    else:  # Default to RandomRolloutMCTS
+        return RandomRolloutMCTS(20, selection_policy, discount_factor=discount_factor)
+
+@pytest.fixture(scope="function")
+def env(request):
+    return gym.make(request.param)
+
+@pytest.fixture(scope="function")
+def tree(env, tree_type, discount_factor, seed):
+    np.random.seed(seed)
+    th.manual_seed(seed)
+    solver = get_solver(env, tree_type, discount_factor)
+    gen = generate_mcts_tree(solver, env, seed=seed)
+    gen.reset_var_val()
+    return gen
 
 
 
-def test_InverseVarianceTreeEvaluator():
-    """
-    We assume that the inverse variance tree evaluator and the visit count tree evaluator return the same policy
-    """
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Add more discount factors if needed
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_InverseVarianceTreeEvaluator(tree):
     inv_var_eval = InverseVarianceTreeEvaluator(1.0)
     default_eval = DefaultTreeEvaluator()
-    tree = default_tree()
-    tree.reset_var_val()
     inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
     tree.reset_var_val()
     default_policy = np.array(default_eval.distribution(tree).probs)
@@ -58,61 +71,64 @@ def test_InverseVarianceTreeEvaluator():
 
 
 
-def test_MinimalVarianceConstraintPolicy_zerobeta():
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_MinimalVarianceConstraintPolicy_zerobeta(tree, discount_factor):
     """
     We assume that when beta = 0, the policy is the same as the inverse variance policy
     """
-    discount = .99
     beta = 0.0
-    inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount)
-    mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount)
+    inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount_factor)
+    mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
 
-    tree = default_tree()
-    tree.reset_var_val()
     inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
     tree.reset_var_val()
     mvcp_policy = np.array(mvcp.distribution(tree).probs)
     assert np.allclose(inv_var_policy, mvcp_policy, rtol=1e-6, atol=1e-6), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvcp_policy}"
 
-
-def test_MinimalVarianceConstraintPolicy_greedy():
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
     """
     We assume that when beta-> inf, the policy is the same as the greedy policy
     """
-    discount = 1.0
+    # TODO: this sometimes fails, investigate why
     beta = 1e6
     greedy = GreedyPolicy()
-    mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount)
+    mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
 
-    tree = default_tree()
-    tree.reset_var_val()
     greedy_policy = np.array(greedy.distribution(tree).probs)
     tree.reset_var_val()
     mvcp_policy = np.array(mvcp.distribution(tree).probs)
     assert np.allclose(greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6), f"Greedy policy: {greedy_policy}, MVCP policy: {mvcp_policy}"
 
 
-def test_policy_value(discount = .99):
+
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_policy_value(tree, discount_factor):
     """
     We assume that the policy value for the default policy is the same as the default value (subtree average value)
     """
-    tree = default_tree(discount=discount)
-
 
     default_eval = DefaultTreeEvaluator()
-    tree.reset_var_val()
-    pol_val = policy_value(tree, default_eval, discount_factor=discount)
-
+    pol_val = policy_value(tree, default_eval, discount_factor=discount_factor)
     default_value = tree.default_value()
-
     # had to lower the tolerance to 1e-3 since there seem to be some numerical instability
     assert np.allclose(default_value, pol_val, rtol=1e-3, atol=1e-3), f"Default value: {default_value}, Policy value: {pol_val}"
 
 
+# def test_independent_policy_value_variance():
+#     """
+#     We assume that independent_policy_value_variance is porportional to the visit count
+#     """
+
+#     tree = default_tree()
 
 
-if __name__ == "__main__":
-    test_InverseVarianceTreeEvaluator()
-    test_MinimalVarianceConstraintPolicy_zerobeta()
-    test_MinimalVarianceConstraintPolicy_greedy()
-    test_policy_value()
