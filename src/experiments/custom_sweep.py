@@ -8,11 +8,6 @@ from experiments.wandb_sweeps import tune_alphazero_with_wandb
 import experiments.sweep_configs as sweep_configs
 
 
-"""
-Experiment description:
-run n runs
-"""
-
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
     nr_runs = 5
@@ -34,10 +29,12 @@ if __name__ == '__main__':
     run_config = {**sweep_configs.base_parameters, **config_modifications}
 
 
-    variable_configs = [{"eval_param": i} for i in [0.0, 0.01, 0.1, 1.0]]
-    series_configs = [#{'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
-                     {'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
-                     {'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PolicyPUCT'}]
+    variable_configs = [{"learning_rate": i} for i in [1e-2, 1e-3, 1e-4]]
+    series_configs = [{'use_visit_count': 1, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
+                     {'use_visit_count': 1, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
+                     {'use_visit_count': 0, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
+                     {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
+                     ]
     # try every combination of variable_configs and series_config n times
 
     configs = [
