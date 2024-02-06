@@ -21,7 +21,7 @@ def generate_mcts_tree(
     env: gym.Env,
     compute_budget=200,
     seed = 0,
-    seq = (0,1,1,1,1,1,1,1,1),
+    seq = (0,1,1,1,1,1,1,1,1,1,0),
     ):
 
     observation, _ = env.reset(seed=seed)
@@ -89,7 +89,7 @@ def test_MinimalVarianceConstraintPolicy_zerobeta(tree, discount_factor):
     assert np.allclose(inv_var_policy, mvcp_policy, rtol=1e-6, atol=1e-6), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvcp_policy}"
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
-@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("seed", [0, 1, 2,3,4,5,6])  # Add more seeds if needed
 @pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
 @pytest.mark.parametrize("tree_type", ["default", "az"])
 def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
@@ -130,5 +130,3 @@ def test_policy_value(tree, discount_factor):
 #     """
 
 #     tree = default_tree()
-
-
