@@ -4,7 +4,7 @@ sys.path.append("src/")
 from policies.utility_functions import policy_value
 from policies.tree import DefaultTreeEvaluator, GreedyPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy
 
-from policies.selection import UCT
+from policies.selection import PUCT, UCT, PolicyPUCT, PolicyUCT
 import numpy as np
 from az.azmcts import AlphaZeroMCTS
 from az.model import AlphaZeroModel, UnifiedModel
@@ -124,3 +124,41 @@ def test_policy_value(tree, discount_factor):
     assert np.allclose(default_value, pol_val, rtol=1e-3, atol=1e-3), f"Default value: {default_value}, Policy value: {pol_val}"
 
 
+
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_policy_uct(tree, discount_factor, c=1.0):
+    """
+    We assume that policyuct and uct return the same thing for the default policy
+    """
+
+    uct = UCT(c)
+    uct_action = uct.sample(tree)
+
+    default_eval = DefaultTreeEvaluator()
+    policy_uct = PolicyUCT(c, default_eval, discount_factor=discount_factor)
+    p_uct_action = policy_uct.sample(tree)
+
+    assert uct_action == p_uct_action, f"UCT action: {uct_action}, PolicyUCT action: {p_uct_action}"
+
+
+
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["az"])
+def test_policy_puct(tree, discount_factor, c=1.0):
+    """
+    We assume that policyuct and uct return the same thing for the default policy
+    """
+
+    uct = PUCT(c)
+    uct_action = uct.sample(tree)
+
+    default_eval = DefaultTreeEvaluator()
+    policy_uct = PolicyPUCT(c, default_eval, discount_factor=discount_factor)
+    p_uct_action = policy_uct.sample(tree)
+
+    assert uct_action == p_uct_action, f"PUCT action: {uct_action}, PolicyPUCT action: {p_uct_action}"
