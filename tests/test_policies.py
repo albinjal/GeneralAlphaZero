@@ -124,9 +124,3 @@ def test_policy_value(tree, discount_factor):
     assert np.allclose(default_value, pol_val, rtol=1e-3, atol=1e-3), f"Default value: {default_value}, Policy value: {pol_val}"
 
 
-# def test_independent_policy_value_variance():
-#     """
-#     We assume that independent_policy_value_variance is porportional to the visit count
-#     """
-
-#     tree = default_tree()
