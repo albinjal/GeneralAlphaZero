@@ -92,9 +92,26 @@ def test_MinimalVarianceConstraintPolicy_greedy():
     assert np.allclose(greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6), f"Greedy policy: {greedy_policy}, MVCP policy: {mvcp_policy}"
 
 
+def test_policy_value(discount = .99):
+    """
+    We assume that the policy value for the default policy is the same as the default value (subtree average value)
+    """
+    tree = default_tree(discount=discount)
+
+
+    default_eval = DefaultTreeEvaluator()
+    tree.reset_var_val()
+    pol_val = policy_value(tree, default_eval, discount_factor=discount)
+
+    default_value = tree.default_value()
+
+    assert np.allclose(default_value, pol_val, rtol=1e-6, atol=1e-6), f"Default value: {default_value}, Policy value: {pol_val}"
+
+
 
 
 if __name__ == "__main__":
     test_InverseVarianceTreeEvaluator()
     test_MinimalVarianceConstraintPolicy_zerobeta()
     test_MinimalVarianceConstraintPolicy_greedy()
+    test_policy_value()
