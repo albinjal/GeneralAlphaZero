@@ -1,4 +1,3 @@
-from policies.tree import expanded_tree_dict
 from policies.selection import selection_dict_fn
 from az.model import activation_function_dict, norm_dict
 """
@@ -165,7 +164,7 @@ default_config = lambda: {
             "distribution": "categorical",
         },
         "tree_evaluation_policy": {
-            "values": list(expanded_tree_dict(1.0).keys()),
+            "values": ['minimal_variance_constraint'],
             "distribution": "categorical",
         },
         "hidden_dim": {"min": 2, "max": 10, "distribution": "q_log_uniform"},

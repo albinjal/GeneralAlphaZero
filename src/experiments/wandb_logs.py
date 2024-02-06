@@ -82,8 +82,8 @@ def show_model_in_wandb(
 ):
     rows, cols = 6, 12
     outputs = investigate_model(observation_space, model)
-    value_fig = plot_value_network(outputs, nrows=rows, ncols=cols)
-    policy_fig = plot_policy_network(outputs, nrows=rows, ncols=cols)
+    value_fig = plot_value_network(outputs, nrows=rows, ncols=cols, title=f"Value Network, Step: {step}")
+    policy_fig = plot_policy_network(outputs, nrows=rows, ncols=cols, title=f"Policy Network, Step: {step}")
 
     wandb.log(
         {
@@ -116,7 +116,7 @@ def plot_visits_to_wandb_with_counter(
 
     fig, ax = plt.subplots()
     ax.imshow(grid, cmap="viridis", interpolation="nearest")
-    ax.set_title(title)
+    ax.set_title("f{title}, Step: {step}")
     for obs in range(observation_space.n):
         row, col = divmod(obs, ncols)
         ax.text(

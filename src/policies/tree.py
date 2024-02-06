@@ -178,13 +178,13 @@ tree_eval_dict = lambda param, discount: {
     "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param)
 }
 
-expanded_tree_dict = lambda discount: {
-    "default": DefaultTreeEvaluator(),
-    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
-    "softmax_1": SoftmaxDefaultTreeEvaluator(temperature=1.0),
-    "softmax_3": SoftmaxDefaultTreeEvaluator(temperature=3.0),
-    "softmax_5": SoftmaxDefaultTreeEvaluator(temperature=5.0),
-    "minimal_variance_constraint_1": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=1.0),
-    "minimal_variance_constraint_3": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=3.0),
-    "minimal_variance_constraint_5": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=5.0),
-}
+# expanded_tree_dict = lambda discount: {
+#     "default": DefaultTreeEvaluator(),
+#     "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
+#     "softmax_1": SoftmaxDefaultTreeEvaluator(temperature=1.0),
+#     "softmax_3": SoftmaxDefaultTreeEvaluator(temperature=3.0),
+#     "softmax_5": SoftmaxDefaultTreeEvaluator(temperature=5.0),
+#     "minimal_variance_constraint_1": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=1.0),
+#     "minimal_variance_constraint_3": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=3.0),
+#     "minimal_variance_constraint_5": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=5.0),
+# }

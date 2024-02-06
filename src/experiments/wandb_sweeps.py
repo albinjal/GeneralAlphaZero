@@ -24,7 +24,7 @@ from az.model import (
     models_dict,
 )
 import experiments.sweep_configs as sweep_configs
-from policies.tree import expanded_tree_dict, tree_eval_dict
+from policies.tree import tree_eval_dict
 from policies.selection import selection_dict_fn
 
 

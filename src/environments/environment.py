@@ -73,7 +73,7 @@ def plot_image(fig, ax, image, title):
     if fig is not None:
         plt.close(fig)
 
-def plot_value_network(outputs, nrows=4, ncols=12):
+def plot_value_network(outputs, nrows=4, ncols=12, title = "Cliff Walking Value Network"):
     plt.ioff()
     grid = np.zeros((nrows, ncols))
     for state, value in outputs.items():
@@ -83,7 +83,7 @@ def plot_value_network(outputs, nrows=4, ncols=12):
     for i in range(nrows):
         for j in range(ncols):
             ax.text(j, i, f"{grid[i, j]:.1f}", ha="center", va="center", color="blue")
-    plot_image(fig, ax, grid, "Cliff Walking Value Network")
+    plot_image(fig, ax, grid, title)
     return fig
 
 def plot_policy_network(
