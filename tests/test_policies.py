@@ -1,8 +1,14 @@
 import sys
+
 sys.path.append("src/")
 
 from policies.utility_functions import policy_value
-from policies.tree import DefaultTreeEvaluator, GreedyPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy
+from policies.tree import (
+    DefaultTreeEvaluator,
+    GreedyPolicy,
+    InverseVarianceTreeEvaluator,
+    MinimalVarianceConstraintPolicy,
+)
 
 from policies.selection import PUCT, UCT, PolicyPUCT, PolicyUCT
 import numpy as np
@@ -15,23 +21,22 @@ from core.mcts import MCTS, RandomRolloutMCTS
 import gymnasium as gym
 
 
-
 def generate_mcts_tree(
     solver: MCTS,
     env: gym.Env,
     compute_budget=200,
-    seed = 0,
-    seq = (0,1,1,1,1,1,1,1,1,1,0),
-    ):
+    seed=0,
+    seq=(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
+):
 
     observation, _ = env.reset(seed=seed)
     reward = 0
     for action in seq:
         observation, reward, terminated, truncated, info = env.step(action)
 
-
     tree = solver.search(env, compute_budget, observation, np.float32(reward))
     return tree
+
 
 def get_solver(env, tree_type, discount_factor):
     selection_policy = UCT(1.0)
@@ -42,9 +47,11 @@ def get_solver(env, tree_type, discount_factor):
     else:  # Default to RandomRolloutMCTS
         return RandomRolloutMCTS(20, selection_policy, discount_factor=discount_factor)
 
+
 @pytest.fixture(scope="function")
 def env(request):
     return gym.make(request.param)
+
 
 @pytest.fixture(scope="function")
 def tree(env, tree_type, discount_factor, seed):
@@ -56,10 +63,11 @@ def tree(env, tree_type, discount_factor, seed):
     return gen
 
 
-
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
 @pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
-@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Add more discount factors if needed
+@pytest.mark.parametrize(
+    "discount_factor", [1.0, 0.9]
+)  # Add more discount factors if needed
 @pytest.mark.parametrize("tree_type", ["default", "az"])
 def test_InverseVarianceTreeEvaluator(tree):
     inv_var_eval = InverseVarianceTreeEvaluator(1.0)
@@ -67,8 +75,9 @@ def test_InverseVarianceTreeEvaluator(tree):
     inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
     tree.reset_var_val()
     default_policy = np.array(default_eval.distribution(tree).probs)
-    assert np.allclose(inv_var_policy, default_policy, rtol=1e-6, atol=1e-6), f"Inverse variance policy: {inv_var_policy}, Default policy: {default_policy}"
-
+    assert np.allclose(
+        inv_var_policy, default_policy, rtol=1e-6, atol=1e-6
+    ), f"Inverse variance policy: {inv_var_policy}, Default policy: {default_policy}"
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
@@ -86,10 +95,13 @@ def test_MinimalVarianceConstraintPolicy_zerobeta(tree, discount_factor):
     inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
     tree.reset_var_val()
     mvcp_policy = np.array(mvcp.distribution(tree).probs)
-    assert np.allclose(inv_var_policy, mvcp_policy, rtol=1e-6, atol=1e-6), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvcp_policy}"
+    assert np.allclose(
+        inv_var_policy, mvcp_policy, rtol=1e-6, atol=1e-6
+    ), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvcp_policy}"
+
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
-@pytest.mark.parametrize("seed", [0, 1, 2,3,4,5,6])  # Add more seeds if needed
+@pytest.mark.parametrize("seed", [0, 1, 2, 3, 4, 5, 6])  # Add more seeds if needed
 @pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
 @pytest.mark.parametrize("tree_type", ["default", "az"])
 def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
@@ -104,8 +116,9 @@ def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
     greedy_policy = np.array(greedy.distribution(tree).probs)
     tree.reset_var_val()
     mvcp_policy = np.array(mvcp.distribution(tree).probs)
-    assert np.allclose(greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6), f"Greedy policy: {greedy_policy}, MVCP policy: {mvcp_policy}"
-
+    assert np.allclose(
+        greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6
+    ), f"Greedy policy: {greedy_policy}, MVCP policy: {mvcp_policy}"
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
@@ -121,8 +134,9 @@ def test_policy_value(tree, discount_factor):
     pol_val = policy_value(tree, default_eval, discount_factor=discount_factor)
     default_value = tree.default_value()
     # had to lower the tolerance to 1e-3 since there seem to be some numerical instability
-    assert np.allclose(default_value, pol_val, rtol=1e-3, atol=1e-3), f"Default value: {default_value}, Policy value: {pol_val}"
-
+    assert np.allclose(
+        default_value, pol_val, rtol=1e-3, atol=1e-3
+    ), f"Default value: {default_value}, Policy value: {pol_val}"
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
@@ -141,8 +155,9 @@ def test_policy_uct(tree, discount_factor, c=1.0):
     policy_uct = PolicyUCT(c, default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 
-    assert uct_action == p_uct_action, f"UCT action: {uct_action}, PolicyUCT action: {p_uct_action}"
-
+    assert (
+        uct_action == p_uct_action
+    ), f"UCT action: {uct_action}, PolicyUCT action: {p_uct_action}"
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
@@ -161,4 +176,6 @@ def test_policy_puct(tree, discount_factor, c=1.0):
     policy_uct = PolicyPUCT(c, default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 
-    assert uct_action == p_uct_action, f"PUCT action: {uct_action}, PolicyPUCT action: {p_uct_action}"
+    assert (
+        uct_action == p_uct_action
+    ), f"PUCT action: {uct_action}, PolicyPUCT action: {p_uct_action}"
