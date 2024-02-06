@@ -1,0 +1,107 @@
+from operator import inv
+import sys
+
+sys.path.append("src/")
+
+from policies.tree import DefaultTreeEvaluator, GreedyPolicy, InverseVarianceTreeEvaluator, MinimalVarianceConstraintPolicy
+
+from policies.selection import UCT
+import numpy as np
+from az.azmcts import AlphaZeroMCTS
+from az.model import AlphaZeroModel, UnifiedModel
+import pytest
+import torch as th
+
+from core.mcts import MCTS, RandomRolloutMCTS
+import gymnasium as gym
+
+
+
+def generate_mcts_tree(
+    solver: MCTS,
+    env: gym.Env,
+    compute_budget=200,
+    seed = 0,
+    seq = (0,1,1,1,1,1,1,1,1)
+    ):
+
+    observation, _ = env.reset(seed=seed)
+    reward = 0
+    for action in seq:
+        observation, reward, terminated, truncated, info = env.step(action)
+
+
+    tree = solver.search(env, compute_budget, observation, np.float32(reward))
+    return tree
+
+
+def default_tree(env_name = "CliffWalking-v0", seed = 0):
+    env = gym.make(env_name)
+    # model = UnifiedModel(env, 2, 0)
+    selection_policy = UCT(1.0)
+    solver = RandomRolloutMCTS(20, selection_policy)
+    return generate_mcts_tree(solver, env, seed = seed)
+
+
+
+def test_InverseVarianceTreeEvaluator():
+    """
+    We assume that the inverse variance tree evaluator and the visit count tree evaluator return the same policy
+    """
+    inv_var_eval = InverseVarianceTreeEvaluator(1.0)
+    default_eval = DefaultTreeEvaluator()
+    tree = default_tree()
+    tree.reset_var_val()
+    inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
+    tree.reset_var_val()
+    default_policy = np.array(default_eval.distribution(tree).probs)
+    assert np.allclose(inv_var_policy, default_policy, rtol=1e-6, atol=1e-6)
+
+
+
+def test_MinimalVarianceConstraintPolicy_zerobeta():
+    """
+    We assume that when beta = 0, the policy is the same as the inverse variance policy
+    """
+    discount = 1.0
+    beta = 0.0
+    inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount)
+    mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount)
+
+    tree = default_tree()
+    tree.reset_var_val()
+    inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
+    tree.reset_var_val()
+    mvcp_policy = np.array(mvcp.distribution(tree).probs)
+    assert np.allclose(inv_var_policy, mvcp_policy, rtol=1e-6, atol=1e-6)
+
+
+def test_MinimalVarianceConstraintPolicy_greedy():
+    """
+    We assume that when beta-> inf, the policy is the same as the greedy policy
+    """
+    discount = 1.0
+    beta = 1e6
+    greedy = GreedyPolicy()
+    mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount)
+
+    tree = default_tree()
+    tree.reset_var_val()
+    greedy_policy = np.array(greedy.distribution(tree).probs)
+    tree.reset_var_val()
+    mvcp_policy = np.array(mvcp.distribution(tree).probs)
+    if not np.allclose(greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6):
+        print(greedy_policy)
+        print(mvcp_policy)
+        tree.visualize()
+        tree.reset_var_val()
+        greedy_policy = np.array(greedy.distribution(tree).probs)
+        tree.visualize()
+    assert np.allclose(greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6)
+
+
+if __name__ == "__main__":
+    test_InverseVarianceTreeEvaluator()
+    test_MinimalVarianceConstraintPolicy_zerobeta()
+    for _ in range(100):
+        test_MinimalVarianceConstraintPolicy_greedy()

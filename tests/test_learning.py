@@ -9,7 +9,7 @@ from az.learning import n_step_value_targets, one_step_value_targets
 # [Include the definitions of n_step_value_targets and one_step_value_targets here]
 
 
-def test_value_targets_with_pytest():
+def test_value_targets():
     batch_size = 10
     n_steps = 20
     discount_factor = 0.99
