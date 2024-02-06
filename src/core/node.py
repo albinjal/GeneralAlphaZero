@@ -135,6 +135,22 @@ class Node(Generic[ObservationType]):
             l[key] = child
         return l
 
+    def reset_policy_value(self):
+        self.policy_value = None
+        for child in self.children.values():
+            child.reset_policy_value()
+
+    def reset_variance(self):
+        self.variance = None
+        for child in self.children.values():
+            child.reset_variance()
+
+    def reset_var_val(self):
+        self.variance = None
+        self.policy_value = None
+        for child in self.children.values():
+            child.reset_var_val()
+
     def __str__(self):
         return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_sum}\nRollout: {self.default_value()}"
 

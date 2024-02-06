@@ -82,13 +82,18 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
             d[-1] = 1.0
             return th.distributions.Categorical(d)
 
-        vals = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+        # have a look at this, infs mess things up
+        vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
         inv_vars = th.zeros_like(vals, dtype=th.float32)
-
         for action, child in node.children.items():
             pi = self.distribution(child, include_self=True)
             vals[action] = policy_value(child, pi, self.discount_factor)
             inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
+
+        policy = th.zeros_like(vals, dtype=th.float32)
+
+        for action, child in node.children.items():
+            policy[action] = th.exp(self.beta * (vals[action] - vals.max())) * inv_vars[action]
 
         # if include_self:
         #     # TODO: this probably has to be updated
@@ -98,12 +103,12 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         # risk for numerical instability if vals are large/small
         # Solution: subtract the mean
         # This should be equivalent to muliplying by a constant which we can ignore
-        policy = th.exp(self.beta * (vals - vals.max())) * inv_vars
+        # policy = th.exp(self.beta * (vals - vals.max())) * inv_vars
 
 
         # make a numerical check. If the policy is all 0, then we should return a uniform distribution
-        if policy.sum() == 0:
-            policy[:-1] = th.ones_like(policy[:-1])
+        # if policy.sum() == 0:
+        #     policy[:-1] = th.ones_like(policy[:-1])
 
 
         # # if we have some infinities, we should return a uniform distribution over the infinities
@@ -124,6 +129,46 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         return th.distributions.Categorical(
             policy
         )
+
+
+class GreedyPolicy(PolicyDistribution):
+    def __init__(self, discount_factor = 1.0):
+        self.discount_factor = discount_factor
+
+    """
+    Determinstic policy that selects the action with the highest value
+    """
+    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+        if len(node.children) == 0:
+            d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+            d[-1] = 1.0
+            return th.distributions.Categorical(d)
+
+        vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
+
+        for action, child in node.children.items():
+            vals[action] = policy_value(child, self, self.discount_factor)
+
+
+        max_val = vals.max()
+        max_mask = (vals == max_val)
+        policy = th.zeros_like(vals)
+        policy[max_mask] = 1.0
+
+
+        if include_self:
+            # if we have no children, the policy should be 1 for the self action
+            if len(node.children) == 0:
+                policy[-1] = 1.0
+            else:
+                # set it to 1/visits
+                policy[-1] = policy.sum() / (node.visits - 1)
+
+
+        return th.distributions.Categorical(
+            policy
+        )
+
 
 
 tree_eval_dict = lambda param, discount: {
