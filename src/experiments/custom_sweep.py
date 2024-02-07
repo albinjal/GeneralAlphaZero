@@ -1,4 +1,5 @@
 import sys
+import time
 sys.path.append('./src/')
 from tqdm import tqdm
 import pandas as pd
@@ -41,6 +42,8 @@ if __name__ == '__main__':
         {**run_config, **variable_config, **series_config} for variable_config in variable_configs for series_config in series_configs
     ] * nr_runs
 
-    tags = ['custom_sweep', list(variable_configs[0])[0]]
+    time_name = time.strftime("%Y-%m-%d-%H-%M-%S")
+
+    tags = ['custom_sweep', list(variable_configs[0])[0], time_name]
     for config in tqdm(configs):
         tune_alphazero_with_wandb(project, entity, config=config, tags=tags)
