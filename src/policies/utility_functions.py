@@ -70,3 +70,11 @@ def independent_policy_value_variance(node: Node, policy: PolicyDistribution | t
     )
     node.variance = var
     return var
+
+
+
+def puct_multiplier(c: float, node: Node):
+    """
+    lambda_N from the mcts as policy optimisation paper.
+    """
+    return c * (node.visits**0.5) / (node.visits + int(node.action_space.n))

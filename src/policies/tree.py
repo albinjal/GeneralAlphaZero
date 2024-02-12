@@ -2,7 +2,7 @@ import torch as th
 
 from core.node import Node
 from policies.policies import PolicyDistribution
-from policies.utility_functions import independent_policy_value_variance, policy_value, value_evaluation_variance
+from policies.utility_functions import independent_policy_value_variance, policy_value, puct_multiplier, value_evaluation_variance
 
 
 
@@ -76,11 +76,16 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         self.beta = beta
         self.discount_factor = discount_factor
 
+    def get_beta(self, node: Node):
+        return self.beta
+
     def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         if len(node.children) == 0:
             d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
             d[-1] = 1.0
             return th.distributions.Categorical(d)
+
+        beta = self.get_beta(node)
 
         # have a look at this, infs mess things up
         vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
@@ -93,7 +98,7 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         policy = th.zeros_like(vals, dtype=th.float32)
 
         for action, child in node.children.items():
-            policy[action] = th.exp(self.beta * (vals[action] - vals.max())) * inv_vars[action]
+            policy[action] = th.exp(beta * (vals[action] - vals.max())) * inv_vars[action]
 
         # if include_self:
         #     # TODO: this probably has to be updated
@@ -129,6 +134,15 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         return th.distributions.Categorical(
             policy
         )
+
+class MVCP_Dynamic_Beta(MinimalVarianceConstraintPolicy):
+
+    def __init__(self, c: float, discount_factor=1):
+        self.c = c
+        self.discount_factor = discount_factor
+
+    def get_beta(self, node: Node):
+        return 1 / puct_multiplier(self.c, node)
 
 
 class GreedyPolicy(PolicyDistribution):
