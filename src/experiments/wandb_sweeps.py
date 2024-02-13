@@ -47,7 +47,7 @@ def tune_alphazero_with_wandb(
     env = gym.make(hparams["env_id"])
 
     discount_factor = hparams["discount_factor"]
-    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor)[
+    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor, hparams["puct_c"])[
         hparams["tree_evaluation_policy"]
     ]
     selection_policy = selection_dict_fn(

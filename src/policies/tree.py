@@ -136,13 +136,54 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         )
 
 class MVCP_Dynamic_Beta(MinimalVarianceConstraintPolicy):
-
+    """
+    From the mcts as policy optimization paper
+    """
     def __init__(self, c: float, discount_factor=1):
         self.c = c
         self.discount_factor = discount_factor
 
     def get_beta(self, node: Node):
         return 1 / puct_multiplier(self.c, node)
+
+class ReversedRegPolicy(PolicyDistribution):
+    """
+    From the mcts as policy optimization paper
+    """
+    def __init__(self, c: float, discount_factor=1):
+        self.c = c
+        self.discount_factor = discount_factor
+
+
+    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+        if len(node.children) == 0:
+            d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+            d[-1] = 1.0
+            return th.distributions.Categorical(d)
+
+        # have a look at this, infs mess things up
+        vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
+        for action, child in node.children.items():
+            vals[action] = policy_value(child, self, self.discount_factor)
+
+        policy = th.zeros_like(vals, dtype=th.float32)
+        mult = puct_multiplier(self.c, node)
+
+        for action, child in node.children.items():
+            policy[action] = node.prior_policy[action] * th.exp((vals[action] - vals.max()) / mult)
+
+        if include_self:
+            # if we have no children, the policy should be 1 for the self action
+            if len(node.children) == 0:
+                policy[-1] = 1.0
+            else:
+                # set it to 1/visits
+                policy[-1] = policy.sum() / (node.visits - 1)
+
+
+        return th.distributions.Categorical(
+            policy
+        )
 
 
 class GreedyPolicy(PolicyDistribution):
@@ -185,11 +226,13 @@ class GreedyPolicy(PolicyDistribution):
 
 
 
-tree_eval_dict = lambda param, discount: {
+tree_eval_dict = lambda param, discount, c=None: {
     "default": DefaultTreeEvaluator(),
     "softmax": SoftmaxDefaultTreeEvaluator(temperature=param),
     "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
-    "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param)
+    "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param),
+    'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount),
+    'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount),
 }
 
 # expanded_tree_dict = lambda discount: {
