@@ -143,7 +143,25 @@ def test_mvto_lambdinf(tree, discount_factor):
     ), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvto_policy}"
 
 
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2, 3, 4, 5, 6])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_mvto_lambdzero(tree, discount_factor):
+    """
+    We assume that when lambda = 0, the policy is the same as the greedy policy
+    """
+    # TODO: for some strange reason this sometimes fails and the greedy and mvto policies are different, investigate
+    lambd = 1e-8
+    greedy = GreedyPolicy()
+    mvto = MVTOPolicy(lamb=lambd, discount_factor=discount_factor)
 
+    greedy_policy = np.array(greedy.distribution(tree).probs)
+    tree.reset_var_val()
+    mvto_policy = np.array(mvto.distribution(tree).probs)
+    assert np.allclose(
+        greedy_policy, mvto_policy, rtol=1e-6, atol=1e-6
+    ), f"Greedy policy: {greedy_policy}, MVCP policy: {mvto_policy}"
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
 @pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
