@@ -186,6 +186,62 @@ class ReversedRegPolicy(PolicyDistribution):
         )
 
 
+class MVTOPolicy(PolicyDistribution):
+    """
+    Solution to argmax mu + lambda * var
+    """
+
+    def __init__(self, lamb: float, discount_factor=1):
+        """
+        Note that lambda > max_i sum_j (var_j^-1 ( x_j - x_i))/ 2
+        """
+        self.lamb = lamb
+        self.discount_factor = discount_factor
+
+
+    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+        if len(node.children) == 0:
+            d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+            d[-1] = 1.0
+            return th.distributions.Categorical(d)
+
+
+        # have a look at this, infs mess things up
+        vals = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
+        inv_vars = th.zeros_like(vals, dtype=th.float32)
+        for action, child in node.children.items():
+            pi = self.distribution(child, include_self=True)
+            vals[action] = policy_value(child, pi, self.discount_factor)
+            inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
+
+        inv_var_policy = inv_vars / inv_vars.sum()
+
+        policy = th.zeros_like(vals, dtype=th.float32)
+
+        piv_sum = (inv_var_policy * vals).sum()
+        a = .5 / self.lamb
+
+        for action, child in node.children.items():
+            policy[action] = inv_var_policy[action] + a * inv_vars[action] * (vals[action] - piv_sum)
+
+        assert policy.min() >= 0, "Policy should be non-negative, Increase lambda"
+        # TODO: might have to add failsafe here
+
+
+        if include_self:
+            # if we have no children, the policy should be 1 for the self action
+            if len(node.children) == 0:
+                policy[-1] = 1.0
+            else:
+                # set it to 1/visits
+                policy[-1] = policy.sum() / (node.visits - 1)
+
+
+        return th.distributions.Categorical(
+            policy
+        )
+
+
 class GreedyPolicy(PolicyDistribution):
     def __init__(self, discount_factor = 1.0):
         self.discount_factor = discount_factor
