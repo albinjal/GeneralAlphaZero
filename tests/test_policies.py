@@ -7,6 +7,7 @@ from policies.tree import (
     DefaultTreeEvaluator,
     GreedyPolicy,
     InverseVarianceTreeEvaluator,
+    MVTOPolicy,
     MinimalVarianceConstraintPolicy,
 )
 
@@ -119,6 +120,29 @@ def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
     assert np.allclose(
         greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6
     ), f"Greedy policy: {greedy_policy}, MVCP policy: {mvcp_policy}"
+
+
+
+@pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
+@pytest.mark.parametrize("seed", [0, 1, 2])  # Add more seeds if needed
+@pytest.mark.parametrize("discount_factor", [1.0, 0.9])  # Parametrize discount factors
+@pytest.mark.parametrize("tree_type", ["default", "az"])
+def test_mvto_lambdinf(tree, discount_factor):
+    """
+    We assume that when lambda -> inf, the policy is the same as the inverse variance policy
+    """
+    lamb = 1e8
+    inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount_factor)
+    mvto = MVTOPolicy(lamb=lamb, discount_factor=discount_factor)
+
+    inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
+    tree.reset_var_val()
+    mvto_policy = np.array(mvto.distribution(tree).probs)
+    assert np.allclose(
+        inv_var_policy, mvto_policy, rtol=1e-4, atol=1e-4
+    ), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvto_policy}"
+
+
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)

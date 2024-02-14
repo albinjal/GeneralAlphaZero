@@ -224,8 +224,11 @@ class MVTOPolicy(PolicyDistribution):
         for action, child in node.children.items():
             policy[action] = inv_var_policy[action] + a * inv_vars[action] * (vals[action] - piv_sum)
 
-        assert policy.min() >= 0, "Policy should be non-negative, Increase lambda"
-        # TODO: might have to add failsafe here
+        if policy.min() < 0:
+            # seems like lambda is too small, follow the greedy policy instead
+            print("lambda too small, using greedy policy")
+            g =  GreedyPolicy(self.discount_factor).distribution(node, include_self)
+            return g
 
 
         if include_self:
@@ -282,7 +285,7 @@ class GreedyPolicy(PolicyDistribution):
 
 
 
-tree_eval_dict = lambda param, discount, c=None: {
+tree_eval_dict = lambda param, discount, c=1.0: {
     "default": DefaultTreeEvaluator(),
     "softmax": SoftmaxDefaultTreeEvaluator(temperature=param),
     "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
