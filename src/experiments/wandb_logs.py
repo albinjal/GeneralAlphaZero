@@ -116,7 +116,7 @@ def plot_visits_to_wandb_with_counter(
 
     fig, ax = plt.subplots()
     ax.imshow(grid, cmap="viridis", interpolation="nearest")
-    ax.set_title("f{title}, Step: {step}")
+    ax.set_title(f"{title}, Step: {step}")
     for obs in range(observation_space.n):
         row, col = divmod(obs, ncols)
         ax.text(

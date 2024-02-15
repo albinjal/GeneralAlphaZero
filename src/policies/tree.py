@@ -226,6 +226,7 @@ class MVTOPolicy(PolicyDistribution):
 
         if policy.min() < 0:
             # seems like lambda is too small, follow the greedy policy instead
+            # alternativly we could just set the negative values to 0
             print("lambda too small, using greedy policy")
             g =  GreedyPolicy(self.discount_factor).distribution(node, include_self)
             return g
@@ -292,15 +293,5 @@ tree_eval_dict = lambda param, discount, c=1.0: {
     "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param),
     'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount),
     'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount),
+    "mvto": MVTOPolicy(lamb=param, discount_factor=discount),
 }
-
-# expanded_tree_dict = lambda discount: {
-#     "default": DefaultTreeEvaluator(),
-#     "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
-#     "softmax_1": SoftmaxDefaultTreeEvaluator(temperature=1.0),
-#     "softmax_3": SoftmaxDefaultTreeEvaluator(temperature=3.0),
-#     "softmax_5": SoftmaxDefaultTreeEvaluator(temperature=5.0),
-#     "minimal_variance_constraint_1": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=1.0),
-#     "minimal_variance_constraint_3": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=3.0),
-#     "minimal_variance_constraint_5": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=5.0),
-# }
