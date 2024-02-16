@@ -11,30 +11,34 @@ import experiments.sweep_configs as sweep_configs
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 5
+    nr_runs = 3
 
     config_modifications = {
     'iterations': 15,
-    'tree_evaluation_policy': 'default',
-    'selection_policy': 'PolicyPUCT',
-    'eval_param': .1,
+    'selection_policy': 'PUCT',
+    'eval_param': 1.0,
     'discount_factor': 1.0,
     'model_type': 'seperated',
-    'max_episode_length': 200,
-    'puct_c': 2.0,
+    'max_episode_length': 150,
+    'puct_c': 1.0,
     'compute_budget': 64,
-    'use_visit_count': 1,
+    'use_visit_count': 0,
     'learning_rate': 1e-3
     }
 
     run_config = {**sweep_configs.base_parameters, **config_modifications}
 
 
-    variable_configs = [{"learning_rate": i} for i in [1e-2, 1e-3, 1e-4]]
-    series_configs = [{'use_visit_count': 1, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
-                     {'use_visit_count': 1, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
-                     {'use_visit_count': 0, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
-                     {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
+    # variable_configs = [{"learning_rate": i} for i in [1e-2, 1e-3, 1e-4]]
+    # series_configs = [{'use_visit_count': 1, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
+    #                  {'use_visit_count': 1, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
+    #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
+    #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
+    #                  ]
+    variable_configs = [{"compute_budget": 2**i} for i in range(4, 8)]
+    series_configs = [{'tree_evaluation_policy': 'default'},
+                     {'tree_evaluation_policy': 'minimal_variance_constraint'},
+                     {'tree_evaluation_policy': 'minimal_variance_constraint'},
                      ]
     # try every combination of variable_configs and series_config n times
 
