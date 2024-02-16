@@ -1,20 +1,17 @@
 import glob
 import os
+import sys
+sys.path.append("src/")
+
 import time
 import gymnasium as gym
 import numpy as np
-import sys
 from policies.expansion import DefaultExpansionPolicy, ExpandFromPriorPolicy
-
 from policies.policies import Policy, PolicyDistribution
 from policies.selection import PolicyUCT
-from policies.tree import DefaultTreeEvaluator, MinimalVarianceConstraintPolicy
-
-sys.path.append("src/")
-
+from policies.tree import MinimalVarianceConstraintPolicy
 from az.azmcts import AlphaZeroMCTS
-from environments.environment import obs_to_tensor
-from core.mcts import MCTS
+from core.mcts import MCTS, RandomRolloutMCTS
 from az.model import AlphaZeroModel
 
 
@@ -36,15 +33,14 @@ def run_vis(
     render_env = gym.make(**env_args, render_mode="human")
 
     # if checkpoint_path contains a wildcard, we need to expand it
-    if "*" in checkpoint_path:
-        matches = glob.glob(checkpoint_path)
-        dir = max(matches)
-        checkpoint_path = os.path.join(dir, "checkpoint.pth")
+    # if "*" in checkpoint_path:
+    #     matches = glob.glob(checkpoint_path)
+    #     dir = max(matches)
+    #     checkpoint_path = os.path.join(dir, "checkpoint.pth")
 
-    model = AlphaZeroModel.load_model(checkpoint_path, env)
-    agent = AlphaZeroMCTS(
+    # model = AlphaZeroModel.load_model(checkpoint_path, env)
+    agent = RandomRolloutMCTS(
         selection_policy=selection_policy,
-        model=model,
         expansion_policy=expansion_policy,
         discount_factor=discount,
     )
@@ -116,9 +112,9 @@ def main_runviss():
     discount = 0.95
     tree_policy = MinimalVarianceConstraintPolicy(5.0, discount_factor=discount)
     selection_policy = PolicyUCT(c=2, policy=tree_policy, discount_factor=discount)
-    expansion_policy = ExpandFromPriorPolicy()
+    expansion_policy = DefaultExpansionPolicy()
     run_vis(
-        f"runs/CliffWalking-v0_20240121*",
+        f"runs/*",
         env_args,
         tree_policy,
         selection_policy,
