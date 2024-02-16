@@ -38,7 +38,7 @@ if __name__ == '__main__':
     variable_configs = [{"compute_budget": 2**i} for i in range(4, 8)]
     series_configs = [{'tree_evaluation_policy': 'default'},
                      {'tree_evaluation_policy': 'minimal_variance_constraint'},
-                     {'tree_evaluation_policy': 'minimal_variance_constraint'},
+                     {'tree_evaluation_policy': 'mvto'},
                      ]
     # try every combination of variable_configs and series_config n times
 
