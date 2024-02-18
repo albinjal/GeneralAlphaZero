@@ -2,6 +2,7 @@ tensorboard_logs/
 runs/
 */outfiles
 wandb/
+mcts_tree.gv.pdf/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
