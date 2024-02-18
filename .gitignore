@@ -1,6 +1,6 @@
 tensorboard_logs/
 runs/
-
+*/outfiles
 wandb/
 
 # Byte-compiled / optimized / DLL files
