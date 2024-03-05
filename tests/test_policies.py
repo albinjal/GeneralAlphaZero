@@ -4,7 +4,7 @@ sys.path.append("src/")
 
 from policies.utility_functions import policy_value
 from policies.tree import (
-    DefaultTreeEvaluator,
+    VistationPolicy,
     GreedyPolicy,
     InverseVarianceTreeEvaluator,
     MVTOPolicy,
@@ -72,7 +72,7 @@ def tree(env, tree_type, discount_factor, seed):
 @pytest.mark.parametrize("tree_type", ["default", "az"])
 def test_InverseVarianceTreeEvaluator(tree):
     inv_var_eval = InverseVarianceTreeEvaluator(1.0)
-    default_eval = DefaultTreeEvaluator()
+    default_eval = VistationPolicy()
     inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
     tree.reset_var_val()
     default_policy = np.array(default_eval.distribution(tree).probs)
@@ -172,7 +172,7 @@ def test_policy_value(tree, discount_factor):
     We assume that the policy value for the default policy is the same as the default value (subtree average value)
     """
 
-    default_eval = DefaultTreeEvaluator()
+    default_eval = VistationPolicy
     pol_val = policy_value(tree, default_eval, discount_factor=discount_factor)
     default_value = tree.default_value()
     # had to lower the tolerance to 1e-3 since there seem to be some numerical instability
@@ -193,7 +193,7 @@ def test_policy_uct(tree, discount_factor, c=1.0):
     uct = UCT(c)
     uct_action = uct.sample(tree)
 
-    default_eval = DefaultTreeEvaluator()
+    default_eval = VistationPolicy
     policy_uct = PolicyUCT(c, default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 
@@ -214,7 +214,7 @@ def test_policy_puct(tree, discount_factor, c=1.0):
     uct = PUCT(c)
     uct_action = uct.sample(tree)
 
-    default_eval = DefaultTreeEvaluator()
+    default_eval = VistationPolicy()
     policy_uct = PolicyPUCT(c, default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 

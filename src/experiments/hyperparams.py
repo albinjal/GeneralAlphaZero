@@ -14,7 +14,7 @@ import sys
 from policies.expansion import DefaultExpansionPolicy
 
 from policies.selection import PUCT
-from policies.tree import DefaultTreeEvaluator
+from policies.tree import VistationPolicy
 sys.path.append("src/")
 
 from az.alphazero import AlphaZeroController
@@ -28,7 +28,7 @@ def tune_alphazero(hparams):
 
     discount_factor = hparams['discount_factor']
     selection_policy = PUCT(c=hparams['puct_c'])
-    tree_evaluation_policy = DefaultTreeEvaluator()
+    tree_evaluation_policy = VistationPolicy()
 
     model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'])
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,

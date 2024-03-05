@@ -22,7 +22,7 @@ from experiments.wandb_logs import (
     show_model_in_wandb,
 )
 
-from policies.tree import DefaultTreeEvaluator
+from policies.tree import VistationPolicy
 from policies.policies import PolicyDistribution
 from az.azmcts import AlphaZeroMCTS
 from az.learning import (
@@ -64,7 +64,7 @@ class AlphaZeroController:
         optimizer: th.optim.Optimizer,
         replay_buffer=TensorDictReplayBuffer(),
         training_epochs=10,
-        tree_evaluation_policy: PolicyDistribution = DefaultTreeEvaluator(),
+        tree_evaluation_policy: PolicyDistribution = VistationPolicy(),
         compute_budget=100,
         max_episode_length=500,
         writer: SummaryWriter = SummaryWriter(),
@@ -203,32 +203,23 @@ class AlphaZeroController:
         # Number of processes - you can customize this
         tim = datetime.datetime.now()
         # Create a pool of processes
+        # Generate tasks for each episode
+        tasks = [
+            (
+                self.agent,
+                self.env,
+                self.tree_evaluation_policy,
+                self.compute_budget,
+                self.max_episode_length,
+            )
+            for _ in range(self.self_play_iterations)
+        ]
         if self.self_play_workers > 1:
             with multiprocessing.Pool() as pool:
-                # Generate tasks for each episode
-                tasks = [
-                    (
-                        self.agent,
-                        self.env,
-                        self.tree_evaluation_policy,
-                        self.compute_budget,
-                        self.max_episode_length,
-                    )
-                    for _ in range(self.self_play_iterations)
-                ]
                 # Run the tasks using map
                 results = pool.map(run_episode_process, tasks)
         else:
-            for _ in tqdm(range(self.self_play_iterations)):
-                results.append(
-                    run_episode(
-                        self.agent,
-                        self.env,
-                        self.tree_evaluation_policy,
-                        self.compute_budget,
-                        self.max_episode_length,
-                    )
-                )
+            results = [run_episode_process(task) for task in tasks]
         tot_tim = datetime.datetime.now() - tim
 
         # Process the results

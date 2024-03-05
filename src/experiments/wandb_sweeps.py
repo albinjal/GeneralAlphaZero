@@ -29,7 +29,7 @@ from policies.selection import selection_dict_fn
 
 
 def tune_alphazero_with_wandb(
-    project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True, tags = None
+    project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True, tags = None, debug=False
 ):
     if tags is None:
         tags = []
@@ -75,7 +75,7 @@ def tune_alphazero_with_wandb(
         weight_decay=hparams["regularization_weight"],
     )
 
-    workers = multiprocessing.cpu_count()
+    workers = 1 if debug else multiprocessing.cpu_count()
     self_play_games_per_iteration = workers
     replay_buffer_size = (
         hparams["replay_buffer_multiplier"] * self_play_games_per_iteration
@@ -133,8 +133,11 @@ def sweep_agent():
 
 
 def run_single():
+    config_modifications = {
+    }
 
-    return tune_alphazero_with_wandb(config=sweep_configs.base_parameters, performance=False)
+    run_config = {**sweep_configs.base_parameters, **config_modifications}
+    return tune_alphazero_with_wandb(config=run_config, performance=False)
 
 
 if __name__ == "__main__":

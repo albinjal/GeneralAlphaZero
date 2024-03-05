@@ -7,7 +7,7 @@ from policies.utility_functions import independent_policy_value_variance, policy
 
 
 
-class DefaultTreeEvaluator(PolicyDistribution):
+class VistationPolicy(PolicyDistribution):
     # the default tree evaluator selects the action with the most visits
     def distribution(self, node: Node, include_self = False) -> th.distributions.Categorical:
         visits = th.zeros(int(node.action_space.n) + include_self)
@@ -20,9 +20,9 @@ class DefaultTreeEvaluator(PolicyDistribution):
         return th.distributions.Categorical(visits)
 
 
-class SoftmaxDefaultTreeEvaluator(PolicyDistribution):
+class SoftmaxVistationPolicy(PolicyDistribution):
     """
-    Same as DefaultTreeEvaluator but with softmax applied to the visits. temperature controls the softmax temperature.
+    Same as VistationPolicy but with softmax applied to the visits. temperature controls the softmax temperature.
     """
 
     def __init__(self, temperature: float):
@@ -287,8 +287,7 @@ class GreedyPolicy(PolicyDistribution):
 
 
 tree_eval_dict = lambda param, discount, c=1.0: {
-    "default": DefaultTreeEvaluator(),
-    "softmax": SoftmaxDefaultTreeEvaluator(temperature=param),
+    "visit": VistationPolicy(),
     "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
     "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param),
     'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount),

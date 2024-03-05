@@ -97,7 +97,7 @@ def visualize_gameplay(
             norm_entropy = policy_dist.entropy() / np.log(n)
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
             print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
-            # default = DefaultTreeEvaluator()
+            # default = VistationPolicy()
             # print(f"default {default.distribution(tree).probs }")
             # diff = default.distribution(tree).probs - policy_dist.probs
             # print(f"diff {(diff ** 2).sum()}, {diff}")

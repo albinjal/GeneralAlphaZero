@@ -1,5 +1,10 @@
 from policies.selection import selection_dict_fn
 from az.model import activation_function_dict, norm_dict
+
+from pydantic import BaseModel
+import datetime
+
+
 """
 Sweep configuration options
 A sweep configuration consists of nested key-value pairs. Use top-level keys within your sweep configuration to define qualities of your sweep search such as the parameters to search through (parameter key), the methodology to search the parameter space (method key), and more.
@@ -116,31 +121,45 @@ strict	Enable 'strict' mode that prunes runs aggressively, more closely followin
 """
 
 
-import datetime
+def selection_to_expansion(selection_policy):
+    """
+    There is a connection between selection policy and expansion policy.
+    puct -> fromprior
+    policy_puct -> fromprior
+    default -> default
+    policy_uct -> default
+    """
+    if selection_policy in ["UCT", "PolicyUCT"]:
+        return "default"
+    else:
+        return "fromprior"
 
+
+
+selection = "PUCT"
 base_parameters = {
     "model_type": "unified",
-    "expansion_policy": "fromprior",
+    "expansion_policy": selection_to_expansion(selection),
     "activation_fn": "relu",
     "norm_layer": "none",
-    "selection_policy": "PUCT",
-    "puct_c": 5.0,
+    "selection_policy": selection,
+    "puct_c": 1.0,
     'eval_param': 1000,
     "use_visit_count": 0,
     "regularization_weight": 1e-4,
-    "tree_evaluation_policy": "mvto",
+    "tree_evaluation_policy": "visit",
     "hidden_dim": 64,
     "policy_loss_weight": 30,
     "learning_rate": 1e-3,
-    "sample_batch_ratio": 1,
-    "n_steps_learning": 1,
-    "training_epochs": 10,
-    "compute_budget": 50,
+    "sample_batch_ratio": 5,
+    "n_steps_learning": 5,
+    "training_epochs": 3,
+    "compute_budget": 32,
     "layers": 3,
     "replay_buffer_multiplier": 10,
     "discount_factor": 1.0,
     "lr_gamma": 1.0,
-    "iterations": 30,
+    "iterations": 20,
     "env_id": "CliffWalking-v0",
     "value_loss_weight": 1.0,
     "max_episode_length": 150,

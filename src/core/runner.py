@@ -113,7 +113,7 @@ def run_episode(
 
 # if __name__ == "__main__":
 #     from policies.selection import UCT
-#     from policies.tree import DefaultTreeEvaluator
+#     from policies.tree import VistationPolicy
 #     seed = 0
 #     actType = np.int64
 #     env_id = "CliffWalking-v0"
@@ -122,7 +122,7 @@ def run_episode(
 #     env: gym.Env[Any, actType] = gym.make(env_id, render_mode="rgb_array")
 
 #     selection_policy = UCT(c=1)
-#     tree_evaluation_policy = DefaultTreeEvaluator()
+#     tree_evaluation_policy = VistationPolicy()
 
 #     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
 #     # vis_tree(mcts, env, compute_budget=100, max_depth=None)
