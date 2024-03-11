@@ -15,15 +15,20 @@ class MCTS:
     """
 
     env: gym.Env
+    root_selection_policy: OptionalPolicy
     selection_policy: OptionalPolicy
     expansion_policy: Policy  # the expansion policy is usually "pick uniform non explored action"
 
     def __init__(
         self,
+        root_selection_policy: OptionalPolicy | None,
         selection_policy: OptionalPolicy,
         expansion_policy: Policy = DefaultExpansionPolicy(),
         discount_factor: float = 1.0,
     ):
+        if root_selection_policy is None:
+            root_selection_policy = selection_policy
+        self.root_selection_policy = root_selection_policy
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
         self.expansion_policy = expansion_policy
         self.discount_factor = np.float32(discount_factor)
@@ -119,6 +124,14 @@ class MCTS:
         """
 
         node = from_node
+
+        # select which node to step into
+        action = self.root_selection_policy(node)
+        # if the selection policy returns None, this indicates that the current node should be expanded
+        if action is None:
+            return node
+        # step into the node
+        node = node.step(action)
         # the reason we copy the env is because we want to keep the original env in the root state
         # Question: note that all envs will have the same seed, this might needs to be dealt with for stochastic envs
         while not node.is_terminal():

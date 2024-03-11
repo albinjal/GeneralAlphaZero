@@ -284,12 +284,19 @@ class GreedyPolicy(PolicyDistribution):
             policy
         )
 
-
+tree_dict = {
+    "visit": VistationPolicy,
+    "inverse_variance": InverseVarianceTreeEvaluator,
+    "mvc": MinimalVarianceConstraintPolicy,
+    'mvc_dynbeta': MVCP_Dynamic_Beta,
+    'reversedregpolicy': ReversedRegPolicy,
+    "mvto": MVTOPolicy,
+}
 
 tree_eval_dict = lambda param, discount, c=1.0: {
     "visit": VistationPolicy(),
     "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
-    "minimal_variance_constraint": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param),
+    "mvc": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param),
     'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount),
     'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount),
     "mvto": MVTOPolicy(lamb=param, discount_factor=discount),
