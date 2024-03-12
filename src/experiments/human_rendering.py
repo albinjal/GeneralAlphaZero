@@ -82,7 +82,7 @@ def visualize_gameplay(
 
     for step in range(max_steps):
         tree = solver.search(env, compute_budget, observation, np.float32(0.0))
-        policy_dist = tree_evaluation_policy.distribution(tree)
+        policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         observation, reward, terminated, truncated, _ = env.step(action.item())
@@ -98,8 +98,8 @@ def visualize_gameplay(
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
             print(f"{step}. O: {observation}, A: {action}, R: {reward}, T: {terminal}")
             # default = VistationPolicy()
-            # print(f"default {default.distribution(tree).probs }")
-            # diff = default.distribution(tree).probs - policy_dist.probs
+            # print(f"default {default.softmaxed_distribution(tree).probs }")
+            # diff = default.softmaxed_distribution(tree).probs - policy_dist.probs
             # print(f"diff {(diff ** 2).sum()}, {diff}")
 
         if terminal:

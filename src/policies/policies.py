@@ -20,17 +20,36 @@ class PolicyDistribution(Policy):
     We can either sample stochasticly from distribution or deterministically choose the action with the highest probability.
     We can also apply softmax with temperature to the distribution.
     """
+    temperature: float
+    def __init__(self, temperature: float = None) -> None:
+        super().__init__()
+        self.temperature = temperature
+
 
     def sample(self, node: Node) -> th.Tensor:
         """
         Returns a random action from the distribution
         """
-        return self.distribution(node).sample()
+        return self.softmaxed_distribution(node).sample()
 
     @abstractmethod
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         """The distribution of the policy. Must sum to 1 and be all positive."""
         pass
+
+    def softmaxed_distribution(self, node: Node, *args, **kwargs) -> th.distributions.Categorical:
+        """Returns the softmaxed distribution of the policy"""
+        if self.temperature is None:
+            return self._distribution(node, *args, **kwargs)
+        elif self.temperature == 0:
+            # return a uniform distribution over the actions with the highest probability
+            logits = self._distribution(node, *args, **kwargs).logits
+            max_logits = th.max(logits)
+            return th.distributions.Categorical(logits == max_logits)
+        else:
+            return th.distributions.Categorical(
+                logits=self._distribution(node, *args, **kwargs).logits / self.temperature
+            )
 
 
 class OptionalPolicy(ABC):

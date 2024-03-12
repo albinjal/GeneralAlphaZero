@@ -59,7 +59,7 @@ def run_episode(
             dtype=th.float32,
         )
         tree.reset_var_val()
-        policy_dist = tree_evaluation_policy.distribution(tree)
+        policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         new_obs, reward, terminated, truncated, _ = env.step(action.item())

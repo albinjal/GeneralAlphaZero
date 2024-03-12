@@ -73,9 +73,9 @@ def tree(env, tree_type, discount_factor, seed):
 def test_InverseVarianceTreeEvaluator(tree):
     inv_var_eval = InverseVarianceTreeEvaluator(1.0)
     default_eval = VistationPolicy()
-    inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
+    inv_var_policy = np.array(inv_var_eval.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
-    default_policy = np.array(default_eval.distribution(tree).probs)
+    default_policy = np.array(default_eval.softmaxed_distribution(tree).probs)
     assert np.allclose(
         inv_var_policy, default_policy, rtol=1e-6, atol=1e-6
     ), f"Inverse variance policy: {inv_var_policy}, Default policy: {default_policy}"
@@ -93,9 +93,9 @@ def test_MinimalVarianceConstraintPolicy_zerobeta(tree, discount_factor):
     inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount_factor)
     mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
 
-    inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
+    inv_var_policy = np.array(inv_var_eval.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
-    mvcp_policy = np.array(mvcp.distribution(tree).probs)
+    mvcp_policy = np.array(mvcp.softmaxed_distribution(tree).probs)
     assert np.allclose(
         inv_var_policy, mvcp_policy, rtol=1e-6, atol=1e-6
     ), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvcp_policy}"
@@ -114,9 +114,9 @@ def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
     greedy = GreedyPolicy()
     mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
 
-    greedy_policy = np.array(greedy.distribution(tree).probs)
+    greedy_policy = np.array(greedy.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
-    mvcp_policy = np.array(mvcp.distribution(tree).probs)
+    mvcp_policy = np.array(mvcp.softmaxed_distribution(tree).probs)
     assert np.allclose(
         greedy_policy, mvcp_policy, rtol=1e-6, atol=1e-6
     ), f"Greedy policy: {greedy_policy}, MVCP policy: {mvcp_policy}"
@@ -135,9 +135,9 @@ def test_mvto_lambdinf(tree, discount_factor):
     inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount_factor)
     mvto = MVTOPolicy(lamb=lamb, discount_factor=discount_factor)
 
-    inv_var_policy = np.array(inv_var_eval.distribution(tree).probs)
+    inv_var_policy = np.array(inv_var_eval.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
-    mvto_policy = np.array(mvto.distribution(tree).probs)
+    mvto_policy = np.array(mvto.softmaxed_distribution(tree).probs)
     assert np.allclose(
         inv_var_policy, mvto_policy, rtol=1e-4, atol=1e-4
     ), f"Inverse variance policy: {inv_var_policy}, MVCP policy: {mvto_policy}"
@@ -156,9 +156,9 @@ def test_mvto_lambdzero(tree, discount_factor):
     greedy = GreedyPolicy()
     mvto = MVTOPolicy(lamb=lambd, discount_factor=discount_factor)
 
-    greedy_policy = np.array(greedy.distribution(tree).probs)
+    greedy_policy = np.array(greedy.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
-    mvto_policy = np.array(mvto.distribution(tree).probs)
+    mvto_policy = np.array(mvto.softmaxed_distribution(tree).probs)
     assert np.allclose(
         greedy_policy, mvto_policy, rtol=1e-6, atol=1e-6
     ), f"Greedy policy: {greedy_policy}, MVCP policy: {mvto_policy}"
@@ -172,7 +172,7 @@ def test_policy_value(tree, discount_factor):
     We assume that the policy value for the default policy is the same as the default value (subtree average value)
     """
 
-    default_eval = VistationPolicy
+    default_eval = VistationPolicy()
     pol_val = policy_value(tree, default_eval, discount_factor=discount_factor)
     default_value = tree.default_value()
     # had to lower the tolerance to 1e-3 since there seem to be some numerical instability
@@ -193,7 +193,7 @@ def test_policy_uct(tree, discount_factor, c=1.0):
     uct = UCT(c)
     uct_action = uct.sample(tree)
 
-    default_eval = VistationPolicy
+    default_eval = VistationPolicy()
     policy_uct = PolicyUCT(c, default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 

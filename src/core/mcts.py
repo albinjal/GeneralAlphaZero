@@ -21,10 +21,10 @@ class MCTS:
 
     def __init__(
         self,
-        root_selection_policy: OptionalPolicy | None,
         selection_policy: OptionalPolicy,
         expansion_policy: Policy = DefaultExpansionPolicy(),
         discount_factor: float = 1.0,
+        root_selection_policy: OptionalPolicy | None = None,
     ):
         if root_selection_policy is None:
             root_selection_policy = selection_policy

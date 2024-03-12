@@ -17,7 +17,7 @@ def policy_value(node: Node, policy: PolicyDistribution | th.distributions.Categ
     if isinstance(policy, th.distributions.Categorical):
         pi = policy
     else:
-        pi = policy.distribution(node, include_self=True)
+        pi = policy.softmaxed_distribution(node, include_self=True)
 
     probabilities = pi.probs
     own_propability = probabilities[-1] # type: ignore
@@ -54,7 +54,7 @@ def independent_policy_value_variance(node: Node, policy: PolicyDistribution | t
     if isinstance(policy, th.distributions.Categorical):
         pi = policy
     else:
-        pi = policy.distribution(node, include_self=True)
+        pi = policy.softmaxed_distribution(node, include_self=True)
 
 
     probabilities_squared = pi.probs ** 2 # type: ignore

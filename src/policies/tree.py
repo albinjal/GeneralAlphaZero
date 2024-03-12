@@ -9,7 +9,7 @@ from policies.utility_functions import independent_policy_value_variance, policy
 
 class VistationPolicy(PolicyDistribution):
     # the default tree evaluator selects the action with the most visits
-    def distribution(self, node: Node, include_self = False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self = False) -> th.distributions.Categorical:
         visits = th.zeros(int(node.action_space.n) + include_self)
         for action, child in node.children.items():
             visits[action] = child.visits
@@ -20,33 +20,16 @@ class VistationPolicy(PolicyDistribution):
         return th.distributions.Categorical(visits)
 
 
-class SoftmaxVistationPolicy(PolicyDistribution):
-    """
-    Same as VistationPolicy but with softmax applied to the visits. temperature controls the softmax temperature.
-    """
-
-    def __init__(self, temperature: float):
-        self.temperature = temperature
-
-    # the default tree evaluator selects the action with the most visits
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
-        visits = th.zeros(int(node.action_space.n), dtype=th.float32)
-        for action, child in node.children.items():
-            visits[action] = child.visits
-
-        return th.distributions.Categorical(
-            th.softmax(visits / self.temperature, dim=-1)
-        )
-
 class InverseVarianceTreeEvaluator(PolicyDistribution):
     """
     Selects the action with the highest inverse variance of the q value.
     Should return the same as the default tree evaluator
     """
-    def __init__(self, discount_factor = 1.0):
+    def __init__(self, discount_factor = 1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.discount_factor = discount_factor
 
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         inverse_variances = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
 
         for action, child in node.children.items():
@@ -72,14 +55,15 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
     Selects the action with the highest inverse variance of the q value.
     Should return the same as the default tree evaluator
     """
-    def __init__(self, beta: float, discount_factor = 1.0):
+    def __init__(self, beta: float, discount_factor = 1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.beta = beta
         self.discount_factor = discount_factor
 
     def get_beta(self, node: Node):
         return self.beta
 
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         if len(node.children) == 0:
             d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
             d[-1] = 1.0
@@ -91,7 +75,7 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
         inv_vars = th.zeros_like(vals, dtype=th.float32)
         for action, child in node.children.items():
-            pi = self.distribution(child, include_self=True)
+            pi = self.softmaxed_distribution(child, include_self=True)
             vals[action] = policy_value(child, pi, self.discount_factor)
             inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
 
@@ -139,7 +123,8 @@ class MVCP_Dynamic_Beta(MinimalVarianceConstraintPolicy):
     """
     From the mcts as policy optimization paper
     """
-    def __init__(self, c: float, discount_factor=1):
+    def __init__(self, c: float, discount_factor=1, *args, **kwargs):
+        super(MinimalVarianceConstraintPolicy, self).__init__(*args, **kwargs)
         self.c = c
         self.discount_factor = discount_factor
 
@@ -150,12 +135,13 @@ class ReversedRegPolicy(PolicyDistribution):
     """
     From the mcts as policy optimization paper
     """
-    def __init__(self, c: float, discount_factor=1):
+    def __init__(self, c: float, discount_factor=1, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.c = c
         self.discount_factor = discount_factor
 
 
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         if len(node.children) == 0:
             d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
             d[-1] = 1.0
@@ -191,15 +177,16 @@ class MVTOPolicy(PolicyDistribution):
     Solution to argmax mu + lambda * var
     """
 
-    def __init__(self, lamb: float, discount_factor=1):
+    def __init__(self, lamb: float, discount_factor=1, *args, **kwargs):
         """
         Note that lambda > max_i sum_j (var_j^-1 ( x_j - x_i))/ 2
         """
+        super().__init__(*args, **kwargs)
         self.lamb = lamb
         self.discount_factor = discount_factor
 
 
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         if len(node.children) == 0:
             d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
             d[-1] = 1.0
@@ -210,7 +197,7 @@ class MVTOPolicy(PolicyDistribution):
         vals = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
         inv_vars = th.zeros_like(vals, dtype=th.float32)
         for action, child in node.children.items():
-            pi = self.distribution(child, include_self=True)
+            pi = self.softmaxed_distribution(child, include_self=True)
             vals[action] = policy_value(child, pi, self.discount_factor)
             inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
 
@@ -228,7 +215,7 @@ class MVTOPolicy(PolicyDistribution):
             # seems like lambda is too small, follow the greedy policy instead
             # alternativly we could just set the negative values to 0
             print("lambda too small, using greedy policy")
-            g =  GreedyPolicy(self.discount_factor).distribution(node, include_self)
+            g =  GreedyPolicy(self.discount_factor).softmaxed_distribution(node, include_self)
             return g
 
 
@@ -247,13 +234,14 @@ class MVTOPolicy(PolicyDistribution):
 
 
 class GreedyPolicy(PolicyDistribution):
-    def __init__(self, discount_factor = 1.0):
+    def __init__(self, discount_factor = 1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.discount_factor = discount_factor
 
     """
     Determinstic policy that selects the action with the highest value
     """
-    def distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
+    def _distribution(self, node: Node, include_self=False) -> th.distributions.Categorical:
         if len(node.children) == 0:
             d = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
             d[-1] = 1.0
@@ -293,11 +281,11 @@ tree_dict = {
     "mvto": MVTOPolicy,
 }
 
-tree_eval_dict = lambda param, discount, c=1.0: {
-    "visit": VistationPolicy(),
-    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount),
-    "mvc": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param),
-    'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount),
-    'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount),
-    "mvto": MVTOPolicy(lamb=param, discount_factor=discount),
+tree_eval_dict = lambda param, discount, c=1.0, temperature=None: {
+    "visit": VistationPolicy(temperature),
+    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount, temperature=temperature),
+    "mvc": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param, temperature=temperature),
+    'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount, temperature=temperature),
+    'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount, temperature=temperature),
+    "mvto": MVTOPolicy(lamb=param, discount_factor=discount, temperature=temperature),
 }
