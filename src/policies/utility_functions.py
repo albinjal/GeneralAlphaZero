@@ -1,7 +1,26 @@
 import torch as th
+from traitlets import default
 
 from core.node import Node
 from policies.policies import PolicyDistribution
+
+def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
+    # makes sure the values are in the range [0, 1]
+    # make sure to handle the case where some values are -inf by ignoring them and only applying the normalization to the rest
+    # if all values are -inf, return a tensor of zeros
+    values = values.clone()
+    val = values[values.isfinite()]
+    if val.numel() == 0:
+        return th.zeros_like(values)
+    max_val  = val.max()
+    min_val = val.min()
+
+    if max_val == min_val:
+        val = th.zeros_like(val)
+    else:
+        val = (val - min_val) / (max_val - min_val)
+    values[values.isfinite()] = val
+    return values
 
 # TODO: can improve this implementation
 def policy_value(node: Node, policy: PolicyDistribution | th.distributions.Categorical, discount_factor: float):

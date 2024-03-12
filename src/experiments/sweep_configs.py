@@ -136,7 +136,7 @@ def selection_to_expansion(selection_policy):
 
 
 
-selection = "PUCT"
+selection = "UCT"
 base_parameters = {
     "model_type": "seperated",
     "expansion_policy": selection_to_expansion(selection),
@@ -145,13 +145,12 @@ base_parameters = {
     "selection_policy": selection,
     # "root_seleciton_policy": selection,
     "puct_c": 1.0,
-    'eval_param': 1,
+    'eval_param': 10.0,
     "use_visit_count": 0,
     "regularization_weight": 0,
-    "tree_evaluation_policy": "mvc",
+    "tree_evaluation_policy": "visit",
     "tree_temperature": None,
     "hidden_dim": 64,
-    "policy_loss_weight": 30,
     "learning_rate": 1e-3,
     "sample_batch_ratio": 1,
     "n_steps_learning": 1,
@@ -163,7 +162,8 @@ base_parameters = {
     "lr_gamma": 1.0,
     "iterations": 20,
     "env_id": "CliffWalking-v0",
-    "value_loss_weight": 1.0,
+    "policy_loss_weight": .5,
+    "value_loss_weight": .5,
     "max_episode_length": 150,
 }
 

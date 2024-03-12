@@ -2,7 +2,7 @@ import torch as th
 
 from core.node import Node
 from policies.policies import PolicyDistribution
-from policies.utility_functions import independent_policy_value_variance, policy_value, puct_multiplier, value_evaluation_variance
+from policies.utility_functions import basic_value_normalizer, independent_policy_value_variance, policy_value, puct_multiplier, value_evaluation_variance
 
 
 
@@ -72,17 +72,18 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         beta = self.get_beta(node)
 
         # have a look at this, infs mess things up
-        vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
+        vals = th.ones(int(node.action_space.n), dtype=th.float32) * - th.inf
         inv_vars = th.zeros_like(vals, dtype=th.float32)
         for action, child in node.children.items():
             pi = self.softmaxed_distribution(child, include_self=True)
             vals[action] = policy_value(child, pi, self.discount_factor)
             inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
 
-        policy = th.zeros_like(vals, dtype=th.float32)
+        normalized_vals = basic_value_normalizer(vals)
+        policy = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
 
         for action, child in node.children.items():
-            policy[action] = th.exp(beta * (vals[action] - vals.max())) * inv_vars[action]
+            policy[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
 
         # if include_self:
         #     # TODO: this probably has to be updated
@@ -100,12 +101,6 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         #     policy[:-1] = th.ones_like(policy[:-1])
 
 
-        # # if we have some infinities, we should return a uniform distribution over the infinities
-        # if th.isinf(policy).any():
-        #     return th.distributions.Categorical(
-        #         th.isinf(policy)
-        #     )
-
         if include_self:
             # if we have no children, the policy should be 1 for the self action
             if len(node.children) == 0:
@@ -114,6 +109,11 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
                 # set it to 1/visits
                 policy[-1] = policy.sum() / (node.visits - 1)
 
+        # # if we have some infinities, we should return a uniform distribution over the infinities
+        # if th.isinf(policy).any():
+        #     return th.distributions.Categorical(
+        #         th.isinf(policy)
+        #     )
 
         return th.distributions.Categorical(
             policy
@@ -151,7 +151,7 @@ class ReversedRegPolicy(PolicyDistribution):
         vals = th.ones(int(node.action_space.n) + include_self, dtype=th.float32) * - th.inf
         for action, child in node.children.items():
             vals[action] = policy_value(child, self, self.discount_factor)
-
+        vals = basic_value_normalizer(vals)
         policy = th.zeros_like(vals, dtype=th.float32)
         mult = puct_multiplier(self.c, node)
 
@@ -201,6 +201,7 @@ class MVTOPolicy(PolicyDistribution):
             vals[action] = policy_value(child, pi, self.discount_factor)
             inv_vars[action] = 1/independent_policy_value_variance(child, pi, self.discount_factor)
 
+        vals = basic_value_normalizer(vals)
         inv_var_policy = inv_vars / inv_vars.sum()
 
         policy = th.zeros_like(vals, dtype=th.float32)
