@@ -139,6 +139,7 @@ def selection_to_expansion(selection_policy):
 selection = "PUCT"
 base_parameters = {
     "model_type": "seperated",
+    "observation_embedding": "coordinate",
     "expansion_policy": selection_to_expansion(selection),
     "activation_fn": "relu",
     "norm_layer": "none",

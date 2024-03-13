@@ -2,8 +2,8 @@ from tensordict import TensorDict
 import torch as th
 import gymnasium as gym
 import numpy as np
-from environments.environment import obs_dim, obs_to_tensor
 from core.mcts import MCTS
+from environments.investigate_model import ObservationEmbedding
 from policies.policies import PolicyDistribution
 
 
@@ -11,6 +11,7 @@ def run_episode(
     solver: MCTS,
     env: gym.Env,
     tree_evaluation_policy: PolicyDistribution,
+    observation_embedding: ObservationEmbedding,
     compute_budget=1000,
     max_steps=1000,
     verbose=False,
@@ -27,14 +28,12 @@ def run_episode(
 
     observation, info = env.reset(seed=seed)
 
-    observation_tensor = obs_to_tensor(
-        env.observation_space, observation, dtype=th.float32
-    )
+    observation_tensor = observation_embedding.obs_to_tensor(observation, dtype=th.float32)
     trajectory = TensorDict(
         source={
             "observations": th.zeros(
                 max_steps,
-                obs_dim(env.observation_space),
+                observation_embedding.obs_dim(),
                 dtype=observation_tensor.dtype,
             ),
             "rewards": th.zeros(max_steps, dtype=th.float32),
@@ -94,7 +93,7 @@ def run_episode(
         else:
             tree = solver.search(env, compute_budget, observation, np.float32(reward))
 
-        new_observation_tensor = obs_to_tensor(env.observation_space, new_obs)
+        new_observation_tensor = observation_embedding.obs_to_tensor(new_obs, dtype=th.float32)
         observation_tensor = new_observation_tensor
 
     # if we terminated early, we need to add the final observation to the trajectory as well for value estimation

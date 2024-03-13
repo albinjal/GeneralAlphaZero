@@ -1,9 +1,8 @@
-import copy
 from typing import Tuple
 import torch as th
 import gymnasium as gym
-import wandb
-from environments.environment import obs_dim
+
+from environments.observation_embeddings import DefaultEmbedding, ObservationEmbedding
 
 
 activation_function_dict = {
@@ -33,16 +32,18 @@ class AlphaZeroModel(th.nn.Module):
     value_head: th.nn.Module
     policy_head: th.nn.Module
     device: th.device
+    observation_embedding: ObservationEmbedding
 
     def __init__(
         self,
         env: gym.Env,
         hidden_dim: int,
         nlayers: int,
+        *args,
+        observation_embedding: ObservationEmbedding | None = None,
         pref_gpu=False,
         activation_fn=th.nn.ReLU,
         norm_layer=None,
-        *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -58,7 +59,8 @@ class AlphaZeroModel(th.nn.Module):
 
         self.env = env
         self.hidden_dim = hidden_dim
-        self.state_dim = obs_dim(env.observation_space)
+        self.observation_embedding = observation_embedding if observation_embedding is not None else DefaultEmbedding(env.observation_space)
+        self.state_dim = self.observation_embedding.obs_dim()
         self.action_dim = gym.spaces.flatdim(env.action_space)
         self.nlayers = nlayers
         self.activation_fn = activation_fn
@@ -88,6 +90,15 @@ class AlphaZeroModel(th.nn.Module):
         value = self.value_head(x)
         policy = self.policy_head(x)
         return value.squeeze(-1), policy
+
+    def single_observation_forward(self, observation) -> Tuple[float, th.Tensor]:
+        tensor_obs = self.observation_embedding.obs_to_tensor(
+            observation,
+            device=self.device,
+            dtype=th.float32,
+        ).unsqueeze(0)
+        value, policy = self.forward(tensor_obs)
+        return value.item(), policy.squeeze(0)
 
     def save_model(self, filename: str):
         model_info = {

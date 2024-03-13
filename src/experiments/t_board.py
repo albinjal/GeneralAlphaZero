@@ -1,9 +1,31 @@
+from collections import Counter
+from matplotlib import pyplot as plt
 import numpy as np
 from torch.utils.tensorboard.writer import SummaryWriter
 import torch as th
 import gymnasium as gym
+from az.model import AlphaZeroModel
+from environments.investigate_model import investigate_model, plot_policy_network, plot_value_network, plot_visits_with_counter
 
-from environments.environment import obs_to_tensor
+from environments.observation_embeddings import CoordinateEmbedding, ObservationEmbedding
+
+def show_model_in_tensorboard(model: AlphaZeroModel, writer, step):
+    assert isinstance(model.observation_embedding, CoordinateEmbedding)
+    outputs = investigate_model(model)
+    value_fig = plot_value_network(outputs, nrows=model.observation_embedding.nrows, ncols=model.observation_embedding.ncols)
+    policy_fig = plot_policy_network(outputs, nrows=model.observation_embedding.nrows, ncols=model.observation_embedding.ncols)
+    writer.add_figure("value_network", value_fig, global_step=step)
+    writer.add_figure("policy_network", policy_fig, global_step=step)
+    plt.close(value_fig)
+    plt.close(policy_fig)
+
+
+def plot_visits_with_counter_tensorboard(visit_counts: Counter, observation_embedding: CoordinateEmbedding, writer, step, title="State Visit Counts"):
+    fig = plot_visits_with_counter(visit_counts, observation_embedding, step, title)
+    # Log the figure to Tensorboard
+    writer.add_figure("visit_counts", fig, global_step=step)
+    plt.close(fig)
+
 
 
 def add_training_metrics(
@@ -55,10 +77,10 @@ def add_self_play_metrics(
     writer.add_scalar("Self_Play/Total_Timesteps", np.sum(time_steps), global_step)
 
 
-def log_model(writer: SummaryWriter, model: th.nn.Module, env: gym.Env):
+def log_model(writer: SummaryWriter, observation_embedding: ObservationEmbedding, model: th.nn.Module, env: gym.Env):
     if model.device == th.device("cpu"):
         obs = env.reset()[0]
         writer.add_graph(
             model,
-            obs_to_tensor(env.observation_space, obs, dtype=th.float32),
+            observation_embedding.obs_to_tensor(obs, dtype=th.float32),
         )

@@ -4,12 +4,15 @@ import numpy as np
 import torch as th
 import gymnasium as gym
 import wandb
+from az.model import AlphaZeroModel
 
-from environments.environment import (
+from environments.investigate_model import (
+    CoordinateEmbedding,
+    ObservationEmbedding,
     investigate_model,
-    obs_to_tensor,
     plot_policy_network,
     plot_value_network,
+    plot_visits_with_counter,
 )
 
 
@@ -77,11 +80,10 @@ def add_self_play_metrics_wandb(
     )
 
 
-def show_model_in_wandb(
-    observation_space: gym.spaces.Discrete, model: th.nn.Module, step
-):
-    rows, cols = 6, 12
-    outputs = investigate_model(observation_space, model)
+def show_model_in_wandb(model: AlphaZeroModel, step):
+    assert isinstance(model.observation_embedding, CoordinateEmbedding)
+    rows, cols = model.observation_embedding.nrows, model.observation_embedding.ncols
+    outputs = investigate_model(model)
     value_fig = plot_value_network(outputs, nrows=rows, ncols=cols, title=f"Value Network, Step: {step}")
     policy_fig = plot_policy_network(outputs, nrows=rows, ncols=cols, title=f"Policy Network, Step: {step}")
 
@@ -96,33 +98,12 @@ def show_model_in_wandb(
     plt.close(policy_fig)
 
 
-def plot_visits_to_wandb_with_counter(
-    visit_counts: Counter,
-    observation_space,
-    nrows,
-    ncols,
+
+
+def plot_visits_to_wandb_with_counter(visit_counts: Counter,
+    observation_embedding: CoordinateEmbedding,
     step,
-    title="State Visit Counts",
-):
-    grid = np.zeros((nrows, ncols))
-
-    for obs in range(observation_space.n):
-        obs_tensor = tuple(
-            obs_to_tensor(observation_space, obs, dtype=th.float32).tolist()
-        )
-        count = visit_counts.get(obs_tensor, 0)
-        row, col = divmod(obs, ncols)
-        grid[row, col] = count
-
-    fig, ax = plt.subplots()
-    ax.imshow(grid, cmap="viridis", interpolation="nearest")
-    ax.set_title(f"{title}, Step: {step}")
-    for obs in range(observation_space.n):
-        row, col = divmod(obs, ncols)
-        ax.text(
-            col, row, f"{grid[row, col]:.0f}", ha="center", va="center", color="white"
-        )
-    plt.tight_layout()
-
+    title="State Visit Counts"):
+    fig = plot_visits_with_counter(visit_counts, observation_embedding, step, title)
     wandb.log({"visit_counts": wandb.Image(fig)}, step=step)
     plt.close(fig)

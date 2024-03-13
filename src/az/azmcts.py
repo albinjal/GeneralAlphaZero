@@ -1,13 +1,11 @@
 from typing import List
 import torch as th
-import gymnasium as gym
-from environments.environment import obs_to_tensor
-import copy
 import numpy as np
 
 from core.mcts import MCTS
 from az.model import AlphaZeroModel
 from core.node import Node
+from environments.observation_embeddings import ObservationEmbedding
 
 
 class AlphaZeroMCTS(MCTS):
@@ -20,6 +18,7 @@ class AlphaZeroMCTS(MCTS):
         self.model = model
         self.dir_epsilon = dir_epsilon
         self.dir_alpha = dir_alpha
+
 
     @th.no_grad()
     def value_function(
@@ -34,15 +33,10 @@ class AlphaZeroMCTS(MCTS):
         # run the model
         # convert observation from int to tensor float 1x1 tensor
         assert node.env is not None
-        tensor_obs = obs_to_tensor(
-            node.env.observation_space,
-            observation,
-            device=self.model.device,
-            dtype=th.float32,
-        )
-        value, policy = self.model.forward(tensor_obs.unsqueeze(0))
+
+        value, policy = self.model.single_observation_forward(observation)
         # store the policy
-        node.prior_policy = policy.squeeze(0)
+        node.prior_policy = policy
 
         # if root and dir_epsilon > 0.0, add dirichlet noise to the prior policy
         if node.parent is None and self.dir_epsilon > 0.0:
@@ -53,7 +47,7 @@ class AlphaZeroMCTS(MCTS):
 
 
         # return float 32 value
-        return np.float32(value.item())
+        return value
 
     @th.no_grad()
     def value_funciton_multiple(self, nodes: List[Node]):

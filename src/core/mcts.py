@@ -13,8 +13,6 @@ class MCTS:
     """
     This class contains the basic MCTS algorithm without assumtions on the value function.
     """
-
-    env: gym.Env
     root_selection_policy: OptionalPolicy
     selection_policy: OptionalPolicy
     expansion_policy: Policy  # the expansion policy is usually "pick uniform non explored action"

@@ -1,6 +1,7 @@
 import sys
 
 
+
 sys.path.append("src/")
 import datetime
 import multiprocessing
@@ -16,9 +17,11 @@ from torchrl.data import (
 import wandb
 from policies.expansion import expansion_policy_dict
 
+from environments.observation_embeddings import ObservationEmbedding, embedding_dict
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
 from az.model import (
+    AlphaZeroModel,
     activation_function_dict,
     norm_dict,
     models_dict,
@@ -66,8 +69,12 @@ def tune_alphazero_with_wandb(
 
     expansion_policy = expansion_policy_dict[hparams["expansion_policy"]]()
 
-    model = models_dict[hparams["model_type"]](
+    if "observation_embedding" not in hparams:
+        hparams["observation_embedding"] = "default"
+    observation_embedding: ObservationEmbedding = embedding_dict[hparams["observation_embedding"]](env.observation_space)
+    model: AlphaZeroModel = models_dict[hparams["model_type"]](
         env,
+        observation_embedding=observation_embedding,
         hidden_dim=hparams["hidden_dim"],
         nlayers=hparams["layers"],
         activation_fn=activation_function_dict[hparams["activation_fn"]],

@@ -14,7 +14,7 @@ from torchrl.data import (
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 import numpy as np
-import wandb
+from environments.observation_embeddings import CoordinateEmbedding
 from experiments.wandb_logs import (
     add_self_play_metrics_wandb,
     add_training_metrics_wandb,
@@ -27,35 +27,24 @@ from policies.policies import PolicyDistribution
 from az.azmcts import AlphaZeroMCTS
 from az.learning import (
     n_step_value_targets,
-    one_step_value_targets,
     calculate_visit_counts,
 )
 from az.model import AlphaZeroModel
-from environments.environment import (
-    plot_visits_to_tensorboard_with_counter,
-    show_model_in_tensorboard,
+from environments.investigate_model import (
+    ObservationEmbedding,
 )
 from core.runner import run_episode
-from experiments.t_board import add_self_play_metrics, add_training_metrics, log_model
-
+from experiments.t_board import add_self_play_metrics, add_training_metrics, plot_visits_with_counter_tensorboard, show_model_in_tensorboard
 
 def run_episode_process(args):
     """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""
-    agent, env, tree_evaluation_policy, compute_budget, max_episode_length = args
-    return run_episode(
-        agent, env, tree_evaluation_policy, compute_budget, max_episode_length
-    )
-
+    agent, env, tree_evaluation_policy, observation_embedding, compute_budget, max_episode_length = args
+    return run_episode(agent, env, tree_evaluation_policy, observation_embedding, compute_budget, max_episode_length)
 
 class AlphaZeroController:
     """
     The Controller will be responsible for orchistrating the training of the model. With self play and training.
     """
-
-    replay_buffer: ReplayBuffer
-    training_epochs: int
-    model: AlphaZeroModel
-    train_obs_counter: Counter
 
     def __init__(
         self,
@@ -167,24 +156,22 @@ class AlphaZeroController:
 
             # if the env is CliffWalking-v0, plot the output of the value and policy networks
             assert self.env.spec is not None
-            if self.env.spec.id == "CliffWalking-v0" and self.save_plots:
+            if isinstance(self.agent.model.observation_embedding, CoordinateEmbedding) and self.save_plots:
                 assert isinstance(self.env.observation_space, gym.spaces.Discrete)
                 show_model_in_tensorboard(
-                    self.env.observation_space, self.agent.model, self.writer, i
+                    self.agent.model, self.writer, i
                 )
-                plot_visits_to_tensorboard_with_counter(
+                plot_visits_with_counter_tensorboard(
                     self.train_obs_counter,
-                    self.env.observation_space,
-                    6,
-                    12,
+                    self.agent.model.observation_embedding,
                     self.writer,
                     i,
                 )
 
                 # wandb
-                show_model_in_wandb(self.env.observation_space, self.agent.model, i)
+                show_model_in_wandb(self.agent.model, i)
                 plot_visits_to_wandb_with_counter(
-                    self.train_obs_counter, self.env.observation_space, 6, 12, i
+                    self.train_obs_counter, self.agent.model.observation_embedding, i
                 )
 
         if self.checkpoint_interval != -1:
@@ -209,6 +196,7 @@ class AlphaZeroController:
                 self.agent,
                 self.env,
                 self.tree_evaluation_policy,
+                self.agent.model.observation_embedding,
                 self.compute_budget,
                 self.max_episode_length,
             )
