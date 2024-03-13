@@ -194,7 +194,7 @@ def test_policy_uct(tree, discount_factor, c=1.0):
     uct_action = uct.sample(tree)
 
     default_eval = VistationPolicy()
-    policy_uct = PolicyUCT(c, default_eval, discount_factor=discount_factor)
+    policy_uct = PolicyUCT(c, policy=default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 
     assert (
@@ -215,7 +215,7 @@ def test_policy_puct(tree, discount_factor, c=1.0):
     uct_action = uct.sample(tree)
 
     default_eval = VistationPolicy()
-    policy_uct = PolicyPUCT(c, default_eval, discount_factor=discount_factor)
+    policy_uct = PolicyPUCT(c, policy=default_eval, discount_factor=discount_factor)
     p_uct_action = policy_uct.sample(tree)
 
     assert (

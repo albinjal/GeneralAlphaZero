@@ -136,7 +136,7 @@ def selection_to_expansion(selection_policy):
 
 
 
-selection = "UCT"
+selection = "PUCT"
 base_parameters = {
     "model_type": "seperated",
     "expansion_policy": selection_to_expansion(selection),
