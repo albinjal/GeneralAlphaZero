@@ -47,7 +47,7 @@ def tune_alphazero_with_wandb(
     assert run is not None
     hparams = wandb.config
     print(hparams)
-    env = gym.make(hparams["env_id"])
+    env = gym.make(**hparams["env_params"])
 
     discount_factor = hparams["discount_factor"]
     if "tree_temperature" not in hparams:
@@ -116,7 +116,7 @@ def tune_alphazero_with_wandb(
     )
 
     run_name = (
-        f"{hparams['env_id']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        f"{env.spec.id}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     )
     log_dir = f"./tensorboard_logs/hyper/{run_name}"
     writer = SummaryWriter(log_dir=log_dir)

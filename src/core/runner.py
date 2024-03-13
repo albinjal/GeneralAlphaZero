@@ -3,7 +3,7 @@ import torch as th
 import gymnasium as gym
 import numpy as np
 from core.mcts import MCTS
-from environments.investigate_model import ObservationEmbedding
+from environments.observation_embeddings import ObservationEmbedding
 from policies.policies import PolicyDistribution
 
 

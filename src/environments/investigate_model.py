@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from az.model import AlphaZeroModel
 
-from environments.observation_embeddings import CoordinateEmbedding, ObservationEmbedding
+from environments.observation_embeddings import CoordinateEmbedding
 
 
 
@@ -44,7 +44,7 @@ def plot_image(fig, ax, image, title):
     if fig is not None:
         plt.close(fig)
 
-def plot_value_network(outputs, nrows=4, ncols=12, title = "Cliff Walking Value Network"):
+def plot_value_network(outputs, nrows, ncols, title = "Cliff Walking Value Network"):
     plt.ioff()
     grid = np.zeros((nrows, ncols))
     for state, value in outputs.items():

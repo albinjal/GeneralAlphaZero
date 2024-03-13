@@ -164,10 +164,10 @@ base_parameters = {
     "discount_factor": 1.0,
     "lr_gamma": 1.0,
     "iterations": 20,
-    "env_id": "CliffWalking-v0",
     "policy_loss_weight": .5,
     "value_loss_weight": .5,
     "max_episode_length": 150,
+    "env_params": dict(id='FrozenLake-v1', map_name="8x8", is_slippery=False),
 }
 
 

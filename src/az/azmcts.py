@@ -5,7 +5,6 @@ import numpy as np
 from core.mcts import MCTS
 from az.model import AlphaZeroModel
 from core.node import Node
-from environments.observation_embeddings import ObservationEmbedding
 
 
 class AlphaZeroMCTS(MCTS):

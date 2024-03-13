@@ -8,7 +8,6 @@ from az.model import AlphaZeroModel
 
 from environments.investigate_model import (
     CoordinateEmbedding,
-    ObservationEmbedding,
     investigate_model,
     plot_policy_network,
     plot_value_network,

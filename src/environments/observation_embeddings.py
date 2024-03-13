@@ -40,7 +40,7 @@ class CoordinateEmbedding(ObservationEmbedding):
     nrows: int
     observation_space: gym.spaces.Discrete
 
-    def __init__(self, observation_space: gym.spaces.Discrete, *args, ncols=12, **kwargs) -> None:
+    def __init__(self, observation_space: gym.spaces.Discrete, *args, ncols=8, **kwargs) -> None:
         super().__init__(observation_space, *args, **kwargs)
         self.ncols = ncols
         self.nrows = observation_space.n // ncols

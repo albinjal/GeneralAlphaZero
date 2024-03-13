@@ -29,10 +29,6 @@ from az.learning import (
     n_step_value_targets,
     calculate_visit_counts,
 )
-from az.model import AlphaZeroModel
-from environments.investigate_model import (
-    ObservationEmbedding,
-)
 from core.runner import run_episode
 from experiments.t_board import add_self_play_metrics, add_training_metrics, plot_visits_with_counter_tensorboard, show_model_in_tensorboard
 
