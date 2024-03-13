@@ -62,7 +62,50 @@ class CoordinateEmbedding(ObservationEmbedding):
         return 2
 
 
+
+class TaxiEmbedding(ObservationEmbedding):
+    passenger_locations = 5
+    destinations = 4
+    ncols = 5
+
+    def obs_to_tensor(self, observation, *args, **kwargs):
+        """
+        Convert the observation to a tensor
+        - One hot encode the passenger location and destination
+        - Coordinate encode the taxi location
+        - An observation is returned as an int() that encodes the corresponding state, calculated by
+          ((taxi_row * ncols + taxi_col) * passenger_locations + passenger_location) * destinations + destination
+        """
+        # Decode the observation into its components
+        destination = observation % self.destinations
+        intermediate = observation // self.destinations
+        passenger_location = intermediate % self.passenger_locations
+        intermediate = intermediate // self.passenger_locations
+        taxi_col = intermediate % self.ncols
+        taxi_row = intermediate // self.ncols
+
+        # One-hot encode the passenger location and destination
+        passenger_location_tensor = th.zeros(self.passenger_locations, *args, **kwargs)
+        passenger_location_tensor[passenger_location] = 1
+        destination_tensor = th.zeros(self.destinations, *args, **kwargs)
+        destination_tensor[destination] = 1
+
+        # Coordinate encode the taxi location (simply use the numerical values here)
+        taxi_location_tensor = th.tensor([taxi_row, taxi_col], *args, **kwargs)
+
+        # Combine all tensors into a single tensor
+        # Note: This step might vary based on your specific needs for input shape
+        combined_tensor = th.cat([taxi_location_tensor, passenger_location_tensor, destination_tensor])
+
+        return combined_tensor
+
+
+    def obs_dim(self):
+        return 2 + self.passenger_locations + self.destinations
+
+
 embedding_dict = {
     "default": DefaultEmbedding,
     "coordinate": CoordinateEmbedding,
+    "taxi": TaxiEmbedding,
 }
