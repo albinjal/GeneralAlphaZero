@@ -12,10 +12,14 @@ from core.node import Node
 
 class AlphaZeroMCTS(MCTS):
     model: AlphaZeroModel
+    dir_epsilon: float
+    dir_alpha: float
 
-    def __init__(self, model: AlphaZeroModel, *args, **kwargs):
+    def __init__(self, model: AlphaZeroModel, *args, dir_epsilon = 0.0, dir_alpha = .3, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
+        self.dir_epsilon = dir_epsilon
+        self.dir_alpha = dir_alpha
 
     @th.no_grad()
     def value_function(
@@ -39,6 +43,15 @@ class AlphaZeroMCTS(MCTS):
         value, policy = self.model.forward(tensor_obs.unsqueeze(0))
         # store the policy
         node.prior_policy = policy.squeeze(0)
+
+        # if root and dir_epsilon > 0.0, add dirichlet noise to the prior policy
+        if node.parent is None and self.dir_epsilon > 0.0:
+            noise = np.random.dirichlet(
+                [self.dir_alpha] * node.action_space.n
+            )
+            node.prior_policy = (1 - self.dir_epsilon) * node.prior_policy + self.dir_epsilon * th.tensor(noise, device=self.model.device, dtype=th.float32)
+
+
         # return float 32 value
         return np.float32(value.item())
 

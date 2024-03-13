@@ -73,10 +73,20 @@ def tune_alphazero_with_wandb(
         activation_fn=activation_function_dict[hparams["activation_fn"]],
         norm_layer=norm_dict[hparams["norm_layer"]],
     )
+
+    if "dir_epsilon" not in hparams:
+        hparams["dir_epsilon"] = 0.0
+        hparams["dir_alpha"] = None
+
+    dir_epsilon = hparams["dir_epsilon"]
+    dir_alpha = hparams["dir_alpha"]
+
     agent = AlphaZeroMCTS(
         root_selection_policy=root_selection_policy,
         selection_policy=selection_policy,
         model=model,
+        dir_epsilon=dir_epsilon,
+        dir_alpha=dir_alpha,
         discount_factor=discount_factor,
         expansion_policy=expansion_policy,
     )
