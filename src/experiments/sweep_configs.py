@@ -1,7 +1,6 @@
 from policies.selection import selection_dict_fn
 from az.model import activation_function_dict, norm_dict
 
-from pydantic import BaseModel
 import datetime
 
 
@@ -144,29 +143,29 @@ base_parameters = {
     "activation_fn": "relu",
     "norm_layer": "none",
     "dir_epsilon": 0.1,
-    "dir_alpha": 0.3,
+    "dir_alpha": 0.5,
     "selection_policy": selection,
     # "root_seleciton_policy": selection,
     "puct_c": 1.0,
     "use_visit_count": 0,
     "regularization_weight": 0,
     "tree_evaluation_policy": "visit",
-    'eval_param': 1.0,
+    'eval_param': .1,
     "tree_temperature": None,
     "hidden_dim": 64,
     "learning_rate": 1e-3,
     "sample_batch_ratio": 1,
     "n_steps_learning": 1,
     "training_epochs": 5,
-    "compute_budget": 64,
-    "layers": 4,
-    "replay_buffer_multiplier": 10,
+    "planning_budget": 32,
+    "layers": 3,
+    "replay_buffer_multiplier": 5,
     "discount_factor": .98,
     "lr_gamma": 1.0,
-    "iterations": 50,
+    "iterations": 40,
     "policy_loss_weight": .5,
     "value_loss_weight": .5,
-    "max_episode_length": 400,
+    "max_episode_length": 200,
     "env_params": dict(id='CartPole-v1', max_episode_steps=None),
 }
 
@@ -197,7 +196,7 @@ default_config = lambda: {
         "sample_batch_ratio": {"min": 1, "max": 10, "distribution": "int_uniform"},
         "n_steps_learning": {"min": 1, "max": 50, "distribution": "int_uniform"},
         "training_epochs": {"min": 1, "max": 100, "distribution": "int_uniform"},
-        "compute_budget": {"min": 10, "max": 50, "distribution": "int_uniform"},
+        "planning_budget": {"min": 10, "max": 50, "distribution": "int_uniform"},
         "puct_c": {"min": 0, "max": 10, "distribution": "int_uniform"},
         "eval_param": {"min": 0, "max": 10, "distribution": "int_uniform"},
         "layers": {"min": 1, "max": 3, "distribution": "int_uniform"},
@@ -240,7 +239,7 @@ beta_vs_c = lambda: {
         "sample_batch_ratio": {"value": 8, "distribution": "constant"},
         "n_steps_learning": {"value": 5, "distribution": "constant"},
         "training_epochs": {"value": 30, "distribution": "constant"},
-        "compute_budget": {"value": 40, "distribution": "constant"},
+        "planning_budget": {"value": 40, "distribution": "constant"},
         "layers": {"value": 2, "distribution": "constant"},
         "replay_buffer_multiplier": {"value": 10, "distribution": "constant"},
         "discount_factor": {"value": 0.99, "distribution": "constant"},
@@ -277,7 +276,7 @@ beta_vs_c_2 = lambda: {
         "sample_batch_ratio": {"value": 8, "distribution": "constant"},
         "n_steps_learning": {"value": 5, "distribution": "constant"},
         "training_epochs": {"value": 30, "distribution": "constant"},
-        "compute_budget": {"value": 40, "distribution": "constant"},
+        "planning_budget": {"value": 40, "distribution": "constant"},
         "layers": {"value": 2, "distribution": "constant"},
         "replay_buffer_multiplier": {"value": 10, "distribution": "constant"},
         "discount_factor": {"value": 0.99, "distribution": "constant"},
@@ -318,7 +317,7 @@ coord_search = lambda: {
         "sample_batch_ratio": {"min": 1, "max": 10, "distribution": "int_uniform"},
         "n_steps_learning": {"values": [1, 3, 10], "distribution": "categorical"},
         "training_epochs": {"min": 1, "max": 30, "distribution": "int_uniform"},
-        "compute_budget": {"min": 20, "max": 50, "distribution": "int_uniform"},
+        "planning_budget": {"min": 20, "max": 50, "distribution": "int_uniform"},
         "puct_c": {"min": 0, "max": 10, "distribution": "int_uniform"},
         "layers": {"min": 1, "max": 10, "distribution": "int_uniform"},
         "replay_buffer_multiplier": {
