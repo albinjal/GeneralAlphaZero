@@ -2,11 +2,9 @@ import sys
 import time
 sys.path.append('./src/')
 from tqdm import tqdm
-import pandas as pd
-import wandb
-import asyncio
+
 from experiments.wandb_sweeps import tune_alphazero_with_wandb
-import experiments.sweep_configs as sweep_configs
+import experiments.parameters as parameters
 
 
 if __name__ == '__main__':
@@ -17,7 +15,7 @@ if __name__ == '__main__':
         'planning_budget': 32,
     }
 
-    run_config = {**sweep_configs.base_parameters, **config_modifications}
+    run_config = {**parameters.base_parameters, **config_modifications}
 
 
     # variable_configs = [{"learning_rate": i} for i in [1e-2, 1e-3, 1e-4]]

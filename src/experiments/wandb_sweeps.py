@@ -17,6 +17,7 @@ from torchrl.data import (
 import wandb
 from policies.expansion import expansion_policy_dict
 
+import experiments.parameters as parameters
 from environments.observation_embeddings import ObservationEmbedding, embedding_dict
 from az.alphazero import AlphaZeroController
 from az.azmcts import AlphaZeroMCTS
@@ -26,7 +27,6 @@ from az.model import (
     norm_dict,
     models_dict,
 )
-import experiments.sweep_configs as sweep_configs
 from policies.tree import tree_eval_dict
 from policies.selection import selection_dict_fn
 
@@ -168,7 +168,7 @@ def run_single():
     config_modifications = {
     }
 
-    run_config = {**sweep_configs.base_parameters, **config_modifications}
+    run_config = {**parameters.base_parameters, **config_modifications}
     return tune_alphazero_with_wandb(config=run_config, performance=False, debug=False)
 
 
