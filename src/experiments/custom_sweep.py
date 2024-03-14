@@ -3,7 +3,7 @@ import time
 sys.path.append('./src/')
 from tqdm import tqdm
 
-from experiments.wandb_sweeps import train_from_config
+from experiments.train_from_config import train_from_config
 import experiments.parameters as parameters
 
 
