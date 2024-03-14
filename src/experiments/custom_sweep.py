@@ -19,12 +19,12 @@ def train_model(project, entity, config, tags):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 3
+    nr_runs = 1
 
     config_modifications = {
         'planning_budget': 32,
         "workers": 1,
-        "episodes_per_iteration": 8,
+        "episodes_per_iteration": 6,
     }
 
     run_config = {**parameters.base_parameters, **config_modifications}
@@ -42,21 +42,30 @@ if __name__ == '__main__':
         "max_episode_length": 300,
         "iterations": 30,
         "env_params": dict(id='CartPole-v1', max_episode_steps=None),
+        "observation_embedding": "default",
+        "ncols": None,
     },{
         "env_description": "CliffWalking-v0-100-15",
-        "max_episode_length": 150,
+        "max_episode_length": 100,
         "iterations": 15,
         "env_params": dict(id='CliffWalking-v0', max_episode_steps=None),
+        "observation_embedding": "coordinate",
+        "ncols": 12,
+
     },{
-        "env_description": "FrozenLake-v1-4x4-100-20",
+        "env_description": "FrozenLake-v1-4x4-150-20",
         "max_episode_length": 150,
         "iterations": 20,
         "env_params": dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, max_episode_steps=None),
+        "observation_embedding": "coordinate",
+        "ncols": 4,
     },{
-        "env_description": "FrozenLake-v1-8x8-100-20",
+        "env_description": "FrozenLake-v1-8x8-150-20",
         "max_episode_length": 150,
         "iterations": 20,
         "env_params": dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, max_episode_steps=None),
+        "observation_embedding": "coordinate",
+        "ncols": 8,
     },
                         ]
     series_configs = [{'tree_evaluation_policy': 'visit', 'selection_policy': 'PUCT'},
@@ -76,5 +85,5 @@ if __name__ == '__main__':
     #     train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
 
     partial_train_model = functools.partial(train_model, project, entity, tags=tags)
-    with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
+    with multiprocessing.Pool(6) as p:
         list(tqdm(p.imap_unordered(partial_train_model, configs), total=len(configs)))

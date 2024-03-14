@@ -34,7 +34,7 @@ base_parameters = {
     "learning_rate": 1e-3,
     "sample_batch_ratio": 1,
     "n_steps_learning": 1,
-    "training_epochs": 2,
+    "training_epochs": 4,
     "planning_budget": 32,
     "layers": 3,
     "replay_buffer_multiplier": 5,

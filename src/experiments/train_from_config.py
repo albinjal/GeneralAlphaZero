@@ -63,7 +63,7 @@ def train_from_config(
         hparams["puct_c"], tree_evaluation_policy, discount_factor
     )[hparams["selection_policy"]]
 
-    if "root_selection_policy" not in hparams:
+    if "root_selection_policy" not in hparams or hparams["root_selection_policy"] is None:
         hparams["root_selection_policy"] = hparams["selection_policy"]
 
     root_selection_policy = selection_dict_fn(
@@ -74,7 +74,7 @@ def train_from_config(
 
     if "observation_embedding" not in hparams:
         hparams["observation_embedding"] = "default"
-    observation_embedding: ObservationEmbedding = embedding_dict[hparams["observation_embedding"]](env.observation_space, )
+    observation_embedding: ObservationEmbedding = embedding_dict[hparams["observation_embedding"]](env.observation_space, hparams["ncols"] if "ncols" in hparams else None)
     model: AlphaZeroModel = models_dict[hparams["model_type"]](
         env,
         observation_embedding=observation_embedding,
