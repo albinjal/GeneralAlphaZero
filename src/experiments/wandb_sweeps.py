@@ -39,6 +39,9 @@ def tune_alphazero_with_wandb(
 
     if performance:
         tags.append("performance")
+
+    if debug:
+        tags.append("debug")
     # Initialize Weights & Biases
     settings = wandb.Settings(job_name=job_name)
     run = wandb.init(
@@ -71,7 +74,7 @@ def tune_alphazero_with_wandb(
 
     if "observation_embedding" not in hparams:
         hparams["observation_embedding"] = "default"
-    observation_embedding: ObservationEmbedding = embedding_dict[hparams["observation_embedding"]](env.observation_space)
+    observation_embedding: ObservationEmbedding = embedding_dict[hparams["observation_embedding"]](env.observation_space, )
     model: AlphaZeroModel = models_dict[hparams["model_type"]](
         env,
         observation_embedding=observation_embedding,

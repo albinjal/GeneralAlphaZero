@@ -28,7 +28,7 @@ def run_episode(
 
     observation, info = env.reset(seed=seed)
 
-    observation_tensor = observation_embedding.obs_to_tensor(observation, dtype=th.float32)
+    observation_tensor: th.Tensor = observation_embedding.obs_to_tensor(observation, dtype=th.float32)
     trajectory = TensorDict(
         source={
             "observations": th.zeros(
@@ -63,8 +63,7 @@ def run_episode(
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         new_obs, reward, terminated, truncated, _ = env.step(action.item())
 
-        # TODO: check the difference between terminated and truncated
-        next_terminal = terminated or truncated
+        next_terminal = terminated
         trajectory["observations"][step] = observation_tensor
         trajectory["rewards"][step] = reward
         trajectory["policy_distributions"][step] = policy_dist.probs
@@ -83,7 +82,7 @@ def run_episode(
             print(
                 f"{step}. O: {observation}, A: {action}, R: {reward}, T: {next_terminal}"
             )
-        if next_terminal:
+        if next_terminal or truncated:
             break
 
         if step_into:

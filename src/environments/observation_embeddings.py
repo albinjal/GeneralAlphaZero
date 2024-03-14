@@ -10,8 +10,13 @@ import torch as th
 class ObservationEmbedding(ABC):
     observation_space: gym.Space
 
-    def __init__(self, observation_space: gym.Space) -> None:
+    def __init__(self, observation_space: gym.Space, ncols=None, nrows=None) -> None:
         self.observation_space = observation_space
+        self.ncols = ncols
+        if nrows is not None:
+            self.nrows = nrows
+        elif isinstance(observation_space, gym.spaces.Discrete) and ncols is not None:
+            self.nrows = observation_space.n // ncols
 
     @abstractmethod
     def obs_to_tensor(observation) -> th.Tensor:
@@ -40,10 +45,8 @@ class CoordinateEmbedding(ObservationEmbedding):
     nrows: int
     observation_space: gym.spaces.Discrete
 
-    def __init__(self, observation_space: gym.spaces.Discrete, *args, ncols=8, **kwargs) -> None:
-        super().__init__(observation_space, *args, **kwargs)
-        self.ncols = ncols
-        self.nrows = observation_space.n // ncols
+    def __init__(self, observation_space: gym.spaces.Discrete, ncols: int, *args, nrows: int | None= None, **kwargs) -> None:
+        super().__init__(observation_space, *args, ncols=ncols, nrows=nrows, **kwargs)
         print(f"nrows: {self.nrows}, ncols: {self.ncols}")
 
 
