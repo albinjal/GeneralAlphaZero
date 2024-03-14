@@ -31,7 +31,7 @@ from policies.tree import tree_eval_dict
 from policies.selection import selection_dict_fn
 
 
-def tune_alphazero_with_wandb(
+def train_from_config(
     project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True, tags = None, debug=False
 ):
     if tags is None:
@@ -161,7 +161,7 @@ def tune_alphazero_with_wandb(
 
 
 def sweep_agent():
-    tune_alphazero_with_wandb(performance=True, debug=False)
+    train_from_config(performance=True, debug=False)
 
 
 def run_single():
@@ -169,7 +169,7 @@ def run_single():
     }
 
     run_config = {**parameters.base_parameters, **config_modifications}
-    return tune_alphazero_with_wandb(config=run_config, performance=False, debug=False)
+    return train_from_config(config=run_config, performance=False, debug=False)
 
 
 if __name__ == "__main__":

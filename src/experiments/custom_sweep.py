@@ -3,7 +3,7 @@ import time
 sys.path.append('./src/')
 from tqdm import tqdm
 
-from experiments.wandb_sweeps import tune_alphazero_with_wandb
+from experiments.wandb_sweeps import train_from_config
 import experiments.parameters as parameters
 
 
@@ -61,4 +61,4 @@ if __name__ == '__main__':
 
     tags = ['custom_sweep', list(variable_configs[0])[0], time_name]
     for config in tqdm(configs):
-        tune_alphazero_with_wandb(project, entity, config=config, tags=tags)
+        train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
