@@ -13,6 +13,7 @@ from torchrl.data import (
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 import numpy as np
+import wandb
 from environments.observation_embeddings import CoordinateEmbedding
 
 from policies.tree import VistationPolicy
@@ -95,11 +96,13 @@ class AlphaZeroController:
 
     def iterate(self, iterations=10):
         total_reward = last_reward = 0.0
+        enviroment_steps = 0
+        episodes = 0
         ema = None
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            last_reward, ema = self.self_play(i, total_reward, ema)
+            last_reward, ema, time_steps = self.self_play(i, total_reward, ema)
             total_reward += last_reward
             print("Learning...")
             (
@@ -125,6 +128,7 @@ class AlphaZeroController:
                 self.scheduler.get_last_lr() if self.scheduler else None,
                 i,
             )
+
 
             add_training_metrics_wandb(
                 value_losses,
@@ -163,10 +167,19 @@ class AlphaZeroController:
                 plot_visits_to_wandb_with_counter(
                     self.train_obs_counter, self.agent.model.observation_embedding, i
                 )
+            enviroment_steps += np.sum(time_steps)
+            episodes += len(time_steps)
+            wandb.log({"environment_steps": enviroment_steps,
+                       "episodes": episodes,
+                       "grad_steps": i * self.training_epochs,
+                       },
+                      step=i)
 
         if self.checkpoint_interval != -1:
             print(f"Saving model at iteration {iterations}")
             self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
+
+
 
         return {"last_reward": last_reward, "average_reward": total_reward / iterations}
 
@@ -250,7 +263,7 @@ class AlphaZeroController:
             global_step,
         )
 
-        return mean_reward, ema_reward
+        return mean_reward, ema_reward, time_steps
 
     def learn(self):
         value_losses = []

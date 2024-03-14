@@ -161,7 +161,7 @@ def tune_alphazero_with_wandb(
 
 
 def sweep_agent():
-    tune_alphazero_with_wandb(performance=True)
+    tune_alphazero_with_wandb(performance=True, debug=False)
 
 
 def run_single():
@@ -169,7 +169,7 @@ def run_single():
     }
 
     run_config = {**sweep_configs.base_parameters, **config_modifications}
-    return tune_alphazero_with_wandb(config=run_config, performance=True, debug=False)
+    return tune_alphazero_with_wandb(config=run_config, performance=False, debug=False)
 
 
 if __name__ == "__main__":
