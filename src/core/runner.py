@@ -12,7 +12,7 @@ def run_episode(
     env: gym.Env,
     tree_evaluation_policy: PolicyDistribution,
     observation_embedding: ObservationEmbedding,
-    compute_budget=1000,
+    planning_budget=1000,
     max_steps=1000,
     verbose=False,
     goal_obs=None,
@@ -46,7 +46,7 @@ def run_episode(
         },
         batch_size=[max_steps],
     )
-    tree = solver.search(env, compute_budget, observation, np.float32(0.0))
+    tree = solver.search(env, planning_budget, observation, np.float32(0.0))
     for step in range(max_steps):
         root_value = tree.value_evaluation
         child_q_values = th.tensor(
@@ -88,9 +88,9 @@ def run_episode(
         if step_into:
             root_node = tree.step(np.int64(action.item()))
             root_node.parent = None
-            tree = solver.build_tree(root_node, compute_budget)
+            tree = solver.build_tree(root_node, planning_budget)
         else:
-            tree = solver.search(env, compute_budget, observation, np.float32(reward))
+            tree = solver.search(env, planning_budget, observation, np.float32(reward))
 
         new_observation_tensor = observation_embedding.obs_to_tensor(new_obs, dtype=th.float32)
         observation_tensor = new_observation_tensor
@@ -103,9 +103,9 @@ def run_episode(
     return trajectory
 
 
-# def vis_tree(solver: MCTS, env: gym.Env, compute_budget=100, max_depth=None):
+# def vis_tree(solver: MCTS, env: gym.Env, planning_budget=100, max_depth=None):
 #     observation, _ = env.reset()
-#     tree = solver.search(env, compute_budget, observation, np.float32(0.0))
+#     tree = solver.search(env, planning_budget, observation, np.float32(0.0))
 #     return tree.visualize(max_depth=max_depth)
 
 
@@ -123,12 +123,12 @@ def run_episode(
 #     tree_evaluation_policy = VistationPolicy()
 
 #     mcts = RandomRolloutMCTS(selection_policy=selection_policy, rollout_budget=20)
-#     # vis_tree(mcts, env, compute_budget=100, max_depth=None)
+#     # vis_tree(mcts, env, planning_budget=100, max_depth=None)
 #     trajectory = run_episode(
 #         mcts,
 #         env,
 #         tree_evaluation_policy,
-#         compute_budget=100,
+#         planning_budget=100,
 #         verbose=True,
 #         goal_obs=47,
 #         seed=seed,

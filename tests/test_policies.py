@@ -25,7 +25,7 @@ import gymnasium as gym
 def generate_mcts_tree(
     solver: MCTS,
     env: gym.Env,
-    compute_budget=200,
+    planning_budget=200,
     seed=0,
     seq=(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
 ):
@@ -35,7 +35,7 @@ def generate_mcts_tree(
     for action in seq:
         observation, reward, terminated, truncated, info = env.step(action)
 
-    tree = solver.search(env, compute_budget, observation, np.float32(reward))
+    tree = solver.search(env, planning_budget, observation, np.float32(reward))
     return tree
 
 

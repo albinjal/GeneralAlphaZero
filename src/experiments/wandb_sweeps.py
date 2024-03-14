@@ -131,7 +131,7 @@ def tune_alphazero_with_wandb(
         optimizer,
         replay_buffer=replay_buffer,
         max_episode_length=hparams["max_episode_length"],
-        compute_budget=hparams["compute_budget"],
+        planning_budget=hparams["planning_budget"],
         training_epochs=hparams["training_epochs"],
         value_loss_weight=hparams["value_loss_weight"],
         policy_loss_weight=hparams["policy_loss_weight"],
@@ -169,7 +169,7 @@ def run_single():
     }
 
     run_config = {**sweep_configs.base_parameters, **config_modifications}
-    return tune_alphazero_with_wandb(config=run_config, performance=False, debug=False)
+    return tune_alphazero_with_wandb(config=run_config, performance=True, debug=False)
 
 
 if __name__ == "__main__":

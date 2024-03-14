@@ -20,7 +20,7 @@ def run_vis(
     env_args,
     tree_eval_policy,
     selection_policy,
-    compute_budget=1000,
+    planning_budget=1000,
     max_steps=1000,
     verbose=True,
     goal_obs=None,
@@ -50,7 +50,7 @@ def run_vis(
         env,
         render_env,
         tree_eval_policy,
-        compute_budget,
+        planning_budget,
         max_steps,
         verbose,
         goal_obs,
@@ -67,7 +67,7 @@ def visualize_gameplay(
     env: gym.Env,
     render_env: gym.Env,
     tree_evaluation_policy: PolicyDistribution,
-    compute_budget=1000,
+    planning_budget=1000,
     max_steps=1000,
     verbose=True,
     goal_obs=None,
@@ -81,7 +81,7 @@ def visualize_gameplay(
     render_env.reset(seed=seed)
 
     for step in range(max_steps):
-        tree = solver.search(env, compute_budget, observation, np.float32(0.0))
+        tree = solver.search(env, planning_budget, observation, np.float32(0.0))
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
@@ -118,7 +118,7 @@ def main_runviss():
         env_args,
         tree_policy,
         selection_policy,
-        compute_budget=200,
+        planning_budget=200,
         max_steps=1000,
         verbose=True,
         goal_obs=None,

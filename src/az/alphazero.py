@@ -28,8 +28,8 @@ from logs.wandb_logs import add_self_play_metrics_wandb, add_training_metrics_wa
 
 def run_episode_process(args):
     """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""
-    agent, env, tree_evaluation_policy, observation_embedding, compute_budget, max_episode_length = args
-    return run_episode(agent, env, tree_evaluation_policy, observation_embedding, compute_budget, max_episode_length)
+    agent, env, tree_evaluation_policy, observation_embedding, planning_budget, max_episode_length = args
+    return run_episode(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, max_episode_length)
 
 class AlphaZeroController:
     """
@@ -44,7 +44,7 @@ class AlphaZeroController:
         replay_buffer=TensorDictReplayBuffer(),
         training_epochs=10,
         tree_evaluation_policy: PolicyDistribution = VistationPolicy(),
-        compute_budget=100,
+        planning_budget=100,
         max_episode_length=500,
         writer: SummaryWriter = SummaryWriter(),
         run_dir="./logs",
@@ -68,7 +68,7 @@ class AlphaZeroController:
         self.agent = agent
         self.env = env
         self.tree_evaluation_policy = tree_evaluation_policy
-        self.compute_budget = compute_budget
+        self.planning_budget = planning_budget
         self.max_episode_length = max_episode_length
         self.self_play_workers = self_play_workers
         self.writer = writer
@@ -187,7 +187,7 @@ class AlphaZeroController:
                 self.env,
                 self.tree_evaluation_policy,
                 self.agent.model.observation_embedding,
-                self.compute_budget,
+                self.planning_budget,
                 self.max_episode_length,
             )
             for _ in range(self.self_play_iterations)
