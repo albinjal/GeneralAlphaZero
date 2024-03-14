@@ -46,22 +46,22 @@ def log_model_wandb(model: th.nn.Module, env: gym.Env):
 
 
 def add_self_play_metrics_wandb(
-    rewards,
+    returns,
     time_steps,
     entropies,
     tot_tim,
-    cumulative_reward,
-    ema_reward,
+    cumulative_return,
+    ema_return,
     global_step,
 ):
-    mean_reward = np.mean(rewards)
+    mean_return = np.mean(returns)
     wandb.log(
         {
-            "Self_Play/Rewards": wandb.Histogram(rewards),
-            "Self_Play/Mean_Reward": mean_reward,
-            "Self_Play/Reward_STD": np.sqrt(np.var(rewards, ddof=1)),
-            "Self_Play/Max_Reward": np.max(rewards),
-            "Self_Play/Min_Reward": np.min(rewards),
+            "Self_Play/returns": wandb.Histogram(returns),
+            "Self_Play/Mean_Return": mean_return,
+            "Self_Play/return_STD": np.sqrt(np.var(returns, ddof=1)),
+            "Self_Play/Max_Return": np.max(returns),
+            "Self_Play/Min_Return": np.min(returns),
             "Self_Play/Timesteps": wandb.Histogram(time_steps),
             "Self_Play/Min_Timesteps": np.min(time_steps),
             "Self_Play/Mean_Timesteps": np.mean(time_steps),
@@ -71,9 +71,9 @@ def add_self_play_metrics_wandb(
             "Self_Play/Entropies": wandb.Histogram(entropies),
             "Self_Play/Mean_Entropy": np.mean(entropies),
             "Self_Play/Total_Runtime": tot_tim.microseconds,
-            "Self_Play/EMA_Reward": ema_reward,
-            "Self_Play/Cumulative_Reward": cumulative_reward,
-            "Self_Play/Total_Average_Reward": cumulative_reward / (global_step+1),
+            "Self_Play/EMA_Return": ema_return,
+            "Self_Play/Cumulative_Return": cumulative_return,
+            "Self_Play/Total_Mean_Return": cumulative_return / (global_step+1),
         },
         step=global_step,
     )

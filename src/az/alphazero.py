@@ -95,15 +95,15 @@ class AlphaZeroController:
         self.ema_beta = ema_beta
 
     def iterate(self, iterations=10):
-        total_reward = last_reward = 0.0
+        total_return = last_return = 0.0
         enviroment_steps = 0
         episodes = 0
         ema = None
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            last_reward, ema, time_steps = self.self_play(i, total_reward, ema)
-            total_reward += last_reward
+            last_return, ema, time_steps = self.self_play(i, total_return, ema)
+            total_return += last_return
             print("Learning...")
             (
                 value_losses,
@@ -181,9 +181,9 @@ class AlphaZeroController:
 
 
 
-        return {"last_reward": last_reward, "average_reward": total_reward / iterations}
+        return {"last_return": last_return, "average_return": total_return / iterations}
 
-    def self_play(self, global_step, total_reward, last_ema  = None):
+    def self_play(self, global_step, total_return, last_ema  = None):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
 
@@ -214,12 +214,12 @@ class AlphaZeroController:
         tot_tim = datetime.datetime.now() - tim
 
         # Process the results
-        rewards, time_steps, entropies = [], [], []
+        returns, time_steps, entropies = [], [], []
         for trajectory in results:
             self.replay_buffer.add(trajectory)
 
-            episode_rewards = trajectory["rewards"].sum().item()
-            rewards.append(episode_rewards)
+            episode_returns = trajectory["rewards"].sum().item()
+            returns.append(episode_returns)
 
             timesteps = trajectory["mask"].sum().item()
             time_steps.append(timesteps)
@@ -238,32 +238,32 @@ class AlphaZeroController:
 
 
         # Calculate statistics
-        mean_reward = float(np.mean(rewards))
-        reward_variance = np.var(rewards, ddof=1)
-        total_reward += mean_reward
+        mean_return = float(np.mean(returns))
+        return_variance = np.var(returns, ddof=1)
+        total_return += mean_return
         if last_ema is None:
-            last_ema = mean_reward
-        ema_reward = mean_reward * self.ema_beta + last_ema * (1 - self.ema_beta)
+            last_ema = mean_return
+        ema_return = mean_return * self.ema_beta + last_ema * (1 - self.ema_beta)
         add_self_play_metrics(
             self.writer,
-            mean_reward,
-            reward_variance,
+            mean_return,
+            return_variance,
             time_steps,
             entropies,
             tot_tim,
             global_step,
         )
         add_self_play_metrics_wandb(
-            rewards,
+            returns,
             time_steps,
             entropies,
             tot_tim,
-            total_reward,
-            ema_reward,
+            total_return,
+            ema_return,
             global_step,
         )
 
-        return mean_reward, ema_reward, time_steps
+        return mean_return, ema_return, time_steps
 
     def learn(self):
         value_losses = []
