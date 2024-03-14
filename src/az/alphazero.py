@@ -9,18 +9,11 @@ import numpy as np
 from tqdm import tqdm
 import torch as th
 from torchrl.data import (
-    ReplayBuffer,
     TensorDictReplayBuffer,
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 import numpy as np
 from environments.observation_embeddings import CoordinateEmbedding
-from experiments.wandb_logs import (
-    add_self_play_metrics_wandb,
-    add_training_metrics_wandb,
-    plot_visits_to_wandb_with_counter,
-    show_model_in_wandb,
-)
 
 from policies.tree import VistationPolicy
 from policies.policies import PolicyDistribution
@@ -30,7 +23,8 @@ from az.learning import (
     calculate_visit_counts,
 )
 from core.runner import run_episode
-from experiments.t_board import add_self_play_metrics, add_training_metrics, plot_visits_with_counter_tensorboard, show_model_in_tensorboard
+from logs.t_board import add_self_play_metrics, add_training_metrics, plot_visits_with_counter_tensorboard, show_model_in_tensorboard
+from logs.wandb_logs import add_self_play_metrics_wandb, add_training_metrics_wandb, plot_visits_to_wandb_with_counter, show_model_in_wandb
 
 def run_episode_process(args):
     """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""

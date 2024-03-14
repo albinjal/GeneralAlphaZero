@@ -5,7 +5,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torch as th
 import gymnasium as gym
 from az.model import AlphaZeroModel
-from environments.investigate_model import investigate_model, plot_policy_network, plot_value_network, plot_visits_with_counter
+from logs.investigate_model import investigate_model, plot_policy_network, plot_value_network, plot_visits_with_counter
 
 from environments.observation_embeddings import CoordinateEmbedding, ObservationEmbedding
 
