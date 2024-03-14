@@ -34,7 +34,7 @@ base_parameters = {
     "learning_rate": 1e-3,
     "sample_batch_ratio": 1,
     "n_steps_learning": 1,
-    "training_epochs": 5,
+    "training_epochs": 2,
     "planning_budget": 32,
     "layers": 3,
     "replay_buffer_multiplier": 5,
@@ -45,4 +45,6 @@ base_parameters = {
     "value_loss_weight": .5,
     "max_episode_length": 200,
     "env_params": dict(id='CartPole-v1', max_episode_steps=None),
+    "workers": 8,
+    "episodes_per_iteration": 8,
 }

@@ -107,10 +107,16 @@ def train_from_config(
         weight_decay=hparams["regularization_weight"],
     )
 
-    workers = 1 if debug else multiprocessing.cpu_count()
-    self_play_games_per_iteration = workers
+    if "workers" not in hparams or hparams["workers"] is None:
+        hparams["workers"] = 1 if debug else multiprocessing.cpu_count()
+    workers = hparams["workers"]
+
+    if "episodes_per_iteration" not in hparams or hparams["episodes_per_iteration"] is None:
+        hparams["episodes_per_iteration"] = workers
+    episodes_per_iteration = hparams["episodes_per_iteration"]
+
     replay_buffer_size = (
-        hparams["replay_buffer_multiplier"] * self_play_games_per_iteration
+        hparams["replay_buffer_multiplier"] * episodes_per_iteration
     )
     sample_batch_size = replay_buffer_size // hparams["sample_batch_ratio"]
 
@@ -136,7 +142,7 @@ def train_from_config(
         value_loss_weight=hparams["value_loss_weight"],
         policy_loss_weight=hparams["policy_loss_weight"],
         run_dir=run_dir,
-        self_play_iterations=self_play_games_per_iteration,
+        episodes_per_iteration=episodes_per_iteration,
         tree_evaluation_policy=tree_evaluation_policy,
         self_play_workers=workers,
         scheduler=th.optim.lr_scheduler.ExponentialLR(
@@ -166,6 +172,8 @@ def sweep_agent():
 
 def run_single():
     config_modifications = {
+        "workers": 8,
+        "episodes_per_iteration": 8,
     }
 
     run_config = {**parameters.base_parameters, **config_modifications}

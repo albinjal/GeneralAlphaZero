@@ -52,7 +52,7 @@ class AlphaZeroController:
         checkpoint_interval=-1,  # -1 means no checkpoints
         value_loss_weight=1.0,
         policy_loss_weight=1.0,
-        self_play_iterations=10,
+        episodes_per_iteration=10,
         self_play_workers=1,
         scheduler: th.optim.lr_scheduler.LRScheduler | None = None,
         value_sim_loss=False,
@@ -86,7 +86,7 @@ class AlphaZeroController:
 
         self.value_loss_weight = value_loss_weight
         self.policy_loss_weight = policy_loss_weight
-        self.self_play_iterations = self_play_iterations
+        self.episodes_per_iteration = episodes_per_iteration
         self.scheduler = scheduler
         self.train_obs_counter = Counter()
         self.use_visit_count = use_visit_count
@@ -203,10 +203,9 @@ class AlphaZeroController:
                 self.planning_budget,
                 self.max_episode_length,
             )
-            for _ in range(self.self_play_iterations)
-        ]
+        ] * self.episodes_per_iteration
         if self.self_play_workers > 1:
-            with multiprocessing.Pool() as pool:
+            with multiprocessing.Pool(self.self_play_workers) as pool:
                 # Run the tasks using map
                 results = pool.map(run_episode_process, tasks)
         else:
@@ -272,7 +271,7 @@ class AlphaZeroController:
         total_losses = []
         value_sims = []
         self.agent.model.train()
-        for j in tqdm(range(self.training_epochs)):
+        for j in tqdm(range(self.training_epochs), desc="Training"):
             # sample a batch from the replay buffer
 
             trajectories = self.replay_buffer.sample(

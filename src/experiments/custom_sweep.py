@@ -1,18 +1,30 @@
+import functools
+import multiprocessing
 import sys
 import time
 sys.path.append('./src/')
+import numpy as np
 from tqdm import tqdm
 
 from experiments.train_from_config import train_from_config
 import experiments.parameters as parameters
 
+def train_model(project, entity, config, tags):
+    # Assuming train_from_config is your training function
+    # wait 0-3 seconds (random)
+    time.sleep(3 * np.random.random())
+    print("Training with config:", config)
+    train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
+
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 1
+    nr_runs = 3
 
     config_modifications = {
         'planning_budget': 32,
+        "workers": 1,
+        "episodes_per_iteration": 8,
     }
 
     run_config = {**parameters.base_parameters, **config_modifications}
@@ -32,19 +44,19 @@ if __name__ == '__main__':
         "env_params": dict(id='CartPole-v1', max_episode_steps=None),
     },{
         "env_description": "CliffWalking-v0-100-15",
-        "max_episode_length": 100,
+        "max_episode_length": 150,
         "iterations": 15,
         "env_params": dict(id='CliffWalking-v0', max_episode_steps=None),
     },{
         "env_description": "FrozenLake-v1-4x4-100-20",
-        "max_episode_length": 100,
+        "max_episode_length": 150,
         "iterations": 20,
-        "env_params": dict(id='FrozenLake-v1-100', desc=None, map_name="4x4", is_slippery=False),
+        "env_params": dict(id='FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, max_episode_steps=None),
     },{
         "env_description": "FrozenLake-v1-8x8-100-20",
-        "max_episode_length": 100,
+        "max_episode_length": 150,
         "iterations": 20,
-        "env_params": dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False),
+        "env_params": dict(id='FrozenLake-v1', desc=None, map_name="8x8", is_slippery=False, max_episode_steps=None),
     },
                         ]
     series_configs = [{'tree_evaluation_policy': 'visit', 'selection_policy': 'PUCT'},
@@ -60,5 +72,9 @@ if __name__ == '__main__':
     time_name = time.strftime("%Y-%m-%d-%H-%M-%S")
 
     tags = ['custom_sweep', list(variable_configs[0])[0], time_name]
-    for config in tqdm(configs):
-        train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
+    # for config in tqdm(configs):
+    #     train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
+
+    partial_train_model = functools.partial(train_model, project, entity, tags=tags)
+    with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
+        list(tqdm(p.imap_unordered(partial_train_model, configs), total=len(configs)))
