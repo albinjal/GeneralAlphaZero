@@ -171,12 +171,12 @@ def sweep_agent():
 
 
 def run_single():
+    challenge = parameters.env_challenges[1]
     config_modifications = {
-        "workers": 8,
-        "episodes_per_iteration": 8,
+        "workers": 6,
+        "planning_budget": 128
     }
-
-    run_config = {**parameters.base_parameters, **config_modifications}
+    run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False, debug=False)
 
 

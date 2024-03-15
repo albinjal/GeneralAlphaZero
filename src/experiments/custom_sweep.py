@@ -37,7 +37,7 @@ if __name__ == '__main__':
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
     #                  ]
     # variable_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
-    variable_configs = [{
+    env_challenges = [{
         "env_description": "CartPole-v1-300-30",
         "max_episode_length": 300,
         "iterations": 30,
