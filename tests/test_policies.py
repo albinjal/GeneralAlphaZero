@@ -4,8 +4,8 @@ sys.path.append("src/")
 
 from policies.utility_functions import policy_value
 from policies.tree import (
+    ValuePolicy,
     VistationPolicy,
-    GreedyPolicy,
     InverseVarianceTreeEvaluator,
     MVTOPolicy,
     MinimalVarianceConstraintPolicy,
@@ -14,7 +14,7 @@ from policies.tree import (
 from policies.selection import PUCT, UCT, PolicyPUCT, PolicyUCT
 import numpy as np
 from az.azmcts import AlphaZeroMCTS
-from az.model import AlphaZeroModel, UnifiedModel
+from az.model import UnifiedModel
 import pytest
 import torch as th
 
@@ -111,7 +111,7 @@ def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
     """
     # TODO: this sometimes fails, investigate why
     beta = 1e6
-    greedy = GreedyPolicy()
+    greedy = ValuePolicy(discount_factor=discount_factor, temperature=0)
     mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
 
     greedy_policy = np.array(greedy.softmaxed_distribution(tree).probs)
@@ -153,7 +153,7 @@ def test_mvto_lambdzero(tree, discount_factor):
     """
     # TODO: for some strange reason this sometimes fails and the greedy and mvto policies are different, investigate
     lambd = 1e-8
-    greedy = GreedyPolicy()
+    greedy = ValuePolicy(discount_factor=discount_factor, temperature=0)
     mvto = MVTOPolicy(lamb=lambd, discount_factor=discount_factor)
 
     greedy_policy = np.array(greedy.softmaxed_distribution(tree).probs)

@@ -1,8 +1,9 @@
+from typing import Callable
 import torch as th
-from traitlets import default
 
 from core.node import Node
 from policies.policies import PolicyDistribution
+
 
 def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
     # makes sure the values are in the range [0, 1]
@@ -12,7 +13,7 @@ def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
     val = values[values.isfinite()]
     if val.numel() == 0:
         return th.zeros_like(values)
-    max_val  = val.max()
+    max_val = val.max()
     min_val = val.min()
 
     if max_val == min_val:
@@ -22,8 +23,13 @@ def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
     values[values.isfinite()] = val
     return values
 
+
 # TODO: can improve this implementation
-def policy_value(node: Node, policy: PolicyDistribution | th.distributions.Categorical, discount_factor: float):
+def policy_value(
+    node: Node,
+    policy: PolicyDistribution | th.distributions.Categorical,
+    discount_factor: float,
+):
     # return the q value the node with the given policy
     # with the defualt tree evaluator, this should return the same as the default value
 
@@ -39,12 +45,11 @@ def policy_value(node: Node, policy: PolicyDistribution | th.distributions.Categ
         pi = policy.softmaxed_distribution(node, include_self=True)
 
     probabilities = pi.probs
-    own_propability = probabilities[-1] # type: ignore
-    child_propabilities = probabilities[:-1] # type: ignore
+    own_propability = probabilities[-1]  # type: ignore
+    child_propabilities = probabilities[:-1]  # type: ignore
     child_values = th.zeros_like(child_propabilities, dtype=th.float32)
     for action, child in node.children.items():
         child_values[action] = policy_value(child, policy, discount_factor)
-
 
     val = node.reward + discount_factor * (
         own_propability * node.value_evaluation
@@ -57,6 +62,7 @@ def policy_value(node: Node, policy: PolicyDistribution | th.distributions.Categ
 def reward_variance(node: Node):
     return 0.0
 
+
 def value_evaluation_variance(node: Node):
     # if we want to duplicate the default tree evaluator, we can return 1 / visits
     # In reality, the variance should be lower for terminal nodes
@@ -66,7 +72,11 @@ def value_evaluation_variance(node: Node):
         return 1.0
 
 
-def independent_policy_value_variance(node: Node, policy: PolicyDistribution | th.distributions.Categorical, discount_factor: float):
+def independent_policy_value_variance(
+    node: Node,
+    policy: PolicyDistribution | th.distributions.Categorical,
+    discount_factor: float,
+):
     if node.variance is not None:
         return node.variance
     # return the variance of the q value the node with the given policy
@@ -75,15 +85,16 @@ def independent_policy_value_variance(node: Node, policy: PolicyDistribution | t
     else:
         pi = policy.softmaxed_distribution(node, include_self=True)
 
-
-    probabilities_squared = pi.probs ** 2 # type: ignore
+    probabilities_squared = pi.probs**2  # type: ignore
     own_propability_squared = probabilities_squared[-1]
     child_propabilities_squared = probabilities_squared[:-1]
     child_variances = th.zeros_like(child_propabilities_squared, dtype=th.float32)
     for action, child in node.children.items():
-        child_variances[action] = independent_policy_value_variance(child, policy, discount_factor)
+        child_variances[action] = independent_policy_value_variance(
+            child, policy, discount_factor
+        )
 
-    var = reward_variance(node) + discount_factor ** 2 * (
+    var = reward_variance(node) + discount_factor**2 * (
         own_propability_squared * value_evaluation_variance(node)
         + (child_propabilities_squared * child_variances).sum()
     )
@@ -91,6 +102,66 @@ def independent_policy_value_variance(node: Node, policy: PolicyDistribution | t
     return var
 
 
+def get_children_policy_values(
+    parent: Node,
+    policy: PolicyDistribution,
+    discount_factor: float,
+    transform: Callable = basic_value_normalizer,
+) -> th.Tensor:
+    # have a look at this, infs mess things up
+    vals = th.ones(int(parent.action_space.n), dtype=th.float32) * -th.inf
+    for action, child in parent.children.items():
+        vals[action] = policy_value(child, policy, discount_factor)
+    vals = transform(vals)
+
+    return vals
+
+
+def get_children_inverse_variances(
+    parent: Node, policy: PolicyDistribution, discount_factor: float
+) -> th.Tensor:
+    inverse_variances = th.zeros(int(parent.action_space.n), dtype=th.float32)
+    for action, child in parent.children.items():
+        inverse_variances[action] = 1.0 / independent_policy_value_variance(
+            child, policy, discount_factor
+        )
+
+    return inverse_variances
+
+
+def get_children_policy_values_and_inverse_variance(
+    parent: Node,
+    policy: PolicyDistribution,
+    discount_factor: float,
+    transform: Callable = basic_value_normalizer,
+) -> tuple[th.Tensor, th.Tensor]:
+    """
+    This is more efficent than calling get_children_policy_values and get_children_variances separately
+    """
+    vals = th.ones(int(parent.action_space.n), dtype=th.float32) * -th.inf
+    inv_vars = th.zeros_like(vals, dtype=th.float32)
+    for action, child in parent.children.items():
+        pi = policy.softmaxed_distribution(child, include_self=True)
+        vals[action] = policy_value(child, pi, discount_factor)
+        inv_vars[action] = 1 / independent_policy_value_variance(
+            child, pi, discount_factor
+        )
+
+    normalized_vals = transform(vals)
+    return normalized_vals, inv_vars
+
+def expanded_mask(node: Node) -> th.Tensor:
+    mask = th.zeros(int(node.action_space.n), dtype=th.float32)
+    for action in node.children:
+        mask[action] = 1.0
+    return mask
+
+def get_children_visits(node: Node) -> th.Tensor:
+    visits = th.zeros(int(node.action_space.n), dtype=th.float32)
+    for action, child in node.children.items():
+        visits[action] = child.visits
+
+    return visits
 
 def puct_multiplier(c: float, node: Node):
     """
