@@ -7,7 +7,7 @@ base_parameters = {
     "activation_fn": "relu",
     "norm_layer": "none",
     "dir_epsilon": 0.1,
-    "dir_alpha": 0.5,
+    "dir_alpha": 0.8,
     "selection_policy": selection,
     # "root_seleciton_policy": selection,
     "puct_c": 1.0,

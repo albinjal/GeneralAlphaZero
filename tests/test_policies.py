@@ -35,7 +35,7 @@ def generate_mcts_tree(
     for action in seq:
         observation, reward, terminated, truncated, info = env.step(action)
 
-    tree = solver.search(env, planning_budget, observation, np.float32(reward))
+    tree = solver.search(env, planning_budget, observation, reward)
     return tree
 
 

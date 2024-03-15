@@ -13,11 +13,11 @@ NodeType = TypeVar("NodeType", bound="Node")
 
 class Node(Generic[ObservationType]):
     parent: Optional["Node[ObservationType]"]
-    children: Dict[np.int64, "Node[ObservationType]"]
+    children: Dict[int, "Node[ObservationType]"]
     visits: int = 0
-    subtree_sum: np.float32 = np.float32(0.0)  # sum of reward and value of all children
-    value_evaluation: np.float32  # expected future reward
-    reward: np.float32  # reward recived when stepping into this node
+    subtree_sum: float = 0.0  # sum of reward and value of all children
+    value_evaluation: float  # expected future reward
+    reward: float  # reward recived when stepping into this node
     # Discrete action space
     action_space: gym.spaces.Discrete  # the reference to the action space
     observation: Optional[ObservationType]
@@ -30,7 +30,7 @@ class Node(Generic[ObservationType]):
         self,
         env: gym.Env,
         parent: Optional["Node[ObservationType]"],
-        reward: np.float32,
+        reward: float,
         action_space: gym.spaces.Discrete,
         observation: Optional[ObservationType],
         terminal: bool = False,
@@ -47,23 +47,23 @@ class Node(Generic[ObservationType]):
     def is_terminal(self) -> bool:
         return self.terminal
 
-    def step(self, action: np.int64) -> "Node[ObservationType]":
+    def step(self, action: int) -> "Node[ObservationType]":
         # steps into the action and returns that node
         child = self.children[action]
         return child
 
-    def default_value(self) -> np.float32:
+    def default_value(self) -> float:
         """
         The default value estimate for taking this action is the average of the rewards + value estimates of all children
         """
-        return self.subtree_sum / np.float32(self.visits)
+        return self.subtree_sum / self.visits
 
 
 
     def is_fully_expanded(self) -> bool:
         return len(self.children) == self.action_space.n
 
-    def sample_unexplored_action(self) -> np.int64:
+    def sample_unexplored_action(self) -> int:
         """
         mask – An optional mask for if an action can be selected. Expected np.ndarray of shape (n,) and dtype np.int8 where 1 represents valid actions and 0 invalid / infeasible actions. If there are no possible actions (i.e. np.all(mask == 0)) then space.start will be returned.
         """

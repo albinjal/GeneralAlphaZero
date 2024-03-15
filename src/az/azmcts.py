@@ -22,9 +22,9 @@ class AlphaZeroMCTS(MCTS):
     def value_function(
         self,
         node: Node,
-    ) -> np.float32:
+    ) -> float:
         if node.is_terminal():
-            return np.float32(0.0)
+            return 0.0
         observation = node.observation
         # flatten the observation
         assert observation is not None
@@ -33,18 +33,13 @@ class AlphaZeroMCTS(MCTS):
         assert node.env is not None
 
         value, policy = self.model.single_observation_forward(observation)
-        # store the policy
-        node.prior_policy = policy
-
         # if root and dir_epsilon > 0.0, add dirichlet noise to the prior policy
         if node.parent is None and self.dir_epsilon > 0.0:
-            noise = np.random.dirichlet(
-                [self.dir_alpha] * node.action_space.n
-            )
-            node.prior_policy = (1 - self.dir_epsilon) * node.prior_policy + self.dir_epsilon * th.tensor(noise, device=self.model.device, dtype=th.float32)
+            noise = th.distributions.dirichlet.Dirichlet(th.ones_like(policy) * self.dir_alpha).sample()
+            node.prior_policy = (1 - self.dir_epsilon) * policy + self.dir_epsilon * noise
+        else:
+            node.prior_policy = policy
 
-
-        # return float 32 value
         return value
 
     # @th.no_grad()

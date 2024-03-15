@@ -2,6 +2,7 @@ from collections import Counter
 import datetime
 import multiprocessing
 import os
+import time
 
 
 import gymnasium as gym
@@ -95,15 +96,17 @@ class AlphaZeroController:
         self.ema_beta = ema_beta
 
     def iterate(self, iterations=10):
-        total_return = last_return = 0.0
+        total_return = .0
         enviroment_steps = 0
         episodes = 0
         ema = None
         for i in range(iterations):
             print(f"Iteration {i}")
             print("Self play...")
-            last_return, ema, time_steps = self.self_play(i, total_return, ema)
-            total_return += last_return
+            tensor_results = self.self_play()
+            self.replay_buffer.extend(tensor_results)
+            total_return, ema = self.add_self_play_metrics(tensor_results, total_return, ema, i)
+
             print("Learning...")
             (
                 value_losses,
@@ -167,13 +170,14 @@ class AlphaZeroController:
                 plot_visits_to_wandb_with_counter(
                     self.train_obs_counter, self.agent.model.observation_embedding, i
                 )
-            enviroment_steps += np.sum(time_steps)
-            episodes += len(time_steps)
+            time_steps = tensor_results["mask"].sum(dim=-1)
+            enviroment_steps += th.sum(time_steps).item()
+            episodes += time_steps.shape[0]
             wandb.log({"environment_steps": enviroment_steps,
-                       "episodes": episodes,
-                       "grad_steps": i * self.training_epochs,
-                       },
-                      step=i)
+                        "episodes": episodes,
+                        "grad_steps": i * self.training_epochs,
+                        },
+                        step=i)
 
         if self.checkpoint_interval != -1:
             print(f"Saving model at iteration {iterations}")
@@ -181,19 +185,11 @@ class AlphaZeroController:
 
 
 
-        return {"last_return": last_return, "average_return": total_return / iterations}
+        return {"average_return": total_return / iterations}
 
-    def self_play(self, global_step, total_return, last_ema  = None):
+    def self_play(self):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
-
-        # Collect results from each process
-        results = []
-
-        # Number of processes - you can customize this
-        tim = datetime.datetime.now()
-        # Create a pool of processes
-        # Generate tasks for each episode
         tasks = [
             (
                 self.agent,
@@ -210,59 +206,51 @@ class AlphaZeroController:
                 results = pool.map(run_episode_process, tasks)
         else:
             results = [run_episode_process(task) for task in tasks]
-        tot_tim = datetime.datetime.now() - tim
+        return th.stack(results)
 
-        # Process the results
-        returns, time_steps, entropies = [], [], []
-        for trajectory in results:
-            self.replay_buffer.add(trajectory)
+    def add_self_play_metrics(self, tensor_res, total_return, last_ema, global_step):
 
-            episode_returns = trajectory["rewards"].sum().item()
-            returns.append(episode_returns)
-
-            timesteps = trajectory["mask"].sum().item()
-            time_steps.append(timesteps)
-            assert isinstance(self.env.action_space, gym.spaces.Discrete)
-            epsilon = 1e-8
-            entropy = (
-                -th.sum(
-                    trajectory["policy_distributions"]
-                    * th.log(trajectory["policy_distributions"] + epsilon),
-                    dim=-1,
-                )
-                * trajectory["mask"]
-                / np.log(self.env.action_space.n)
-            )
-            entropies.append(th.sum(entropy).item() / timesteps)
-
+        episode_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"], dim=-1)
+        discounted_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"] * self.discount_factor ** th.arange(tensor_res["rewards"].shape[1]), dim=-1)
+        time_steps = th.sum(tensor_res["mask"], dim=-1)
+        assert isinstance(self.env.action_space, gym.spaces.Discrete)
+        epsilon = 1e-8
+        entropy = (
+            -th.sum(
+                tensor_res["policy_distributions"]
+                * th.log(tensor_res["policy_distributions"] + epsilon),
+                dim=-1,
+            ) * tensor_res["mask"] / np.log(self.env.action_space.n)
+        )
+        mean_entropies = th.sum(entropy, dim=-1) / time_steps
 
         # Calculate statistics
-        mean_return = float(np.mean(returns))
-        return_variance = np.var(returns, ddof=1)
+        mean_return = th.mean(episode_returns).item()
+        # return_variance = th.var(mean_return, ddof=1)
         total_return += mean_return
         if last_ema is None:
             last_ema = mean_return
         ema_return = mean_return * self.ema_beta + last_ema * (1 - self.ema_beta)
-        add_self_play_metrics(
-            self.writer,
-            mean_return,
-            return_variance,
-            time_steps,
-            entropies,
-            tot_tim,
-            global_step,
-        )
+        # add_self_play_metrics(
+        #     self.writer,
+        #     mean_return,
+        #     return_variance,
+        #     time_steps,
+        #     mean_entropies,
+        #     tot_tim,
+        #     global_step,
+        # )
         add_self_play_metrics_wandb(
-            returns,
-            time_steps,
-            entropies,
-            tot_tim,
+            np.array(episode_returns),
+            np.array(discounted_returns),
+            np.array(time_steps),
+            np.array(mean_entropies),
             total_return,
             ema_return,
             global_step,
         )
 
-        return mean_return, ema_return, time_steps
+        return total_return, ema_return
 
     def learn(self):
         value_losses = []

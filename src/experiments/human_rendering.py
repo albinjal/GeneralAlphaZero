@@ -76,7 +76,7 @@ def visualize_gameplay(
     render_env.reset(seed=seed)
 
     for step in range(max_steps):
-        tree = solver.search(env, planning_budget, observation, np.float32(0.0))
+        tree = solver.search(env, planning_budget, observation, 0.0)
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action

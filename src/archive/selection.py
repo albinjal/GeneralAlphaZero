@@ -7,16 +7,16 @@ from policies.utility_functions import policy_value
 
 
 class UCB(OptionalPolicy):
-    def Q(self, node: Node, action: np.int64) -> np.float32:
+    def Q(self, node: Node, action: int) -> float:
         raise NotImplementedError
 
-    def U(self, node: Node, action: np.int64) -> np.float32:
+    def U(self, node: Node, action: int) -> float:
         raise NotImplementedError
 
-    def ucb_score(self, node: Node, action: np.int64) -> np.float32:
+    def ucb_score(self, node: Node, action: int) -> float:
         return self.Q(node, action) + self.U(node, action)
 
-    def sample(self, node: Node) -> np.int64 | None:
+    def sample(self, node: Node) -> int | None:
         # if not fully expanded, return None
         if not node.is_fully_expanded():
             return None
@@ -29,11 +29,11 @@ class UCT(UCB):
         super().__init__(*args, **kwargs)
         self.c = c
 
-    def Q(self, node: Node, action: np.int64) -> float:
+    def Q(self, node: Node, action: int) -> float:
         child = node.children[action]
         return child.default_value()
 
-    def U(self, node: Node, action: np.int64) -> float:
+    def U(self, node: Node, action: int) -> float:
         child = node.children[action]
         return self.c * (np.log(node.visits) / child.visits) ** 0.5
 
@@ -44,14 +44,14 @@ class PolicyUCT(UCT):
         self.policy = policy
         self.discount_factor = discount_factor
 
-    def Q(self, node: Node, action: np.int64) -> float:
+    def Q(self, node: Node, action: int) -> float:
         child = node.children[action]
         return policy_value(child, self.policy, self.discount_factor)
 
 
 class PUCT(UCT):
 
-    def U(self, node: Node, action: np.int64) -> float:
+    def U(self, node: Node, action: int) -> float:
         assert node.prior_policy is not None
         child = node.children[action]
         return self.c * node.prior_policy[action] * (node.visits**0.5) / (child.visits + 1)

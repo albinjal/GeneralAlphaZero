@@ -16,11 +16,11 @@ def add_self_to_probs(node: Node, probs: th.Tensor) -> th.Tensor:
 
 
 class Policy(ABC):
-    def __call__(self, node: Node) -> np.int64:
+    def __call__(self, node: Node) -> int:
         return self.sample(node)
 
     @abstractmethod
-    def sample(self, node: Node) -> np.int64:
+    def sample(self, node: Node) -> int:
         """Take a node and return an action"""
 
 
@@ -36,11 +36,11 @@ class PolicyDistribution(Policy):
         self.temperature = temperature
 
 
-    def sample(self, node: Node) -> np.int64:
+    def sample(self, node: Node) -> int:
         """
         Returns a random action from the distribution
         """
-        return np.int64(self.softmaxed_distribution(node).sample().item())
+        return int(self.softmaxed_distribution(node).sample().item())
 
     @abstractmethod
     def _probs(self, node: Node) -> th.Tensor:
@@ -86,16 +86,16 @@ class PolicyDistribution(Policy):
             )
 
 class OptionalPolicy(ABC):
-    def __call__(self, node: Node) -> np.int64 | None:
+    def __call__(self, node: Node) -> int | None:
         return self.sample(node)
 
     @abstractmethod
-    def sample(self, node: Node) -> np.int64 | None:
+    def sample(self, node: Node) -> int | None:
         """Take a node and return an action or None if no action is chosen"""
         pass
 
 
 
 class RandomPolicy(Policy):
-    def sample(self, node: Node) -> np.int64:
+    def sample(self, node: Node) -> int:
         return node.action_space.sample()

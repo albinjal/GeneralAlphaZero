@@ -21,7 +21,6 @@ from az.azmcts import AlphaZeroMCTS
 from az.model import AlphaZeroModel
 
 def tune_alphazero(hparams):
-    np.random.seed(0)
     env_id = hparams['env_id']
     env = gym.make(env_id)
 

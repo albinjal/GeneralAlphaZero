@@ -28,7 +28,7 @@ class UCT(PolicyDistribution):
             # return 1 for all children with 0 visits
             return child_visits == 0
 
-        return self.Q(node) + self.c * np.sqrt(np.log(node.visits) / child_visits)
+        return self.Q(node) + self.c * th.sqrt(th.log(th.tensor(node.visits)) / child_visits)
 
 
 
@@ -43,7 +43,7 @@ class PolicyUCT(UCT):
 
 
 class PUCT(UCT):
-    # def U(self, node: Node, action: np.int64) -> float:
+    # def U(self, node: Node, action: int) -> float:
     #     assert node.prior_policy is not None
     #     child = node.children[action]
     #     return self.c * node.prior_policy[action] * (node.visits**0.5) / (child.visits + 1)
@@ -55,7 +55,7 @@ class PUCT(UCT):
             # return 1 for all children with 0 visits
             return node.prior_policy
 
-        return self.Q(node) + self.c * node.prior_policy * np.sqrt(node.visits) / (child_visits + 1)
+        return self.Q(node) + self.c * node.prior_policy * th.sqrt(th.tensor(node.visits)) / (child_visits + 1)
 
 
 class PolicyPUCT(PolicyUCT, PUCT):
