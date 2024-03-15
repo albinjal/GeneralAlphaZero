@@ -6,7 +6,7 @@ import gymnasium as gym
 import wandb
 from az.model import AlphaZeroModel
 
-from logs.investigate_model import (
+from log_code.investigate_model import (
     CoordinateEmbedding,
     investigate_model,
     plot_policy_network,
