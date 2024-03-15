@@ -49,7 +49,8 @@ class PolicyDistribution(Policy):
         """
         pass
 
-    def cleaned_probs(self, node: Node, include_self: bool) -> th.Tensor:
+
+    def softmaxed_distribution(self, node: Node, include_self=False, **kwargs) -> th.distributions.Categorical:
         """
         Relative probabilities with self handling
         """
@@ -57,33 +58,26 @@ class PolicyDistribution(Policy):
         if include_self and len(node.children) == 0:
             probs = th.zeros(int(node.action_space.n) + include_self, dtype=th.float32)
             probs[-1] = 1.0
-            return probs
+            return th.distributions.Categorical(probs=probs)
 
         probs = self._probs(node)
-        if include_self:
-            probs = add_self_to_probs(node, probs)
 
-        assert probs.shape[-1] == node.action_space.n + include_self, f"Probs shape: {probs.shape}, action space: {node.action_space.n}, include_self: {include_self}"
-        return probs
-
-    def distribution(self, node: Node, include_self) -> th.distributions.Categorical:
-        return th.distributions.Categorical(probs=self.cleaned_probs(node, include_self))
-
-    def softmaxed_distribution(self, node: Node, include_self=False, **kwargs) -> th.distributions.Categorical:
-        """Returns the softmaxed distribution of the policy"""
-
-        relative_probs = self.cleaned_probs(node, include_self)
-
+        # softmax with temperature
         if self.temperature is None:
-            return th.distributions.Categorical(probs=relative_probs)
+            dist = th.distributions.Categorical(probs=probs)
         elif self.temperature == 0.0 :
             # return a uniform distribution over the actions with the highest probability
-            max_logits = th.max(relative_probs)
-            return th.distributions.Categorical(probs=relative_probs == max_logits)
+            max_logits = th.max(probs)
+            dist = th.distributions.Categorical(probs=(probs == max_logits))
         else:
-            return th.distributions.Categorical(
-                logits=relative_probs / self.temperature
-            )
+            dist = th.distributions.Categorical(logits=probs / self.temperature)
+
+        # add the probability of selecting the node itself
+        if include_self:
+            dist = th.distributions.Categorical(probs=add_self_to_probs(node, dist.probs))
+
+        return dist
+
 
 class OptionalPolicy(ABC):
     def __call__(self, node: Node) -> int | None:

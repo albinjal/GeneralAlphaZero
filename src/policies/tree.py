@@ -128,7 +128,10 @@ class ValuePolicy(PolicyDistribution):
     Determinstic policy that selects the action with the highest value
     """
     def _probs(self, node: Node) -> th.Tensor:
-        return get_children_policy_values(node, self, self.discount_factor)
+        vals = get_children_policy_values(node, self, self.discount_factor)
+        # set -inf to 0
+        vals[vals == -th.inf] = 0.0
+        return vals
 
 tree_dict = {
     "visit": VistationPolicy,

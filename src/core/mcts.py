@@ -125,14 +125,14 @@ class MCTS:
             action = self.selection_policy.sample(node)
             # if the selection policy returns None, this indicates that the current node should be expanded
             if action not in node.children:
-                return node, action
+                break
             # step into the node
             node = node.step(action)
             # also step the environment
             # Question: right now we do not save the observation or reward from the env since we already have them saved
             # This might be worth considering though if we use stochastic envs since the rewards/states could vary each time we execute an action sequence
 
-        return node
+        return node, action
 
     def expand(
         self, node: Node, action: int

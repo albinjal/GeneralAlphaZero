@@ -13,7 +13,7 @@ class SelectionPolicy(PolicyDistribution):
 
 
 
-class UCT(PolicyDistribution):
+class UCT(SelectionPolicy):
     def __init__(self, c: float,*args,  **kwargs):
         super().__init__(*args, **kwargs)
         self.c = c
@@ -64,8 +64,8 @@ class PolicyPUCT(PolicyUCT, PUCT):
 
 
 selection_dict_fn = lambda c, policy, discount: {
-    "UCT": UCT(c),
-    "PUCT": PUCT(c),
-    "PolicyUCT": PolicyUCT(c, policy=policy, discount_factor=discount),
-    "PolicyPUCT": PolicyPUCT(c, policy=policy, discount_factor=discount),
+    "UCT": UCT(c, temperature=0.0),
+    "PUCT": PUCT(c, temperature=0.0),
+    "PolicyUCT": PolicyUCT(c, policy=policy, discount_factor=discount,temperature=0.0),
+    "PolicyPUCT": PolicyPUCT(c, policy=policy, discount_factor=discount,temperature=0.0),
 }
