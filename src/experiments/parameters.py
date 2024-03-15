@@ -1,22 +1,9 @@
-def selection_to_expansion(selection_policy):
-    """
-    There is a connection between selection policy and expansion policy.
-    puct -> fromprior
-    policy_puct -> fromprior
-    default -> default
-    policy_uct -> default
-    """
-    if selection_policy in ["UCT", "PolicyUCT"]:
-        return "default"
-    else:
-        return "fromprior"
 
 
 selection = "PUCT"
 base_parameters = {
     "model_type": "seperated",
     "observation_embedding": "default",
-    "expansion_policy": selection_to_expansion(selection),
     "activation_fn": "relu",
     "norm_layer": "none",
     "dir_epsilon": 0.1,

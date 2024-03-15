@@ -1,4 +1,3 @@
-from typing import List
 import torch as th
 import numpy as np
 
@@ -48,9 +47,9 @@ class AlphaZeroMCTS(MCTS):
         # return float 32 value
         return value
 
-    @th.no_grad()
-    def value_funciton_multiple(self, nodes: List[Node]):
-        pass
+    # @th.no_grad()
+    # def value_funciton_multiple(self, nodes: List[Node]):
+    #     pass
 
     # @th.no_grad()
     # def handle_all(self, node: Node):

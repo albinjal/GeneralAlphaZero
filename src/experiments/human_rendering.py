@@ -6,13 +6,10 @@ sys.path.append("src/")
 import time
 import gymnasium as gym
 import numpy as np
-from policies.expansion import DefaultExpansionPolicy, ExpandFromPriorPolicy
 from policies.policies import Policy, PolicyDistribution
-from policies.selection import PolicyUCT
+from policies.selection_distributions import PolicyUCT
 from policies.tree import MinimalVarianceConstraintPolicy
-from az.azmcts import AlphaZeroMCTS
 from core.mcts import MCTS, RandomRolloutMCTS
-from az.model import AlphaZeroModel
 
 
 def run_vis(
@@ -26,7 +23,6 @@ def run_vis(
     goal_obs=None,
     seed=None,
     sleep_time=0.0,
-    expansion_policy: Policy = DefaultExpansionPolicy(),
     discount=1.0,
 ):
     env = gym.make(**env_args)
@@ -41,7 +37,6 @@ def run_vis(
     # model = AlphaZeroModel.load_model(checkpoint_path, env)
     agent = RandomRolloutMCTS(
         selection_policy=selection_policy,
-        expansion_policy=expansion_policy,
         discount_factor=discount,
     )
 
@@ -85,8 +80,8 @@ def visualize_gameplay(
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
         action = policy_dist.sample()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
-        observation, reward, terminated, truncated, _ = env.step(action.item())
-        render_env.step(action.item())
+        observation, reward, terminated, truncated, _ = env.step(action)
+        render_env.step(action)
         terminal = terminated or truncated
         time.sleep(sleep_time)
 
@@ -112,7 +107,6 @@ def main_runviss():
     discount = 0.95
     tree_policy = MinimalVarianceConstraintPolicy(5.0, discount_factor=discount)
     selection_policy = PolicyUCT(c=2, policy=tree_policy, discount_factor=discount)
-    expansion_policy = DefaultExpansionPolicy()
     run_vis(
         f"runs/*",
         env_args,
@@ -124,7 +118,6 @@ def main_runviss():
         goal_obs=None,
         seed=1,
         sleep_time=0,
-        expansion_policy=expansion_policy,
         discount=discount,
     )
 

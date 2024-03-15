@@ -163,6 +163,13 @@ def get_children_visits(node: Node) -> th.Tensor:
 
     return visits
 
+def get_transformed_default_values(node: Node, transform: Callable = basic_value_normalizer) -> th.Tensor:
+    vals = th.zeros(int(node.action_space.n), dtype=th.float32)
+    for action, child in node.children.items():
+        vals[action] = child.default_value()
+
+    return transform(vals)
+
 def puct_multiplier(c: float, node: Node):
     """
     lambda_N from the mcts as policy optimisation paper.

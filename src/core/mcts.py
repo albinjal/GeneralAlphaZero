@@ -1,10 +1,10 @@
 import copy
+from typing import Tuple
 import gymnasium as gym
 import numpy as np
 from core.node import Node
-from policies.expansion import DefaultExpansionPolicy
 
-from policies.policies import OptionalPolicy, Policy
+from policies.policies import Policy
 
 
 
@@ -13,22 +13,19 @@ class MCTS:
     """
     This class contains the basic MCTS algorithm without assumtions on the value function.
     """
-    root_selection_policy: OptionalPolicy
-    selection_policy: OptionalPolicy
-    expansion_policy: Policy  # the expansion policy is usually "pick uniform non explored action"
+    root_selection_policy: Policy
+    selection_policy: Policy
 
     def __init__(
         self,
-        selection_policy: OptionalPolicy,
-        expansion_policy: Policy = DefaultExpansionPolicy(),
+        selection_policy: Policy,
         discount_factor: float = 1.0,
-        root_selection_policy: OptionalPolicy | None = None,
+        root_selection_policy: Policy | None = None,
     ):
         if root_selection_policy is None:
             root_selection_policy = selection_policy
         self.root_selection_policy = root_selection_policy
         self.selection_policy = selection_policy  # the selection policy should return None if the input node should be expanded
-        self.expansion_policy = expansion_policy
         self.discount_factor = np.float32(discount_factor)
 
     def search(
@@ -63,7 +60,7 @@ class MCTS:
     def build_tree(self, from_node: Node, iterations: int) -> Node:
         while from_node.visits < iterations:
             # traverse the tree and select the node to expand
-            selected_node_for_expansion = self.select_node_to_expand(from_node)
+            selected_node_for_expansion, selected_action = self.select_node_to_expand(from_node)
             # check if the node is terminal
             if selected_node_for_expansion.is_terminal():
                 # if the node is terminal, we can not expand it
@@ -72,18 +69,9 @@ class MCTS:
                 selected_node_for_expansion.value_evaluation = np.float32(0.0)
                 self.backup(selected_node_for_expansion, np.float32(0))
             else:
-                self.handle_selected_node(selected_node_for_expansion)
+                self.handle_single(selected_node_for_expansion, selected_action)
 
         return from_node
-
-    def handle_selected_node(
-        self, node: Node
-    ):
-        if self.expansion_policy is None:
-            self.handle_all(node)
-        else:
-            action = self.expansion_policy(node)
-            self.handle_single(node, action)
 
     def handle_single(
         self,
@@ -97,11 +85,11 @@ class MCTS:
         eval_node.value_evaluation = value
         self.backup(eval_node, value)
 
-    def handle_all(
-        self, node: Node,
-    ):
-        for action in range(node.action_space.n):
-            self.handle_single(node, np.int64(action))
+    # def handle_all(
+    #     self, node: Node,
+    # ):
+    #     for action in range(node.action_space.n):
+    #         self.handle_single(node, np.int64(action))
 
     def value_function(
         self,
@@ -114,9 +102,9 @@ class MCTS:
 
     def select_node_to_expand(
         self, from_node: Node
-    ) -> Node:
+    ) -> Tuple[Node, np.int64]:
         """
-        Returns the node to be expanded next.
+        Returns the node and action to be expanded next.
         Returns None if the node is terminal.
         The selection policy returns None if the input node should be expanded.
         """
@@ -124,20 +112,20 @@ class MCTS:
         node = from_node
 
         # select which node to step into
-        action = self.root_selection_policy(node)
+        action = self.root_selection_policy.sample(node)
         # if the selection policy returns None, this indicates that the current node should be expanded
-        if action is None:
-            return node
+        if action not in node.children:
+            return node, action
         # step into the node
         node = node.step(action)
         # the reason we copy the env is because we want to keep the original env in the root state
         # Question: note that all envs will have the same seed, this might needs to be dealt with for stochastic envs
         while not node.is_terminal():
             # select which node to step into
-            action = self.selection_policy(node)
+            action = self.selection_policy.sample(node)
             # if the selection policy returns None, this indicates that the current node should be expanded
-            if action is None:
-                return node
+            if action not in node.children:
+                return node, action
             # step into the node
             node = node.step(action)
             # also step the environment
@@ -164,7 +152,8 @@ class MCTS:
 
         # step the environment
         observation, reward, terminated, truncated, _ = env.step(action)
-        terminal = terminated or truncated
+        terminal = terminated
+        assert not truncated
         if terminated:
             observation = None
 

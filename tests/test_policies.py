@@ -11,7 +11,7 @@ from policies.tree import (
     MinimalVarianceConstraintPolicy,
 )
 
-from policies.selection import PUCT, UCT, PolicyPUCT, PolicyUCT
+from policies.selection_distributions import PUCT, UCT, PolicyPUCT, PolicyUCT
 import numpy as np
 from az.azmcts import AlphaZeroMCTS
 from az.model import UnifiedModel
@@ -191,15 +191,15 @@ def test_policy_uct(tree, discount_factor, c=1.0):
     """
 
     uct = UCT(c)
-    uct_action = uct.sample(tree)
+    uct_dist = np.array(uct.distribution(tree).probs)
 
     default_eval = VistationPolicy()
     policy_uct = PolicyUCT(c, policy=default_eval, discount_factor=discount_factor)
-    p_uct_action = policy_uct.sample(tree)
+    p_uct_dist = np.array(policy_uct.distribution(tree).probs)
 
-    assert (
-        uct_action == p_uct_action
-    ), f"UCT action: {uct_action}, PolicyUCT action: {p_uct_action}"
+    assert np.allclose(
+        uct_dist, p_uct_dist, rtol=1e-6, atol=1e-6
+    ), f"UCT distribution: {uct_dist}, PolicyUCT distribution: {p_uct_dist}"
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)

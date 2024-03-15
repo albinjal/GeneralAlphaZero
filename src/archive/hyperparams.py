@@ -11,9 +11,8 @@ from torchrl.data import (
     TensorDictReplayBuffer,
 )
 import sys
-from policies.expansion import DefaultExpansionPolicy
 
-from policies.selection import PUCT
+from policies.selection_distributions import PUCT
 from policies.tree import VistationPolicy
 sys.path.append("src/")
 
@@ -32,7 +31,7 @@ def tune_alphazero(hparams):
 
     model = AlphaZeroModel(env, hidden_dim=hparams['hidden_dim'], layers=hparams['layers'])
     agent = AlphaZeroMCTS(selection_policy=selection_policy, model=model,
-                          discount_factor=discount_factor, expansion_policy=DefaultExpansionPolicy())
+                          discount_factor=discount_factor)
     regularization_weight = hparams['regularization_weight']
     optimizer = th.optim.Adam(model.parameters(), lr=hparams['learning_rate'], weight_decay=regularization_weight)
 

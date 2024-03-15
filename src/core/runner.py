@@ -59,9 +59,10 @@ def run_episode(
         )
         tree.reset_var_val()
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
-        action = policy_dist.sample()
+        action = policy_dist.sample().item()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
-        new_obs, reward, terminated, truncated, _ = env.step(action.item())
+        new_obs, reward, terminated, truncated, _ = env.step(action)
+        assert not truncated
 
         next_terminal = terminated
         trajectory["observations"][step] = observation_tensor
@@ -86,7 +87,7 @@ def run_episode(
             break
 
         if step_into:
-            root_node = tree.step(np.int64(action.item()))
+            root_node = tree.step(np.int64(action))
             root_node.parent = None
             tree = solver.build_tree(root_node, planning_budget)
         else:

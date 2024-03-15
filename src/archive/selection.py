@@ -7,13 +7,13 @@ from policies.utility_functions import policy_value
 
 
 class UCB(OptionalPolicy):
-    def Q(self, node: Node, action: np.int64):
+    def Q(self, node: Node, action: np.int64) -> np.float32:
         raise NotImplementedError
 
-    def U(self, node: Node, action: np.int64):
+    def U(self, node: Node, action: np.int64) -> np.float32:
         raise NotImplementedError
 
-    def ucb_score(self, node: Node, action: np.int64):
+    def ucb_score(self, node: Node, action: np.int64) -> np.float32:
         return self.Q(node, action) + self.U(node, action)
 
     def sample(self, node: Node) -> np.int64 | None:

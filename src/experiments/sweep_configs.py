@@ -1,4 +1,4 @@
-from policies.selection import selection_dict_fn
+from policies.selection_distributions import selection_dict_fn
 from az.model import activation_function_dict, norm_dict
 
 import datetime

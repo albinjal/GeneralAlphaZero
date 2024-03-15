@@ -36,11 +36,11 @@ class PolicyDistribution(Policy):
         self.temperature = temperature
 
 
-    def sample(self, node: Node) -> th.Tensor:
+    def sample(self, node: Node) -> np.int64:
         """
         Returns a random action from the distribution
         """
-        return self.softmaxed_distribution(node).sample()
+        return np.int64(self.softmaxed_distribution(node).sample().item())
 
     @abstractmethod
     def _probs(self, node: Node) -> th.Tensor:
