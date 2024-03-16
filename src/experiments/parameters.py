@@ -33,6 +33,14 @@ base_parameters = {
     "episodes_per_iteration": 6,
 }
 
+lake_config ={
+    "max_episode_length": 100,
+    "discount_factor": 0.9,
+    "iterations": 30,
+    "observation_embedding": "coordinate",
+    "eval_param": 1.0,
+    'training_epochs': 2,
+    }
 
 env_challenges = [
     {
@@ -46,15 +54,14 @@ env_challenges = [
     {
         "env_description": "CliffWalking-v0",
         "max_episode_length": 100,
-        "iterations": 15,
+        "iterations": 30,
         "env_params": dict(id="CliffWalking-v0", max_episode_steps=1000000000),
         "observation_embedding": "coordinate",
         "ncols": 12,
     },
-    {
+    {**lake_config,
         "env_description": "FrozenLake-v1-4x4",
-        "max_episode_length": 150,
-        "iterations": 20,
+        "ncols": 4,
         "env_params": dict(
             id="FrozenLake-v1",
             desc=None,
@@ -62,21 +69,17 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
-        "observation_embedding": "coordinate",
-        "ncols": 4,
     },
-    {
+    {**lake_config,
         "env_description": "FrozenLake-v1-8x8",
-        "max_episode_length": 150,
-        "iterations": 20,
+        "ncols": 8,
         "env_params": dict(
             id="FrozenLake-v1",
             desc=None,
             map_name="8x8",
             is_slippery=False,
             max_episode_steps=1000000000,
-        ),
-        "observation_embedding": "coordinate",
-        "ncols": 8,
+        )
+
     },
 ]

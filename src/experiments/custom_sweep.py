@@ -18,7 +18,7 @@ def train_model(project, entity, config, tags):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 1
+    nr_runs = 2
 
     config_modifications = {
         "workers": 1,
@@ -34,7 +34,8 @@ if __name__ == '__main__':
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
     #                  ]
-    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    # budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    budget_configs = [{"planning_budget": i} for i in (16, 64)]
 
     series_configs = [{'tree_evaluation_policy': 'visit', 'selection_policy': 'PUCT'},
                      {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PUCT'},

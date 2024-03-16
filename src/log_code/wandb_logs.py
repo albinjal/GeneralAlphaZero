@@ -58,8 +58,8 @@ def add_self_play_metrics_wandb(
         {
             "Self_Play/Returns": wandb.Histogram(returns),
             "Self_Play/Mean_Return": np.mean(returns),
-            "Self_Play/Discounted_Returns": wandb.Histogram(discounted_returns),
-            "Self_Play/Mean_Discounted_Returns": np.mean(discounted_returns),
+            "Self_Play/Discounted_Return": wandb.Histogram(discounted_returns),
+            "Self_Play/Mean_Discounted_Return": np.mean(discounted_returns),
             # "Self_Play/return_STD": np.sqrt(np.var(returns, ddof=1)),
             "Self_Play/Max_Return": np.max(returns),
             "Self_Play/Min_Return": np.min(returns),
