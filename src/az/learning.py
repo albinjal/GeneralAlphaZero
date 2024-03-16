@@ -115,7 +115,7 @@ def one_step_value_targets(
 
 
 
-def calculate_visit_counts(observations):
+def calculate_visit_counts(observations, full_mask):
     """
     Calculate the visit counts for each observation in the trajectories, with output shape (batch_size, max_steps).
     Observations are assumed to be a tensor of shape (batch_size, max_steps, obs_dim).
@@ -130,16 +130,22 @@ def calculate_visit_counts(observations):
 
     for b in range(batch_size):
         for t in range(max_steps):
+            # break on mask
+            if not full_mask[b, t]:
+                break
             current_observation = observations[b, t]
-            # Convert the observation to a tuple to use it as a dictionary key
             obs_key = tuple(current_observation.tolist())
+            visit_counts_mapping[obs_key] += 1
 
-            # Compare this observation with all observations in the same batch
-            mask = th.all(observations[b] == current_observation, dim=1)
-            count = th.sum(mask)
+    for b in range(batch_size):
+        for t in range(max_steps):
+            # break on mask
+            if not full_mask[b, t]:
+                break
+            current_observation = observations[b, t]
+            obs_key = tuple(current_observation.tolist())
+            visit_counts[b, t] = visit_counts_mapping[obs_key]
 
-            visit_counts[b, t] = count
-            visit_counts_mapping.update({obs_key: count.item()})
 
     return visit_counts, visit_counts_mapping
 

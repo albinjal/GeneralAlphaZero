@@ -10,7 +10,7 @@ base_parameters = {
     "selection_policy": 'PUCT',
     "puct_c": 1.0,
     "selection_value_transform": 'identity',
-    "use_visit_count": 0,
+    "use_visit_count": True,
     "regularization_weight": 1e-4,
     "tree_evaluation_policy": "visit",
     "eval_param": 1.0,

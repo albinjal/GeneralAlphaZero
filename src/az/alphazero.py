@@ -276,7 +276,7 @@ class AlphaZeroController:
             values = flat_values.view(batch_size, max_steps)
             policies = flat_policies.view(batch_size, max_steps, -1)
 
-
+            epsilon = 1e-8
             # compute the value targets via TD learning
             # the target should be the reward + the value of the next state
             # if the next state is terminal, the value of the next state is 0
@@ -308,13 +308,17 @@ class AlphaZeroController:
                 """
                 # lets first construct a tensor with the same shape as the observations tensor but with the number of visits instead of the observations
                 # note that the observations tensor has shape (batch_size, max_steps, obs_dim)
-                visit_counts_tensor = th.ones_like(values)
+                visit_multiplier = th.ones_like(values)
                 if self.use_visit_count or self.save_plots:
-                    tens, counter = calculate_visit_counts(observations)
+                    visit_count_tensor, counter = calculate_visit_counts(observations, trajectories["mask"])
                     # add the counter to the train_obs_counter
                     self.train_obs_counter.update(counter)
                     if self.use_visit_count:
-                        visit_counts_tensor = tens
+                        # the multiplier should make sure that the loss contribution is the same for all observations
+                        visit_multiplier = trajectories["mask"] / (visit_count_tensor + epsilon)
+                        # lets normalize the visit_multiplier so that the sum of the multipliers is 1
+                        norm_visit_multiplier = visit_multiplier * (trajectories["mask"].sum() / visit_multiplier.sum())
+
 
             # the target value is the reward we got + the value of the next state if it is not terminal
             targets = n_step_value_targets(
@@ -330,7 +334,7 @@ class AlphaZeroController:
             td = targets - values[:, :-dim_red]
             mask = trajectories["mask"][:, :-dim_red]
             # compute the value loss
-            step_loss = (td * mask) ** 2 / visit_counts_tensor[:, :-dim_red]
+            step_loss = (td * mask) ** 2 * norm_visit_multiplier[:, :-dim_red]
             if self.value_sim_loss:
                 value_loss = th.sum(
                     th.sum(step_loss, dim=-1)
@@ -339,8 +343,7 @@ class AlphaZeroController:
             else:
                 value_loss = th.sum(step_loss) / th.sum(mask)
 
-            # compute the policy loss
-            epsilon = 1e-8
+
             step_loss = -th.einsum(
                 "ijk,ijk->ij",
                 trajectories["policy_distributions"],
@@ -349,7 +352,7 @@ class AlphaZeroController:
 
             # we do not want to consider terminal states
             policy_loss = th.sum(
-                step_loss * trajectories["mask"] / visit_counts_tensor
+                step_loss * trajectories["mask"] * norm_visit_multiplier
             ) / th.sum(trajectories["mask"])
 
             loss = (
