@@ -64,19 +64,22 @@ class PolicyDistribution(Policy):
 
         # softmax with temperature
         if self.temperature is None:
-            dist = th.distributions.Categorical(probs=probs)
+            if include_self:
+                probs = add_self_to_probs(node, probs)
+            return th.distributions.Categorical(probs=probs)
         elif self.temperature == 0.0 :
             # return a uniform distribution over the actions with the highest probability
             max_logits = th.max(probs)
-            dist = th.distributions.Categorical(probs=(probs == max_logits))
+            probs = (probs == max_logits).float()
+            if include_self:
+                probs = add_self_to_probs(node, probs)
+            return th.distributions.Categorical(probs=probs)
         else:
             dist = th.distributions.Categorical(logits=probs / self.temperature)
-
-        # add the probability of selecting the node itself
-        if include_self:
-            dist = th.distributions.Categorical(probs=add_self_to_probs(node, dist.probs))
-
-        return dist
+            # add the probability of selecting the node itself
+            if include_self:
+                dist = th.distributions.Categorical(probs=add_self_to_probs(node, dist.probs))
+            return dist
 
 
 class OptionalPolicy(ABC):

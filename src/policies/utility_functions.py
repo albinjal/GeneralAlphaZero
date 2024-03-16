@@ -4,6 +4,8 @@ import torch as th
 from core.node import Node
 from policies.policies import PolicyDistribution
 
+# def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
+#     return values
 
 def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
     # makes sure the values are in the range [0, 1]

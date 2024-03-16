@@ -330,15 +330,14 @@ class AlphaZeroController:
             td = targets - values[:, :-dim_red]
             mask = trajectories["mask"][:, :-dim_red]
             # compute the value loss
+            step_loss = (td * mask) ** 2 / visit_counts_tensor[:, :-dim_red]
             if self.value_sim_loss:
                 value_loss = th.sum(
-                    th.sum((td * mask) ** 2 / visit_counts_tensor[:, :-dim_red], dim=-1)
+                    th.sum(step_loss, dim=-1)
                     * value_simularities
                 ) / th.sum(mask)
             else:
-                value_loss = th.sum(
-                    (td * mask) ** 2 / visit_counts_tensor[:, :-dim_red]
-                ) / th.sum(mask)
+                value_loss = th.sum(step_loss) / th.sum(mask)
 
             # compute the policy loss
             epsilon = 1e-8
