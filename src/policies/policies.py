@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import torch as th
 import numpy as np
 from core.node import Node
+from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
 def add_self_to_probs(node: Node, probs: th.Tensor) -> th.Tensor:
@@ -31,9 +32,11 @@ class PolicyDistribution(Policy):
     We can also apply softmax with temperature to the distribution.
     """
     temperature: float
-    def __init__(self, temperature: float = None) -> None:
+    value_transform: ValueTransform
+    def __init__(self, temperature: float = None, value_transform: ValueTransform = IdentityValueTransform) -> None:
         super().__init__()
         self.temperature = temperature
+        self.value_transform = value_transform
 
 
     def sample(self, node: Node) -> int:

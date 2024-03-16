@@ -28,6 +28,7 @@ from az.model import (
 )
 from policies.tree import tree_eval_dict
 from policies.selection_distributions import selection_dict_fn
+from policies.value_transforms import value_transform_dict
 
 
 def train_from_config(
@@ -53,18 +54,25 @@ def train_from_config(
     if "tree_temperature" not in hparams:
         hparams["tree_temperature"] = None
 
-    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor, hparams["puct_c"], hparams["tree_temperature"])[
+    if "tree_value_transform" not in hparams or hparams["tree_value_transform"] is None:
+        hparams["tree_value_transform"] = "identity"
+
+
+    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor, hparams["puct_c"], hparams["tree_temperature"], value_transform=value_transform_dict[hparams["tree_value_transform"]])[
         hparams["tree_evaluation_policy"]
     ]
+    if "selection_value_transform" not in hparams or hparams["selection_value_transform"] is None:
+        hparams["selection_value_transform"] = "identity"
+
     selection_policy = selection_dict_fn(
-        hparams["puct_c"], tree_evaluation_policy, discount_factor
+        hparams["puct_c"], tree_evaluation_policy, discount_factor, value_transform_dict[hparams["selection_value_transform"]]
     )[hparams["selection_policy"]]
 
     if "root_selection_policy" not in hparams or hparams["root_selection_policy"] is None:
         hparams["root_selection_policy"] = hparams["selection_policy"]
 
     root_selection_policy = selection_dict_fn(
-        hparams["puct_c"], tree_evaluation_policy, discount_factor
+        hparams["puct_c"], tree_evaluation_policy, discount_factor, value_transform_dict[hparams["selection_value_transform"]]
     )[hparams["root_selection_policy"]]
 
     if "observation_embedding" not in hparams:
