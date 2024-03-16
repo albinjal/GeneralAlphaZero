@@ -54,5 +54,5 @@ if __name__ == '__main__':
     #     train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
 
     partial_train_model = functools.partial(train_model, project, entity, tags=tags)
-    with multiprocessing.Pool(8) as p:
+    with multiprocessing.Pool(6) as p:
         list(tqdm(p.imap_unordered(partial_train_model, configs), total=len(configs)))
