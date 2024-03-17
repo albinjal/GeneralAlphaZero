@@ -18,7 +18,7 @@ def train_model(project, entity, config, tags):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 2
+    nr_runs = 3
 
     config_modifications = {
         "workers": 1,

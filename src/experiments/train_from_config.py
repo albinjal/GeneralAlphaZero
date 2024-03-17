@@ -173,7 +173,7 @@ def sweep_agent():
 
 
 def run_single():
-    challenge = parameters.env_challenges[2]
+    challenge = parameters.env_challenges[0]
     config_modifications = {
         "workers": 6,
     }
