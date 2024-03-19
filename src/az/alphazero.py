@@ -308,7 +308,7 @@ class AlphaZeroController:
                 """
                 # lets first construct a tensor with the same shape as the observations tensor but with the number of visits instead of the observations
                 # note that the observations tensor has shape (batch_size, max_steps, obs_dim)
-                visit_multiplier = th.ones_like(values)
+                norm_visit_multiplier = th.ones_like(values)
                 if self.use_visit_count or self.save_plots:
                     visit_count_tensor, counter = calculate_visit_counts(observations, trajectories["mask"])
                     # add the counter to the train_obs_counter

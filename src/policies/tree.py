@@ -1,9 +1,8 @@
-from math import nan
 import torch as th
 
 from core.node import Node
 from policies.policies import PolicyDistribution
-from policies.utility_functions import get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, puct_multiplier
+from policies.utility_functions import get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, get_transformed_default_values, puct_multiplier
 from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
@@ -134,6 +133,45 @@ class ValuePolicy(PolicyDistribution):
         vals[vals == -th.inf] = 0.0
         return vals
 
+class PriorStdPolicy(PolicyDistribution):
+    def Q(self, node: Node) -> th.Tensor:
+        pass
+
+    def inv_std(self, node: Node) -> th.Tensor:
+        pass
+
+    def Q_std(self, node: Node):
+        return self.Q(node), self.inv_std(node)
+
+    def _probs(self, node: Node) -> th.Tensor:
+        vals, inv_std = self.Q_std(node)
+        transformed_vals = th.zeros_like(vals, dtype=th.float32)
+        for action in node.children:
+            transformed_vals[action] = vals[action] / inv_std[action]
+        return node.prior_policy * th.exp(transformed_vals - transformed_vals.max())
+
+class VistationPriorStdPolicy(PriorStdPolicy):
+    def __init__(self, sigma: float, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sigma = sigma
+
+    def Q(self, node: Node) -> th.Tensor:
+        return get_transformed_default_values(node, self.value_transform)
+
+    def inv_std(self, node: Node) -> th.Tensor:
+        return th.sqrt(get_children_visits(node)) / self.sigma
+
+
+class BellmanPriorStdPolicy(PriorStdPolicy):
+    def __init__(self, sigma: float, *args, discount_factor: float = 1.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sigma = sigma
+        self.discount_factor = discount_factor
+
+    def Q_std(self, node: Node):
+        q, var = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
+        return q, th.sqrt(var) / self.sigma
+
 tree_dict = {
     "visit": VistationPolicy,
     "inverse_variance": InverseVarianceTreeEvaluator,
@@ -150,4 +188,6 @@ tree_eval_dict = lambda param, discount, c=1.0, temperature=None, value_transfor
     'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount, temperature=temperature, value_transform=value_transform),
     'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount, temperature=temperature, value_transform=value_transform),
     "mvto": MVTOPolicy(lamb=param, discount_factor=discount, temperature=temperature, value_transform=value_transform),
+    'visit_prior_std': VistationPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
+    'bellman_prior_std': BellmanPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
 }
