@@ -37,9 +37,18 @@ if __name__ == '__main__':
     # budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
     budget_configs = [{"planning_budget": i} for i in (16, 64)]
 
-    series_configs = [{'tree_evaluation_policy': 'visit', 'selection_policy': 'PUCT'},
-                     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PUCT'},
-                     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyPUCT'},
+    series_configs = [
+        # {'tree_evaluation_policy': 'visit', 'selection_policy': 'PUCT'},
+        #              {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PUCT'},
+        #              {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyPUCT'},
+        {"selection_policy": 'PolicyPUCT',
+        "tree_evaluation_policy": "mvto",
+        "eval_param": 10.0,
+        "tree_value_transform": 'zero_one',},
+        {"selection_policy": 'PUCT',
+        "tree_evaluation_policy": "mvto",
+        "eval_param": 10.0,
+        "tree_value_transform": 'zero_one',},
                      ]
     # try every combination of variable_configs and series_config n times
 
