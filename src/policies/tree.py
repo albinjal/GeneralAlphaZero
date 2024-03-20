@@ -50,6 +50,10 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
             probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
 
         return probs
+class MinimalVarianceConstraintPolicyPrior(MinimalVarianceConstraintPolicy):
+    def _probs(self, node: Node) -> th.Tensor:
+        return super()._probs(node) * node.prior_policy
+
 
 class MVCP_Dynamic_Beta(MinimalVarianceConstraintPolicy):
     """
@@ -140,14 +144,12 @@ class PriorStdPolicy(PolicyDistribution):
     def inv_std(self, node: Node) -> th.Tensor:
         pass
 
-    def Q_std(self, node: Node):
+    def Q_inv_std(self, node: Node):
         return self.Q(node), self.inv_std(node)
 
     def _probs(self, node: Node) -> th.Tensor:
-        vals, inv_std = self.Q_std(node)
-        transformed_vals = th.zeros_like(vals, dtype=th.float32)
-        for action in node.children:
-            transformed_vals[action] = vals[action] / inv_std[action]
+        vals, inv_std = self.Q_inv_std(node)
+        transformed_vals = th.nan_to_num(vals * inv_std)
         return node.prior_policy * th.exp(transformed_vals - transformed_vals.max())
 
 class VistationPriorStdPolicy(PriorStdPolicy):
@@ -168,7 +170,7 @@ class BellmanPriorStdPolicy(PriorStdPolicy):
         self.sigma = sigma
         self.discount_factor = discount_factor
 
-    def Q_std(self, node: Node):
+    def Q_inv_std(self, node: Node):
         q, var = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
         return q, th.sqrt(var) / self.sigma
 
@@ -190,4 +192,5 @@ tree_eval_dict = lambda param, discount, c=1.0, temperature=None, value_transfor
     "mvto": MVTOPolicy(lamb=param, discount_factor=discount, temperature=temperature, value_transform=value_transform),
     'visit_prior_std': VistationPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
     'bellman_prior_std': BellmanPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
+    'mvcp': MinimalVarianceConstraintPolicyPrior(discount_factor=discount, beta=param, temperature=temperature, value_transform=value_transform),
 }

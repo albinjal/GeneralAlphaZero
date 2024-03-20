@@ -153,7 +153,7 @@ class AlphaZeroController:
 
             # if the env is CliffWalking-v0, plot the output of the value and policy networks
             assert self.env.spec is not None
-            if isinstance(self.agent.model.observation_embedding, CoordinateEmbedding) and self.save_plots:
+            if self.agent.model.observation_embedding.ncols is not None and self.save_plots:
                 assert isinstance(self.env.observation_space, gym.spaces.Discrete)
                 show_model_in_tensorboard(
                     self.agent.model, self.writer, i

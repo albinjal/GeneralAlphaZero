@@ -81,7 +81,6 @@ def add_self_play_metrics_wandb(
 
 
 def show_model_in_wandb(model: AlphaZeroModel, step):
-    assert isinstance(model.observation_embedding, CoordinateEmbedding)
     rows, cols = model.observation_embedding.nrows, model.observation_embedding.ncols
     outputs = investigate_model(model)
     value_fig = plot_value_network(outputs, nrows=rows, ncols=cols, title=f"Value Network, Step: {step}")

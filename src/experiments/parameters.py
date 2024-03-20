@@ -46,7 +46,7 @@ env_challenges = [
     {
         "env_description": "CartPole-v1",
         "max_episode_length": 300,
-        "iterations": 30,
+        "iterations": 40,
         "env_params": dict(id="CartPole-v1", max_episode_steps=1000000000),
         "observation_embedding": "default",
         "ncols": None,
@@ -56,7 +56,7 @@ env_challenges = [
         "max_episode_length": 100,
         "iterations": 30,
         "env_params": dict(id="CliffWalking-v0", max_episode_steps=1000000000),
-        "observation_embedding": "coordinate",
+        "observation_embedding": "default",
         "ncols": 12,
     },
     {**lake_config,

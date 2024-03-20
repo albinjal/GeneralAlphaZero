@@ -153,7 +153,7 @@ def train_from_config(
         discount_factor=discount_factor,
         n_steps_learning=hparams["n_steps_learning"],
         checkpoint_interval=-1 if performance else 10,
-        use_visit_count=hparams["use_visit_count"],
+        use_visit_count=bool(hparams["use_visit_count"]),
         writer=writer,
         save_plots=not performance,
         batch_size=sample_batch_size,
@@ -176,11 +176,11 @@ def run_single():
     challenge = parameters.env_challenges[1]
     config_modifications = {
         "workers": 6,
-        "tree_evaluation_policy": "bellman_prior_std",
-        "eval_param": .1,
-        "tree_value_transform": 'zero_one',
+        "tree_evaluation_policy": "mvc",
+        "eval_param": 1.0,
+        "tree_value_transform": 'identity',
         "dir_epsilon": 0.0,
-        "selection_policy": "PUCT",
+        "selection_policy": "PolicyPUCT",
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False)

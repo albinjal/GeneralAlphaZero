@@ -15,7 +15,6 @@ def investigate_model(model: AlphaZeroModel):
     returns a dict of {obs: value} for each obs in the observation space
     """
     tensor_observations = []
-    assert isinstance(model.observation_embedding, CoordinateEmbedding)
 
     # Convert each observation into a tensor and add it to the list
     for obs in range(model.observation_embedding.observation_space.n):

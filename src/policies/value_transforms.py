@@ -31,7 +31,36 @@ class ZeroOneValueTransform(ValueTransform):
         return values
 
 
+class NewZeroOneValueTransform(ValueTransform):
+    @staticmethod
+    def normalize(values: th.Tensor) -> th.Tensor:
+        # scale all values between one and zero
+        # the values can contain negative infinity
+        values = values.clone()
+        min_finite_value = values[values.isfinite()].min()
+        max_value = values.max()
+        value_spread = max_value - min_finite_value
+        if value_spread == 0:
+            # set all finite values to 1, negative infinity to 0
+            scaled_values = th.where(
+                values != -th.inf, th.ones_like(values), th.zeros_like(values)
+            )
+        else:
+            values[values == -th.inf] = min_finite_value
+            scaled_values = (values - min_finite_value) / value_spread
+
+        return scaled_values
+
+class SoftMaxValueTransform(ValueTransform):
+    @staticmethod
+    def normalize(values: th.Tensor) -> th.Tensor:
+        return th.nn.functional.softmax(values, dim=-1)
+
+
+
 value_transform_dict = {
     "identity": IdentityValueTransform,
     "zero_one": ZeroOneValueTransform,
+    "new_zero_one": NewZeroOneValueTransform,
+    "softmax": SoftMaxValueTransform,
 }
