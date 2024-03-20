@@ -179,7 +179,6 @@ def run_single():
         "tree_evaluation_policy": "mvc",
         "eval_param": 1.0,
         "tree_value_transform": 'identity',
-        "dir_epsilon": 0.0,
         "selection_policy": "PolicyPUCT",
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}

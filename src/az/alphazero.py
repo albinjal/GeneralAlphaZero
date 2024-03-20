@@ -33,6 +33,16 @@ def run_episode_process(args):
     agent, env, tree_evaluation_policy, observation_embedding, planning_budget, max_episode_length = args
     return run_episode(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, max_episode_length)
 
+def calc_metrics(tensor_res: th.Tensor, discount_factor: float, n: int, epsilon = 1e-8):
+    episode_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"], dim=-1)
+    discounted_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"] * discount_factor ** th.arange(tensor_res["rewards"].shape[-1]), dim=-1)
+    time_steps = th.sum(tensor_res["mask"], dim=-1)
+    entropy = -th.sum(
+            tensor_res["policy_distributions"]
+            * th.log(tensor_res["policy_distributions"] + epsilon),
+            dim=-1,
+        ) * tensor_res["mask"] / np.log(n)
+    return episode_returns, discounted_returns, time_steps, entropy
 class AlphaZeroController:
     """
     The Controller will be responsible for orchistrating the training of the model. With self play and training.
@@ -63,6 +73,7 @@ class AlphaZeroController:
         save_plots=True,
         batch_size=32,
         ema_beta = 0.3,
+        evaluation_interval=5,
     ) -> None:
         self.replay_buffer = replay_buffer
         self.training_epochs = training_epochs
@@ -94,6 +105,7 @@ class AlphaZeroController:
         self.save_plots = save_plots
         self.batch_size = batch_size
         self.ema_beta = ema_beta
+        self.evaluation_interval = evaluation_interval
 
     def iterate(self, iterations=10):
         total_return = .0
@@ -106,6 +118,10 @@ class AlphaZeroController:
             tensor_results = self.self_play()
             self.replay_buffer.extend(tensor_results)
             total_return, ema = self.add_self_play_metrics(tensor_results, total_return, ema, i)
+
+            if i % self.evaluation_interval == 0:
+                print("Evaluating...")
+                self.evaluate(i)
 
             print("Learning...")
             (
@@ -183,9 +199,29 @@ class AlphaZeroController:
             print(f"Saving model at iteration {iterations}")
             self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
 
-
+        self.evaluate(iterations)
 
         return {"average_return": total_return / iterations}
+
+    def evaluate(self, step: int):
+        # collect one trajectory with non stochastic version of the policy
+        self.agent.model.eval()
+        # temporarly set the epsilon to 0
+        eps, self.agent.dir_epsilon = self.agent.dir_epsilon, 0.0
+        result = run_episode(self.agent, self.env, self.tree_evaluation_policy, self.agent.model.observation_embedding, self.planning_budget, self.max_episode_length, seed=0, eval=True)
+        self.agent.dir_epsilon = eps
+        episode_return, discounted_return, time_steps, entropies = calc_metrics(result, self.discount_factor, self.env.action_space.n)
+
+        wandb.log(
+            {
+                "Evaluation/Return": episode_return,
+                "Evaluation/Discounted_Return": discounted_return,
+                "Evaluation/Timesteps": time_steps,
+                "Evaluation/Mean_Entropy": th.sum(entropies, dim=-1) / time_steps,
+            },
+            step=step,
+        )
+
 
     def self_play(self):
         """Play games in parallel and store the data in the replay buffer."""
@@ -208,24 +244,14 @@ class AlphaZeroController:
             results = [run_episode_process(task) for task in tasks]
         return th.stack(results)
 
+
     def add_self_play_metrics(self, tensor_res, total_return, last_ema, global_step):
-
-        episode_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"], dim=-1)
-        discounted_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"] * self.discount_factor ** th.arange(tensor_res["rewards"].shape[1]), dim=-1)
-        time_steps = th.sum(tensor_res["mask"], dim=-1)
         assert isinstance(self.env.action_space, gym.spaces.Discrete)
-        epsilon = 1e-8
-        entropy = (
-            -th.sum(
-                tensor_res["policy_distributions"]
-                * th.log(tensor_res["policy_distributions"] + epsilon),
-                dim=-1,
-            ) * tensor_res["mask"] / np.log(self.env.action_space.n)
-        )
-        mean_entropies = th.sum(entropy, dim=-1) / time_steps
+        episode_returns, discounted_returns, time_steps, entropies = calc_metrics(tensor_res, self.discount_factor, self.env.action_space.n)
 
+        mean_entropies = th.sum(entropies, dim=-1) / time_steps
         # Calculate statistics
-        mean_return = th.mean(episode_returns).item()
+        mean_return = th.mean(discounted_returns).item()
         # return_variance = th.var(mean_return, ddof=1)
         total_return += mean_return
         if last_ema is None:

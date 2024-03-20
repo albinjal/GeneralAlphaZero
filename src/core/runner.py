@@ -6,7 +6,7 @@ from core.mcts import MCTS
 from environments.observation_embeddings import ObservationEmbedding
 from policies.policies import PolicyDistribution
 
-
+@th.no_grad()
 def run_episode(
     solver: MCTS,
     env: gym.Env,
@@ -15,8 +15,8 @@ def run_episode(
     planning_budget=1000,
     max_steps=1000,
     verbose=False,
-    goal_obs=None,
     seed=None,
+    eval=False,
     ):
     """Runs an episode using the given solver and environment.
     For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
@@ -25,6 +25,7 @@ def run_episode(
     n = int(env.action_space.n)
     if seed is not None:
         th.manual_seed(seed)
+        np.random.seed(seed)
     observation, info = env.reset(seed=seed)
 
     observation_tensor: th.Tensor = observation_embedding.obs_to_tensor(observation, dtype=th.float32)
@@ -50,7 +51,10 @@ def run_episode(
 
         tree.reset_var_val()
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
-        action = policy_dist.sample().item()
+        if eval:
+            action = policy_dist.probs.argmax().item()
+        else:
+            action = policy_dist.sample().item()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         new_obs, reward, terminated, truncated, _ = env.step(action)
         assert not truncated
@@ -65,9 +69,6 @@ def run_episode(
         trajectory["root_values"][step] = th.tensor(root_value, dtype=th.float32)
 
         if verbose:
-            if goal_obs is not None:
-                vis_counter = tree.state_visitation_counts()
-                print(f"Visits to goal state: {vis_counter[goal_obs]}")
             norm_entropy = policy_dist.entropy() / np.log(n)
             print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
             print(

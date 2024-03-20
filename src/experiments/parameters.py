@@ -56,7 +56,6 @@ env_challenges = [
         "max_episode_length": 100,
         "iterations": 30,
         "env_params": dict(id="CliffWalking-v0", max_episode_steps=1000000000),
-        "observation_embedding": "default",
         "ncols": 12,
     },
     {**lake_config,

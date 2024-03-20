@@ -72,9 +72,8 @@ def add_self_play_metrics_wandb(
             "Self_Play/Entropies": wandb.Histogram(entropies),
             "Self_Play/Mean_Entropy": np.mean(entropies),
             # "Self_Play/Total_Runtime": tot_tim.microseconds,
-            "Self_Play/EMA_Return": ema_return,
-            "Self_Play/Cumulative_Return": cumulative_return,
-            "Self_Play/Total_Mean_Return": cumulative_return / (global_step+1),
+            "Self_Play/EMA_Discounted_Return": ema_return,
+            "Self_Play/Total_Mean_Discounted_Return": cumulative_return / (global_step+1),
         },
         step=global_step,
     )
