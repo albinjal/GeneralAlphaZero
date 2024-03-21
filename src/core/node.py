@@ -152,7 +152,7 @@ class Node(Generic[ObservationType]):
             child.reset_var_val()
 
     def __str__(self):
-        return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\nSub_sum: {self.subtree_sum}\nRollout: {self.default_value()}"
+        return f"Visits: {self.visits}, ter: {int(self.terminal)}\nR: {self.reward}\n Value_Estimate: {self.value_evaluation}, Mean_Value: {self.default_value()}"
 
     def __repr__(self):
         return self.__str__()

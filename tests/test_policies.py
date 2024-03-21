@@ -25,7 +25,7 @@ import gymnasium as gym
 def generate_mcts_tree(
     solver: MCTS,
     env: gym.Env,
-    planning_budget=200,
+    planning_budget=64,
     seed=0,
     seq=(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
 ):

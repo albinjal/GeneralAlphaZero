@@ -124,8 +124,9 @@ class MVTOPolicy(PolicyDistribution):
         return probs
 
 class ValuePolicy(PolicyDistribution):
-    def __init__(self, discount_factor = 1.0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, discount_factor = 1.0, **kwargs):
+        assert "temperature" in kwargs and kwargs["temperature"] is not None, "temperature must be set"
+        super().__init__(**kwargs)
         self.discount_factor = discount_factor
 
     """
@@ -133,8 +134,6 @@ class ValuePolicy(PolicyDistribution):
     """
     def _probs(self, node: Node) -> th.Tensor:
         vals = get_children_policy_values(node, self, self.discount_factor, self.value_transform)
-        # set -inf to 0
-        vals[vals == -th.inf] = 0.0
         return vals
 
 class PriorStdPolicy(PolicyDistribution):
