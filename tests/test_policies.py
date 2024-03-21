@@ -3,7 +3,7 @@ import sys
 sys.path.append("src/")
 
 from policies.utility_functions import policy_value
-from policies.tree import (
+from policies.tree_policies import (
     ValuePolicy,
     VistationPolicy,
     InverseVarianceTreeEvaluator,

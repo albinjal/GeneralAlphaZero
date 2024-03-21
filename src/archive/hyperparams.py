@@ -13,7 +13,7 @@ from torchrl.data import (
 import sys
 
 from policies.selection_distributions import PUCT
-from policies.tree import VistationPolicy
+from policies.tree_policies import VistationPolicy
 sys.path.append("src/")
 
 from az.alphazero import AlphaZeroController

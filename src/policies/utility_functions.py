@@ -147,7 +147,7 @@ def get_children_visits(node: Node) -> th.Tensor:
     return visits
 
 def get_transformed_default_values(node: Node, transform: ValueTransform = IdentityValueTransform) -> th.Tensor:
-    vals = th.zeros(int(node.action_space.n), dtype=th.float32)
+    vals = th.ones(int(node.action_space.n), dtype=th.float32) * -th.inf
     for action, child in node.children.items():
         vals[action] = child.default_value()
 

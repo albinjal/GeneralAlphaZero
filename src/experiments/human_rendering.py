@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 from policies.policies import Policy, PolicyDistribution
 from policies.selection_distributions import PolicyUCT
-from policies.tree import MinimalVarianceConstraintPolicy
+from policies.tree_policies import MinimalVarianceConstraintPolicy
 from core.mcts import MCTS, RandomRolloutMCTS
 
 

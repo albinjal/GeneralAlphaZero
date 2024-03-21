@@ -17,7 +17,7 @@ import numpy as np
 import wandb
 from environments.observation_embeddings import CoordinateEmbedding
 
-from policies.tree import VistationPolicy
+from policies.tree_policies import VistationPolicy
 from policies.policies import PolicyDistribution
 from az.azmcts import AlphaZeroMCTS
 from az.learning import (

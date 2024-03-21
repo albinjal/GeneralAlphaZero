@@ -26,7 +26,7 @@ from az.model import (
     norm_dict,
     models_dict,
 )
-from policies.tree import tree_eval_dict
+from policies.tree_policies import tree_eval_dict
 from policies.selection_distributions import selection_dict_fn
 from policies.value_transforms import value_transform_dict
 
