@@ -136,8 +136,7 @@ def get_children_policy_values_and_inverse_variance(
 
 def expanded_mask(node: Node) -> th.Tensor:
     mask = th.zeros(int(node.action_space.n), dtype=th.float32)
-    for action in node.children:
-        mask[action] = 1.0
+    mask[node.children] = 1.0
     return mask
 
 def get_children_visits(node: Node) -> th.Tensor:
