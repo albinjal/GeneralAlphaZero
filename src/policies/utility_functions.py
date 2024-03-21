@@ -28,7 +28,8 @@ def policy_value(
     else:
         pi = policy.softmaxed_distribution(node, include_self=True)
 
-    probabilities = pi.probs
+    probabilities: th.Tensor = pi.probs
+    assert probabilities.shape[-1] == int(node.action_space.n) + 1
     own_propability = probabilities[-1]  # type: ignore
     child_propabilities = probabilities[:-1]  # type: ignore
     child_values = th.zeros_like(child_propabilities, dtype=th.float32)
