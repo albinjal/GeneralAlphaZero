@@ -15,7 +15,6 @@ from torchrl.data import (
     TensorDictReplayBuffer,
 )
 import wandb
-from policies.expansion import expansion_policy_dict
 
 import experiments.parameters as parameters
 from environments.observation_embeddings import ObservationEmbedding, embedding_dict
@@ -28,11 +27,12 @@ from az.model import (
     models_dict,
 )
 from policies.tree import tree_eval_dict
-from policies.selection import selection_dict_fn
+from policies.selection_distributions import selection_dict_fn
+from policies.value_transforms import value_transform_dict
 
 
 def train_from_config(
-    project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True, tags = None, debug=False
+    project_name="AlphaZero", entity=None, job_name=None, config=None, performance=True, tags = None,
 ):
     if tags is None:
         tags = []
@@ -40,8 +40,6 @@ def train_from_config(
     if performance:
         tags.append("performance")
 
-    if debug:
-        tags.append("debug")
     # Initialize Weights & Biases
     settings = wandb.Settings(job_name=job_name)
     run = wandb.init(
@@ -56,21 +54,26 @@ def train_from_config(
     if "tree_temperature" not in hparams:
         hparams["tree_temperature"] = None
 
-    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor, hparams["puct_c"], hparams["tree_temperature"])[
+    if "tree_value_transform" not in hparams or hparams["tree_value_transform"] is None:
+        hparams["tree_value_transform"] = "identity"
+
+
+    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor, hparams["puct_c"], hparams["tree_temperature"], value_transform=value_transform_dict[hparams["tree_value_transform"]])[
         hparams["tree_evaluation_policy"]
     ]
+    if "selection_value_transform" not in hparams or hparams["selection_value_transform"] is None:
+        hparams["selection_value_transform"] = "identity"
+
     selection_policy = selection_dict_fn(
-        hparams["puct_c"], tree_evaluation_policy, discount_factor
+        hparams["puct_c"], tree_evaluation_policy, discount_factor, value_transform_dict[hparams["selection_value_transform"]]
     )[hparams["selection_policy"]]
 
     if "root_selection_policy" not in hparams or hparams["root_selection_policy"] is None:
         hparams["root_selection_policy"] = hparams["selection_policy"]
 
     root_selection_policy = selection_dict_fn(
-        hparams["puct_c"], tree_evaluation_policy, discount_factor
+        hparams["puct_c"], tree_evaluation_policy, discount_factor, value_transform_dict[hparams["selection_value_transform"]]
     )[hparams["root_selection_policy"]]
-
-    expansion_policy = expansion_policy_dict[hparams["expansion_policy"]]()
 
     if "observation_embedding" not in hparams:
         hparams["observation_embedding"] = "default"
@@ -98,7 +101,6 @@ def train_from_config(
         dir_epsilon=dir_epsilon,
         dir_alpha=dir_alpha,
         discount_factor=discount_factor,
-        expansion_policy=expansion_policy,
     )
 
     optimizer = th.optim.Adam(
@@ -108,7 +110,7 @@ def train_from_config(
     )
 
     if "workers" not in hparams or hparams["workers"] is None:
-        hparams["workers"] = 1 if debug else multiprocessing.cpu_count()
+        hparams["workers"] = multiprocessing.cpu_count()
     workers = hparams["workers"]
 
     if "episodes_per_iteration" not in hparams or hparams["episodes_per_iteration"] is None:
@@ -151,7 +153,7 @@ def train_from_config(
         discount_factor=discount_factor,
         n_steps_learning=hparams["n_steps_learning"],
         checkpoint_interval=-1 if performance else 10,
-        use_visit_count=hparams["use_visit_count"],
+        use_visit_count=bool(hparams["use_visit_count"]),
         writer=writer,
         save_plots=not performance,
         batch_size=sample_batch_size,
@@ -167,17 +169,20 @@ def train_from_config(
 
 
 def sweep_agent():
-    train_from_config(performance=True, debug=False)
+    train_from_config(performance=True)
 
 
 def run_single():
     challenge = parameters.env_challenges[1]
     config_modifications = {
         "workers": 6,
-        "planning_budget": 128
+        "tree_evaluation_policy": "mvc",
+        "eval_param": 1.0,
+        "tree_value_transform": 'identity',
+        "selection_policy": "PolicyPUCT",
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
-    return train_from_config(config=run_config, performance=False, debug=False)
+    return train_from_config(config=run_config, performance=False)
 
 
 if __name__ == "__main__":

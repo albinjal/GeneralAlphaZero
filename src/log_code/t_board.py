@@ -10,7 +10,6 @@ from log_code.investigate_model import investigate_model, plot_policy_network, p
 from environments.observation_embeddings import CoordinateEmbedding, ObservationEmbedding
 
 def show_model_in_tensorboard(model: AlphaZeroModel, writer, step):
-    assert isinstance(model.observation_embedding, CoordinateEmbedding)
     outputs = investigate_model(model)
     value_fig = plot_value_network(outputs, nrows=model.observation_embedding.nrows, ncols=model.observation_embedding.ncols)
     policy_fig = plot_policy_network(outputs, nrows=model.observation_embedding.nrows, ncols=model.observation_embedding.ncols)

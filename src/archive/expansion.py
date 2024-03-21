@@ -5,7 +5,7 @@ from policies.policies import Policy
 
 
 class DefaultExpansionPolicy(Policy):
-    def sample(self, node: Node) -> np.int64:
+    def sample(self, node: Node) -> int:
         # returns a uniformly random unexpanded action
         return node.sample_unexplored_action()
 
@@ -14,7 +14,6 @@ class ExpandFromPriorPolicy(Policy):
         prior = node.prior_policy
         # return the action with the highest prior that has not been expanded yet
         for action in reversed(np.argsort(prior)):
-            action = np.int64(action)
             if action not in node.children:
                 return action
 

@@ -1,9 +1,9 @@
-from math import nan
 import torch as th
 
 from core.node import Node
 from policies.policies import PolicyDistribution
-from policies.utility_functions import get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, puct_multiplier
+from policies.utility_functions import get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, get_transformed_default_values, puct_multiplier
+from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
 class VistationPolicy(PolicyDistribution):
@@ -43,13 +43,17 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
 
         beta = self.get_beta(node)
 
-        normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor)
+        normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
         probs = th.zeros(int(node.action_space.n), dtype=th.float32)
 
         for action in node.children:
             probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
 
         return probs
+class MinimalVarianceConstraintPolicyPrior(MinimalVarianceConstraintPolicy):
+    def _probs(self, node: Node) -> th.Tensor:
+        return super()._probs(node) * node.prior_policy
+
 
 class MVCP_Dynamic_Beta(MinimalVarianceConstraintPolicy):
     """
@@ -74,7 +78,7 @@ class ReversedRegPolicy(PolicyDistribution):
 
 
     def _probs(self, node: Node) -> th.Tensor:
-        vals = get_children_policy_values(node, self, self.discount_factor)
+        vals = get_children_policy_values(node, self, self.discount_factor, self.value_transform)
         probs = th.zeros_like(vals, dtype=th.float32)
         mult = puct_multiplier(self.c, node)
 
@@ -99,7 +103,7 @@ class MVTOPolicy(PolicyDistribution):
 
 
     def _probs(self, node: Node) -> th.Tensor:
-        vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor)
+        vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
         inv_var_policy = inv_vars / inv_vars.sum()
 
         probs = th.zeros_like(vals, dtype=th.float32)
@@ -114,7 +118,7 @@ class MVTOPolicy(PolicyDistribution):
             # seems like lambda is too small, follow the greedy policy instead
             # alternativly we could just set the negative values to 0
             print("lambda too small, using greedy policy")
-            g =  ValuePolicy(self.discount_factor, temperature=0).softmaxed_distribution(node).probs
+            g =  ValuePolicy(self.discount_factor, temperature=0.0).softmaxed_distribution(node).probs
             return g
 
         return probs
@@ -128,7 +132,47 @@ class ValuePolicy(PolicyDistribution):
     Determinstic policy that selects the action with the highest value
     """
     def _probs(self, node: Node) -> th.Tensor:
-        return get_children_policy_values(node, self, self.discount_factor)
+        vals = get_children_policy_values(node, self, self.discount_factor, self.value_transform)
+        # set -inf to 0
+        vals[vals == -th.inf] = 0.0
+        return vals
+
+class PriorStdPolicy(PolicyDistribution):
+    def Q(self, node: Node) -> th.Tensor:
+        pass
+
+    def inv_std(self, node: Node) -> th.Tensor:
+        pass
+
+    def Q_inv_std(self, node: Node):
+        return self.Q(node), self.inv_std(node)
+
+    def _probs(self, node: Node) -> th.Tensor:
+        vals, inv_std = self.Q_inv_std(node)
+        transformed_vals = th.nan_to_num(vals * inv_std)
+        return node.prior_policy * th.exp(transformed_vals - transformed_vals.max())
+
+class VistationPriorStdPolicy(PriorStdPolicy):
+    def __init__(self, sigma: float, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sigma = sigma
+
+    def Q(self, node: Node) -> th.Tensor:
+        return get_transformed_default_values(node, self.value_transform)
+
+    def inv_std(self, node: Node) -> th.Tensor:
+        return th.sqrt(get_children_visits(node)) / self.sigma
+
+
+class BellmanPriorStdPolicy(PriorStdPolicy):
+    def __init__(self, sigma: float, *args, discount_factor: float = 1.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sigma = sigma
+        self.discount_factor = discount_factor
+
+    def Q_inv_std(self, node: Node):
+        q, var = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
+        return q, th.sqrt(var) / self.sigma
 
 tree_dict = {
     "visit": VistationPolicy,
@@ -139,11 +183,14 @@ tree_dict = {
     "mvto": MVTOPolicy,
 }
 
-tree_eval_dict = lambda param, discount, c=1.0, temperature=None: {
-    "visit": VistationPolicy(temperature),
-    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount, temperature=temperature),
-    "mvc": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param, temperature=temperature),
-    'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount, temperature=temperature),
-    'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount, temperature=temperature),
-    "mvto": MVTOPolicy(lamb=param, discount_factor=discount, temperature=temperature),
+tree_eval_dict = lambda param, discount, c=1.0, temperature=None, value_transform=IdentityValueTransform: {
+    "visit": VistationPolicy(temperature, value_transform=value_transform),
+    "inverse_variance": InverseVarianceTreeEvaluator(discount_factor=discount, temperature=temperature, value_transform=value_transform),
+    "mvc": MinimalVarianceConstraintPolicy(discount_factor=discount, beta=param, temperature=temperature, value_transform=value_transform),
+    'mvc_dynbeta': MVCP_Dynamic_Beta(c=c, discount_factor=discount, temperature=temperature, value_transform=value_transform),
+    'reversedregpolicy': ReversedRegPolicy(c=c, discount_factor=discount, temperature=temperature, value_transform=value_transform),
+    "mvto": MVTOPolicy(lamb=param, discount_factor=discount, temperature=temperature, value_transform=value_transform),
+    'visit_prior_std': VistationPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
+    'bellman_prior_std': BellmanPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
+    'mvcp': MinimalVarianceConstraintPolicyPrior(discount_factor=discount, beta=param, temperature=temperature, value_transform=value_transform),
 }

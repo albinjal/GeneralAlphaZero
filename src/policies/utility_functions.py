@@ -3,25 +3,9 @@ import torch as th
 
 from core.node import Node
 from policies.policies import PolicyDistribution
+from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
-def basic_value_normalizer(values: th.Tensor) -> th.Tensor:
-    # makes sure the values are in the range [0, 1]
-    # make sure to handle the case where some values are -inf by ignoring them and only applying the normalization to the rest
-    # if all values are -inf, return a tensor of zeros
-    values = values.clone()
-    val = values[values.isfinite()]
-    if val.numel() == 0:
-        return th.zeros_like(values)
-    max_val = val.max()
-    min_val = val.min()
-
-    if max_val == min_val:
-        val = th.zeros_like(val)
-    else:
-        val = (val - min_val) / (max_val - min_val)
-    values[values.isfinite()] = val
-    return values
 
 
 # TODO: can improve this implementation
@@ -106,13 +90,13 @@ def get_children_policy_values(
     parent: Node,
     policy: PolicyDistribution,
     discount_factor: float,
-    transform: Callable = basic_value_normalizer,
+    transform: ValueTransform = IdentityValueTransform,
 ) -> th.Tensor:
     # have a look at this, infs mess things up
     vals = th.ones(int(parent.action_space.n), dtype=th.float32) * -th.inf
     for action, child in parent.children.items():
         vals[action] = policy_value(child, policy, discount_factor)
-    vals = transform(vals)
+    vals = transform.normalize(vals)
 
     return vals
 
@@ -133,7 +117,7 @@ def get_children_policy_values_and_inverse_variance(
     parent: Node,
     policy: PolicyDistribution,
     discount_factor: float,
-    transform: Callable = basic_value_normalizer,
+    transform: ValueTransform = IdentityValueTransform,
 ) -> tuple[th.Tensor, th.Tensor]:
     """
     This is more efficent than calling get_children_policy_values and get_children_variances separately
@@ -147,7 +131,7 @@ def get_children_policy_values_and_inverse_variance(
             child, pi, discount_factor
         )
 
-    normalized_vals = transform(vals)
+    normalized_vals = transform.normalize(vals)
     return normalized_vals, inv_vars
 
 def expanded_mask(node: Node) -> th.Tensor:
@@ -162,6 +146,13 @@ def get_children_visits(node: Node) -> th.Tensor:
         visits[action] = child.visits
 
     return visits
+
+def get_transformed_default_values(node: Node, transform: ValueTransform = IdentityValueTransform) -> th.Tensor:
+    vals = th.zeros(int(node.action_space.n), dtype=th.float32)
+    for action, child in node.children.items():
+        vals[action] = child.default_value()
+
+    return transform.normalize(vals)
 
 def puct_multiplier(c: float, node: Node):
     """

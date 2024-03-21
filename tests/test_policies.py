@@ -11,7 +11,7 @@ from policies.tree import (
     MinimalVarianceConstraintPolicy,
 )
 
-from policies.selection import PUCT, UCT, PolicyPUCT, PolicyUCT
+from policies.selection_distributions import PUCT, UCT, PolicyPUCT, PolicyUCT
 import numpy as np
 from az.azmcts import AlphaZeroMCTS
 from az.model import UnifiedModel
@@ -35,7 +35,7 @@ def generate_mcts_tree(
     for action in seq:
         observation, reward, terminated, truncated, info = env.step(action)
 
-    tree = solver.search(env, planning_budget, observation, np.float32(reward))
+    tree = solver.search(env, planning_budget, observation, reward)
     return tree
 
 
@@ -92,7 +92,7 @@ def test_MinimalVarianceConstraintPolicy_zerobeta(tree, discount_factor):
     beta = 0.0
     inv_var_eval = InverseVarianceTreeEvaluator(discount_factor=discount_factor)
     mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
-
+    tree.reset_var_val()
     inv_var_policy = np.array(inv_var_eval.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
     mvcp_policy = np.array(mvcp.softmaxed_distribution(tree).probs)
@@ -110,10 +110,10 @@ def test_MinimalVarianceConstraintPolicy_greedy(tree, discount_factor):
     We assume that when beta-> inf, the policy is the same as the greedy policy
     """
     # TODO: this sometimes fails, investigate why
-    beta = 1e6
-    greedy = ValuePolicy(discount_factor=discount_factor, temperature=0)
+    beta = 1e8
+    greedy = ValuePolicy(discount_factor=discount_factor, temperature=0.0)
     mvcp = MinimalVarianceConstraintPolicy(beta=beta, discount_factor=discount_factor)
-
+    tree.reset_var_val()
     greedy_policy = np.array(greedy.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
     mvcp_policy = np.array(mvcp.softmaxed_distribution(tree).probs)
@@ -153,9 +153,9 @@ def test_mvto_lambdzero(tree, discount_factor):
     """
     # TODO: for some strange reason this sometimes fails and the greedy and mvto policies are different, investigate
     lambd = 1e-8
-    greedy = ValuePolicy(discount_factor=discount_factor, temperature=0)
+    greedy = ValuePolicy(discount_factor=discount_factor, temperature=0.0)
     mvto = MVTOPolicy(lamb=lambd, discount_factor=discount_factor)
-
+    tree.reset_var_val()
     greedy_policy = np.array(greedy.softmaxed_distribution(tree).probs)
     tree.reset_var_val()
     mvto_policy = np.array(mvto.softmaxed_distribution(tree).probs)
@@ -191,15 +191,15 @@ def test_policy_uct(tree, discount_factor, c=1.0):
     """
 
     uct = UCT(c)
-    uct_action = uct.sample(tree)
+    uct_dist = np.array(uct.softmaxed_distribution(tree, False).probs)
 
     default_eval = VistationPolicy()
     policy_uct = PolicyUCT(c, policy=default_eval, discount_factor=discount_factor)
-    p_uct_action = policy_uct.sample(tree)
+    p_uct_dist = np.array(policy_uct.softmaxed_distribution(tree, False).probs)
 
-    assert (
-        uct_action == p_uct_action
-    ), f"UCT action: {uct_action}, PolicyUCT action: {p_uct_action}"
+    assert np.allclose(
+        uct_dist, p_uct_dist, rtol=1e-6, atol=1e-6
+    ), f"UCT distribution: {uct_dist}, PolicyUCT distribution: {p_uct_dist}"
 
 
 @pytest.mark.parametrize("env", ["CliffWalking-v0"], indirect=True)
