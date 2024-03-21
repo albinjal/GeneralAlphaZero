@@ -44,11 +44,10 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
         beta = self.get_beta(node)
 
         normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
-        probs = th.zeros(int(node.action_space.n), dtype=th.float32)
-
-        for action in node.children:
-            probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
-
+        # for action in node.children:
+        #     probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
+        logits = beta * th.nan_to_num(normalized_vals)
+        probs = inv_vars * th.exp(logits - logits.max())
         return probs
 class MinimalVarianceConstraintPolicyPrior(MinimalVarianceConstraintPolicy):
     def _probs(self, node: Node) -> th.Tensor:

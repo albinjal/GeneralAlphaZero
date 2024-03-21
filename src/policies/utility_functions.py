@@ -98,7 +98,6 @@ def get_children_policy_values(
     for action, child in parent.children.items():
         vals[action] = policy_value(child, policy, discount_factor)
     vals = transform.normalize(vals)
-
     return vals
 
 
