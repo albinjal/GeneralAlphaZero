@@ -18,7 +18,9 @@ def policy_value(
     # with the defualt tree evaluator, this should return the same as the default value
 
     if node.terminal:
-        return th.tensor(node.reward, dtype=th.float32)
+        val = th.tensor(node.reward, dtype=th.float32)
+        node.policy_value = val
+        return val
 
     if node.policy_value:
         return node.policy_value

@@ -5,15 +5,7 @@ from core.node import Node
 from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
-def add_self_to_probs(node: Node, probs: th.Tensor) -> th.Tensor:
-    """
-    Takes the current policy and adds one extra value to it, which is the probability of selecting the node itself.
-    Should return a tensor with one extra value at the end
-    The default choice is to set it to 1/visits
-    Note that policy is not yet normalized, so we can't just add 1/visits to the last value
-    """
-    self_prob = probs.sum() / (node.visits - 1)
-    return th.cat([probs, th.tensor([self_prob])])
+
 
 
 class Policy(ABC):
@@ -48,9 +40,26 @@ class PolicyDistribution(Policy):
     @abstractmethod
     def _probs(self, node: Node) -> th.Tensor:
         """
-        Returns the relative probabilities of the actions
+        Returns the relative probabilities of the actions (excluding the special action)
         """
         pass
+
+    def self_prob(self, node: Node, probs: th.Tensor) -> float:
+        """
+        Returns the relative probability of selecting the node itself
+        """
+        return probs.sum() / (node.visits - 1)
+
+
+    def add_self_to_probs(self, node: Node, probs: th.Tensor) -> th.Tensor:
+        """
+        Takes the current policy and adds one extra value to it, which is the probability of selecting the node itself.
+        Should return a tensor with one extra value at the end
+        The default choice is to set it to 1/visits
+        Note that policy is not yet normalized, so we can't just add 1/visits to the last value
+        """
+        self_prob = self.self_prob(node, probs)
+        return th.cat([probs, th.tensor([self_prob])])
 
 
     def softmaxed_distribution(self, node: Node, include_self=False, **kwargs) -> th.distributions.Categorical:
@@ -68,31 +77,21 @@ class PolicyDistribution(Policy):
         # softmax with temperature
         if self.temperature is None:
             if include_self:
-                probs = add_self_to_probs(node, probs)
+                probs = self.add_self_to_probs(node, probs)
             return th.distributions.Categorical(probs=probs)
         elif self.temperature == 0.0 :
             # return a uniform distribution over the actions with the highest probability
             max_logits = th.max(probs)
             probs = (probs == max_logits).float()
             if include_self:
-                probs = add_self_to_probs(node, probs)
+                probs = self.add_self_to_probs(node, probs)
             return th.distributions.Categorical(probs=probs)
         else:
             dist = th.distributions.Categorical(logits=probs / self.temperature)
             # add the probability of selecting the node itself
             if include_self:
-                dist = th.distributions.Categorical(probs=add_self_to_probs(node, dist.probs))
+                dist = th.distributions.Categorical(probs=self.add_self_to_probs(node, dist.probs))
             return dist
-
-
-class OptionalPolicy(ABC):
-    def __call__(self, node: Node) -> int | None:
-        return self.sample(node)
-
-    @abstractmethod
-    def sample(self, node: Node) -> int | None:
-        """Take a node and return an action or None if no action is chosen"""
-        pass
 
 
 

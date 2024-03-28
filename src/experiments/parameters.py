@@ -1,5 +1,3 @@
-
-
 base_parameters = {
     "model_type": "seperated",
     "observation_embedding": "default",
@@ -7,15 +5,15 @@ base_parameters = {
     "norm_layer": "none",
     "dir_epsilon": 0.25,
     "dir_alpha": 2.0,
-    "selection_policy": 'PUCT',
+    "selection_policy": "PUCT",
     "puct_c": 1.0,
-    "selection_value_transform": 'identity',
+    "selection_value_transform": "identity",
     "use_visit_count": True,
     "regularization_weight": 1e-4,
     "tree_evaluation_policy": "visit",
     "eval_param": 1.0,
     "tree_temperature": None,
-    "tree_value_transform": 'identity',
+    "tree_value_transform": "identity",
     "hidden_dim": 64,
     "learning_rate": 1e-3,
     "sample_batch_ratio": 1,
@@ -33,14 +31,13 @@ base_parameters = {
     "episodes_per_iteration": 6,
 }
 
-lake_config ={
+lake_config = {
     "max_episode_length": 100,
-    "discount_factor": 0.9,
+    "discount_factor": 0.95,
     "iterations": 30,
-    "observation_embedding": "coordinate",
-    "eval_param": 1.0,
-    'training_epochs': 2,
-    }
+    "observation_embedding": "default",
+    "training_epochs": 2,
+}
 
 env_challenges = [
     {
@@ -58,7 +55,8 @@ env_challenges = [
         "env_params": dict(id="CliffWalking-v0", max_episode_steps=1000000000),
         "ncols": 12,
     },
-    {**lake_config,
+    {
+        **lake_config,
         "env_description": "FrozenLake-v1-4x4",
         "ncols": 4,
         "env_params": dict(
@@ -69,7 +67,8 @@ env_challenges = [
             max_episode_steps=1000000000,
         ),
     },
-    {**lake_config,
+    {
+        **lake_config,
         "env_description": "FrozenLake-v1-8x8",
         "ncols": 8,
         "env_params": dict(
@@ -78,7 +77,30 @@ env_challenges = [
             map_name="8x8",
             is_slippery=False,
             max_episode_steps=1000000000,
-        )
-
+        ),
     },
+    #     {
+    #     "env_description": 'Acrobot-v1',
+    #     "max_episode_length": 100,
+    #     "iterations": 30,
+    #     "env_params": dict(id='Acrobot-v1', max_episode_steps=1000000000),
+    #     "observation_embedding": "default",
+    #     "ncols": None,
+    # }, # seems to work poorly cuz of exploration
+    # {
+    #     "env_description": "LunarLander-v2",
+    #     "max_episode_length": 100,
+    #     "iterations": 30,
+    #     "env_params":dict(
+    #         id="LunarLander-v2",
+    #         max_episode_steps=1000000000,
+    #         continuous=False,
+    #         gravity=-10.0,
+    #         enable_wind=False,
+    #         wind_power=15.0,
+    #         turbulence_power=1.5,
+    #     ),
+    #     "observation_embedding": "default",
+    #     "ncols": None,
+    # }, # https://github.com/openai/gym/issues/1292
 ]

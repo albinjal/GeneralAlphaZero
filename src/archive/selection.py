@@ -1,9 +1,20 @@
+from abc import ABC, abstractmethod
 import numpy as np
 import torch as th
 
 from core.node import Node
-from policies.policies import OptionalPolicy, PolicyDistribution
+from policies.policies import PolicyDistribution
 from policies.utility_functions import policy_value
+
+
+class OptionalPolicy(ABC):
+    def __call__(self, node: Node) -> int | None:
+        return self.sample(node)
+
+    @abstractmethod
+    def sample(self, node: Node) -> int | None:
+        """Take a node and return an action or None if no action is chosen"""
+        pass
 
 
 class UCB(OptionalPolicy):
