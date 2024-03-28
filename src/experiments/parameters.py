@@ -31,9 +31,10 @@ base_parameters = {
     "episodes_per_iteration": 6,
 }
 
+lake_discount_factor = 0.95
 lake_config = {
     "max_episode_length": 100,
-    "discount_factor": 0.95,
+    "discount_factor": lake_discount_factor,
     "iterations": 30,
     "observation_embedding": "default",
     "training_epochs": 2,
@@ -47,6 +48,9 @@ env_challenges = [
         "env_params": dict(id="CartPole-v1", max_episode_steps=1000000000),
         "observation_embedding": "default",
         "ncols": None,
+        "optimal_value": 300,
+        "worst_value": 0.0,
+
     },
     {
         "env_description": "CliffWalking-v0",
@@ -54,6 +58,8 @@ env_challenges = [
         "iterations": 30,
         "env_params": dict(id="CliffWalking-v0", max_episode_steps=1000000000),
         "ncols": 12,
+        "optimal_value": -13,
+        "worst_value": -200.0,
     },
     {
         **lake_config,
@@ -66,6 +72,8 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
+        "optimal_value": 1.0 * lake_discount_factor ** 6,
+        "worst_value": -1.0,
     },
     {
         **lake_config,
@@ -78,6 +86,9 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
+        "optimal_value": 1.0 * lake_discount_factor ** 14,
+        "worst_value": -1.0,
+
     },
     #     {
     #     "env_description": 'Acrobot-v1',
