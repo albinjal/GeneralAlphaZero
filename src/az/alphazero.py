@@ -1,10 +1,6 @@
 from collections import Counter
-import datetime
 import multiprocessing
 import os
-import time
-
-
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
@@ -15,8 +11,10 @@ from torchrl.data import (
 from torch.utils.tensorboard.writer import SummaryWriter
 import numpy as np
 import wandb
-from environments.observation_embeddings import CoordinateEmbedding
 
+from core.runner import collect_trajectories
+from experiments.eval_agent import eval_agent
+from log_code.metrics import calc_metrics
 from policies.tree_policies import VistationPolicy
 from policies.policies import PolicyDistribution
 from az.azmcts import AlphaZeroMCTS
@@ -24,25 +22,11 @@ from az.learning import (
     n_step_value_targets,
     calculate_visit_counts,
 )
-from core.runner import run_episode
 from log_code.t_board import add_self_play_metrics, add_training_metrics, plot_visits_with_counter_tensorboard, show_model_in_tensorboard
 from log_code.wandb_logs import add_self_play_metrics_wandb, add_training_metrics_wandb, plot_visits_to_wandb_with_counter, show_model_in_wandb
 
-def run_episode_process(args):
-    """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""
-    agent, env, tree_evaluation_policy, observation_embedding, planning_budget, max_episode_length = args
-    return run_episode(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, max_episode_length)
 
-def calc_metrics(tensor_res: th.Tensor, discount_factor: float, n: int, epsilon = 1e-8):
-    episode_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"], dim=-1)
-    discounted_returns = th.sum(tensor_res["rewards"]* tensor_res["mask"] * discount_factor ** th.arange(tensor_res["rewards"].shape[-1]), dim=-1)
-    time_steps = th.sum(tensor_res["mask"], dim=-1)
-    entropy = -th.sum(
-            tensor_res["policy_distributions"]
-            * th.log(tensor_res["policy_distributions"] + epsilon),
-            dim=-1,
-        ) * tensor_res["mask"] / np.log(n)
-    return episode_returns, discounted_returns, time_steps, entropy
+
 class AlphaZeroController:
     """
     The Controller will be responsible for orchistrating the training of the model. With self play and training.
@@ -203,46 +187,45 @@ class AlphaZeroController:
 
         return {"average_return": total_return / iterations}
 
+
     def evaluate(self, step: int):
         # collect one trajectory with non stochastic version of the policy
         self.agent.model.eval()
         # temporarly set the epsilon to 0
         eps, self.agent.dir_epsilon = self.agent.dir_epsilon, 0.0
-        result = run_episode(self.agent, self.env, self.tree_evaluation_policy, self.agent.model.observation_embedding, self.planning_budget, self.max_episode_length, seed=0, eval=True)
-        self.agent.dir_epsilon = eps
-        episode_return, discounted_return, time_steps, entropies = calc_metrics(result, self.discount_factor, self.env.action_space.n)
+        episode_returns, discounted_returns, time_steps, entropies  = eval_agent(self.agent, self.env, self.tree_evaluation_policy, self.agent.model.observation_embedding, self.planning_budget, self.max_episode_length, seeds=[0], temperature=0.0)
 
+        eval_res =  {
+            "Evaluation/Returns": wandb.Histogram(np.array((episode_returns))),
+            "Evaluation/Discounted_Returns": wandb.Histogram(np.array((discounted_returns))),
+            "Evaluation/Timesteps": wandb.Histogram(np.array((time_steps))),
+            "Evaluation/Entropies": wandb.Histogram(np.array(((th.sum(entropies, dim=-1) / time_steps)))),
+            "Evaluation/Mean_Returns": episode_returns.mean().item(),
+            "Evaluation/Mean_Discounted_Returns": discounted_returns.mean().item(),
+            "Evaluation/Mean_Entropy": (th.sum(entropies, dim=-1) / time_steps).mean().item(),
+        }
         wandb.log(
-            {
-                "Evaluation/Return": episode_return,
-                "Evaluation/Discounted_Return": discounted_return,
-                "Evaluation/Timesteps": time_steps,
-                "Evaluation/Mean_Entropy": th.sum(entropies, dim=-1) / time_steps,
-            },
+            eval_res,
             step=step,
         )
+        self.agent.dir_epsilon = eps
+        return eval_res
 
 
     def self_play(self):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
-        tasks = [
-            (
+        tasks = [(
                 self.agent,
                 self.env,
                 self.tree_evaluation_policy,
                 self.agent.model.observation_embedding,
                 self.planning_budget,
                 self.max_episode_length,
-            )
-        ] * self.episodes_per_iteration
-        if self.self_play_workers > 1:
-            with multiprocessing.Pool(self.self_play_workers) as pool:
-                # Run the tasks using map
-                results = pool.map(run_episode_process, tasks)
-        else:
-            results = [run_episode_process(task) for task in tasks]
-        return th.stack(results)
+                None,
+                None,
+            )] * self.episodes_per_iteration
+        return collect_trajectories(tasks, self.self_play_workers)
 
 
     def add_self_play_metrics(self, tensor_res, total_return, last_ema, global_step):

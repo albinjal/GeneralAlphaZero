@@ -1,10 +1,25 @@
+import multiprocessing
 from tensordict import TensorDict
 import torch as th
 import gymnasium as gym
 import numpy as np
 from core.mcts import MCTS
 from environments.observation_embeddings import ObservationEmbedding
-from policies.policies import PolicyDistribution
+from policies.policies import PolicyDistribution, custom_softmax
+
+def run_episode_process(args):
+    """Wrapper function for multiprocessing that unpacks arguments and runs a single episode."""
+    return run_episode(*args)
+
+def collect_trajectories(tasks, workers=1):
+    if workers > 1:
+        with multiprocessing.Pool(workers) as pool:
+            # Run the tasks using map
+            results = pool.map(run_episode_process, tasks)
+    else:
+        results = [run_episode_process(task) for task in tasks]
+    res_tensor =  th.stack(results)
+    return res_tensor
 
 @th.no_grad()
 def run_episode(
@@ -14,9 +29,8 @@ def run_episode(
     observation_embedding: ObservationEmbedding,
     planning_budget=1000,
     max_steps=1000,
-    verbose=False,
     seed=None,
-    eval=False,
+    temperature=None,
     ):
     """Runs an episode using the given solver and environment.
     For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
@@ -51,10 +65,8 @@ def run_episode(
 
         tree.reset_var_val()
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
-        if eval:
-            action = policy_dist.probs.argmax().item()
-        else:
-            action = policy_dist.sample().item()
+        # apply extra softmax
+        action = th.distributions.Categorical(probs=custom_softmax(policy_dist.probs, temperature, None)).sample().item()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         new_obs, reward, terminated, truncated, _ = env.step(action)
         assert not truncated
@@ -67,13 +79,6 @@ def run_episode(
         trajectory["mask"][step] = True
         trajectory["terminals"][step] = next_terminal
         trajectory["root_values"][step] = th.tensor(root_value, dtype=th.float32)
-
-        if verbose:
-            norm_entropy = policy_dist.entropy() / np.log(n)
-            print(f"Policy: {policy_dist.probs}, Norm Entropy: {norm_entropy: .2f}")
-            print(
-                f"{step}. O: {observation}, A: {action}, R: {reward}, T: {next_terminal}"
-            )
         if next_terminal or truncated:
             break
 

@@ -37,7 +37,7 @@ lake_config = {
     "discount_factor": lake_discount_factor,
     "iterations": 30,
     "observation_embedding": "default",
-    "training_epochs": 2,
+    "training_epochs": 4,
 }
 
 env_challenges = [

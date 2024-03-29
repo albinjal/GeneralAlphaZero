@@ -36,6 +36,7 @@ def train_from_config(
 ):
     if tags is None:
         tags = []
+    tags.append("training")
 
     if performance:
         tags.append("performance")
@@ -173,13 +174,13 @@ def sweep_agent():
 
 
 def run_single():
-    challenge = parameters.env_challenges[0]
+    challenge = parameters.env_challenges[2]
     config_modifications = {
-        "workers": 6,
-        "tree_evaluation_policy": "mvc",
+        "workers": 1,
+        "tree_evaluation_policy": "visit",
         "eval_param": 1.0,
-        "selection_policy": "PolicyPUCT",
-        "puct_c": 5.0,
+        "selection_policy": "PUCT",
+        "puct_c": 1.0,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False)

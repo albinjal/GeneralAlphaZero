@@ -7,7 +7,7 @@ from policies.utility_functions import get_children_policy_values, get_children_
 
 # use distributional selection policies instead of OptionalPolicy
 class SelectionPolicy(PolicyDistribution):
-    def __init__(self, *args, temperature: float = 0, **kwargs) -> None:
+    def __init__(self, *args, temperature: float = 0.0, **kwargs) -> None:
         # by default, we use argmax in selection
         super().__init__(*args, temperature=temperature, **kwargs)
 

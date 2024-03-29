@@ -5,7 +5,36 @@ from core.node import Node
 from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
+def custom_softmax(
+    probs: th.Tensor,
+    temperature: float | None = None,
+    action_mask: th.Tensor | None = None,
+) -> th.Tensor:
+    """Applies softmax to the input tensor with a temperature parameter.
 
+    Args:
+        probs (th.Tensor): Relative probabilities of actions.
+        temperature (float): The temperature parameter. None means dont apply softmax. 0 means stochastic argmax.
+        action_mask (th.Tensor, optional): A mask tensor indicating which actions are valid to take. The probability of these should be zero.
+
+    Returns:
+        th.Tensor: Probs after applying softmax.
+    """
+
+    if temperature is None:
+        # no softmax
+        p = probs
+
+    elif temperature == 0.0:
+        max_prob = th.max(probs, dim=-1, keepdim=True).values
+        p = (probs == max_prob).float()
+    else:
+        p = th.nn.functional.softmax(probs / temperature, dim=-1)
+
+    if action_mask is not None:
+        p[~action_mask] = 0.0
+
+    return p
 
 
 class Policy(ABC):
@@ -23,13 +52,18 @@ class PolicyDistribution(Policy):
     We can either sample stochasticly from distribution or deterministically choose the action with the highest probability.
     We can also apply softmax with temperature to the distribution.
     """
+
     temperature: float
     value_transform: ValueTransform
-    def __init__(self, temperature: float = None, value_transform: ValueTransform = IdentityValueTransform) -> None:
+
+    def __init__(
+        self,
+        temperature: float = None,
+        value_transform: ValueTransform = IdentityValueTransform,
+    ) -> None:
         super().__init__()
         self.temperature = temperature
         self.value_transform = value_transform
-
 
     def sample(self, node: Node) -> int:
         """
@@ -50,7 +84,6 @@ class PolicyDistribution(Policy):
         """
         return probs.sum() / (node.visits - 1)
 
-
     def add_self_to_probs(self, node: Node, probs: th.Tensor) -> th.Tensor:
         """
         Takes the current policy and adds one extra value to it, which is the probability of selecting the node itself.
@@ -61,8 +94,9 @@ class PolicyDistribution(Policy):
         self_prob = self.self_prob(node, probs)
         return th.cat([probs, th.tensor([self_prob])])
 
-
-    def softmaxed_distribution(self, node: Node, include_self=False, **kwargs) -> th.distributions.Categorical:
+    def softmaxed_distribution(
+        self, node: Node, include_self=False, **kwargs
+    ) -> th.distributions.Categorical:
         """
         Relative probabilities with self handling
         """
@@ -73,26 +107,11 @@ class PolicyDistribution(Policy):
             return th.distributions.Categorical(probs=probs)
 
         probs = self._probs(node)
-
-        # softmax with temperature
-        if self.temperature is None:
-            if include_self:
-                probs = self.add_self_to_probs(node, probs)
-            return th.distributions.Categorical(probs=probs)
-        elif self.temperature == 0.0 :
-            # return a uniform distribution over the actions with the highest probability
-            max_logits = th.max(probs)
-            probs = (probs == max_logits).float()
-            if include_self:
-                probs = self.add_self_to_probs(node, probs)
-            return th.distributions.Categorical(probs=probs)
-        else:
-            dist = th.distributions.Categorical(logits=probs / self.temperature)
-            # add the probability of selecting the node itself
-            if include_self:
-                dist = th.distributions.Categorical(probs=self.add_self_to_probs(node, dist.probs))
-            return dist
-
+        # softmax the probs
+        softmaxed_probs = custom_softmax(probs, self.temperature, None)
+        if include_self:
+            softmaxed_probs = self.add_self_to_probs(node, softmaxed_probs)
+        return th.distributions.Categorical(probs=softmaxed_probs)
 
 
 class RandomPolicy(Policy):
