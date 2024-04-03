@@ -140,10 +140,10 @@ def eval_single():
         "eval_param": 1.0,
         "selection_policy": "UCT",
         "puct_c": 1.0,
-        "eval_temp": None,
-        "runs": 20,
+        "runs": 200,
         "agent_type": "random_rollout",
         "rollout_budget": 40,
+        "eval_temp": 0.0,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return eval_from_config(config=run_config)
