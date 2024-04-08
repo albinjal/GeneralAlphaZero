@@ -205,12 +205,15 @@ class RandomRolloutMCTS(MCTS):
 
         # if the node is not terminal, simulate the enviroment with random actions and return the accumulated reward until termination
         accumulated_reward = 0.0
+        discount = 0.0
         env = copy.deepcopy(node.env)
         assert env is not None
         for _ in range(self.rollout_budget):
             _, reward, terminated, truncated, _ = env.step(env.action_space.sample())
-            accumulated_reward += reward
-            if terminated or truncated:
+            accumulated_reward += reward * discount
+            assert not truncated
+            if terminated:
                 break
+            discount *= self.discount_factor
 
         return accumulated_reward
