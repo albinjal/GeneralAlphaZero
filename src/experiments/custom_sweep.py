@@ -26,7 +26,7 @@ def eval_agent(project, entity, config, tags, sleep=3):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 2
+    nr_runs = 5
 
     config_modifications = {
         "workers": 1,
@@ -59,7 +59,7 @@ if __name__ == '__main__':
             if env["env_description"] in mods:
                 env.update(mods[env["env_description"]])
 
-    envs = parameters.env_challenges[2:3]
+    envs = parameters.env_challenges[3:4]
 
 
     run_config = {**parameters.base_parameters, **config_modifications}

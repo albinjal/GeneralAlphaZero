@@ -32,7 +32,7 @@ base_parameters = {
     "eval_temp": 0.0,
 }
 
-lake_discount_factor = 0.9
+lake_discount_factor = 0.95
 lake_config = {
     "max_episode_length": 100,
     "discount_factor": lake_discount_factor,
@@ -75,7 +75,7 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
-        "optimal_value": 1.0 * lake_discount_factor ** 6,
+        "optimal_value": 1.0 * lake_discount_factor ** 5,
         "worst_value": -1.0,
     },
     {
@@ -89,7 +89,7 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
-        "optimal_value": 1.0 * lake_discount_factor ** 14,
+        "optimal_value": 1.0 * lake_discount_factor ** 13,
         "worst_value": -1.0,
 
     },
