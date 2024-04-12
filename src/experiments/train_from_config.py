@@ -176,11 +176,15 @@ def sweep_agent():
 def run_single():
     challenge = parameters.env_challenges[2]
     config_modifications = {
-        "workers": 1,
-        "tree_evaluation_policy": "visit",
-        "eval_param": 1.0,
-        "selection_policy": "PUCT",
+        "workers": 3,
+        "tree_evaluation_policy": "mvc",
+        "eval_param": 5.0,
+        "planning_budget": 64,
+        "selection_policy": "PolicyPUCT",
         "puct_c": 1.0,
+        "n_steps_learning": 1,
+        "training_epochs": 2,
+        "learning_rate": 1e-3,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False)

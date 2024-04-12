@@ -11,10 +11,10 @@ from experiments.evaluate_from_config import eval_from_config
 from experiments.train_from_config import train_from_config
 import experiments.parameters as parameters
 
-def train_model(project, entity, config, tags):
+def train_model(project, entity, config, tags, sleep=3):
     # Assuming train_from_config is your training function
     # wait 0-3 seconds (random)
-    time.sleep(3 * np.random.random())
+    time.sleep(sleep * np.random.random())
     train_from_config(project, entity, config=config, tags=tags, performance=True)
 
 
@@ -26,39 +26,40 @@ def eval_agent(project, entity, config, tags, sleep=3):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 1
+    nr_runs = 2
 
     config_modifications = {
-        "workers": 6,
-        "runs": 6*10,
-        "agent_type": "random_rollout",
-        "rollout_budget": 50,
-        "eval_temp": 0.0,
-        "planning_budget": 32,
+        "workers": 1,
+        # "runs": 6*10,
+        # "agent_type": "random_rollout",
+        # "rollout_budget": 50,
+        # "eval_temp": 0.0,
+        # "planning_budget": 32,
     }
 
-    # env modificaitons
-    mods = {
-        "CartPole-v1": {
-            "rollout_budget": 200,
-            "puct_c": (c := 10.0),
-            "eval_param": 1.0 / c,
-            "max_episode_length": 1000,
-            "planning_budget": 8,
-        },
-        "FrozenLake-v1-4x4": {
-            "rollout_budget": 30,
-            "planning_budget": 32,
-            "puct_c": (c := 1.0),
-            "eval_param": 1.0 / c,
+    if False:
+        # env modificaitons
+        mods = {
+            "CartPole-v1": {
+                "rollout_budget": 200,
+                "puct_c": (c := 10.0),
+                "eval_param": 1.0 / c,
+                "max_episode_length": 1000,
+                "planning_budget": 8,
+            },
+            "FrozenLake-v1-4x4": {
+                "rollout_budget": 30,
+                "planning_budget": 32,
+                "puct_c": (c := 1.0),
+                "eval_param": 1.0 / c,
+            }
         }
-    }
 
-    for env in parameters.env_challenges:
-        if env["env_description"] in mods:
-            env.update(mods[env["env_description"]])
+        for env in parameters.env_challenges:
+            if env["env_description"] in mods:
+                env.update(mods[env["env_description"]])
 
-    envs = [parameters.env_challenges[2]]
+    envs = parameters.env_challenges[2:3]
 
 
     run_config = {**parameters.base_parameters, **config_modifications}
@@ -70,11 +71,11 @@ if __name__ == '__main__':
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
     #                  ]
-    # budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    budget_configs = [{"planning_budget": 2**i} for i in range(4, 7)]
     # budget_configs = [{"planning_budget": i} for i in (16, 64, 256)]
-    budget_configs = [{"eval_temp": x} for x in (.0,
-                                                 # 1.0, 10.0
-                                                 )]
+    # budget_configs = [{"eval_temp": x} for x in (.0,
+    #                                              # 1.0, 10.0
+    #                                              )]
 
     series_configs = [
         {'tree_evaluation_policy': 'visit', 'selection_policy': 'UCT'},
@@ -98,14 +99,13 @@ if __name__ == '__main__':
     time_name = time.strftime("%Y-%m-%d-%H-%M-%S")
 
     tags = ['custom_sweep', time_name]
-    # for config in tqdm(configs):
-    #     train_from_config(project, entity, config=config, tags=tags, performance=True, debug=False)
+    job = train_model
 
-    sweep_workers = 1
+    sweep_workers = 6
     if sweep_workers == 1:
         for config in tqdm(configs):
-            eval_agent(project, entity, config, tags, sleep=0.0)
+            job(project, entity, config, tags, sleep=0.0)
     else:
-        partial_train_model = functools.partial(eval_agent, project, entity, tags=tags)
+        partial_train_model = functools.partial(job, project, entity, tags=tags)
         with multiprocessing.Pool(sweep_workers) as p:
             list(tqdm(p.imap_unordered(partial_train_model, configs), total=len(configs)))

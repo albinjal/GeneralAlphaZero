@@ -4,7 +4,7 @@ base_parameters = {
     "activation_fn": "relu",
     "norm_layer": "none",
     "dir_epsilon": 0.25,
-    "dir_alpha": 2.0,
+    "dir_alpha": 2.5,
     "selection_policy": "PUCT",
     "puct_c": 1.0,
     "selection_value_transform": "identity",
@@ -18,7 +18,7 @@ base_parameters = {
     "learning_rate": 1e-3,
     "sample_batch_ratio": 1,
     "n_steps_learning": 1,
-    "training_epochs": 8,
+    "training_epochs": 4,
     "planning_budget": 32,
     "layers": 5,
     "replay_buffer_multiplier": 10,
@@ -29,15 +29,17 @@ base_parameters = {
     "value_loss_weight": 0.7,
     "max_episode_length": 200,
     "episodes_per_iteration": 6,
+    "eval_temp": 0.0,
 }
 
-lake_discount_factor = 0.95
+lake_discount_factor = 0.9
 lake_config = {
     "max_episode_length": 100,
     "discount_factor": lake_discount_factor,
-    "iterations": 30,
-    "observation_embedding": "default",
-    "training_epochs": 4,
+    "iterations": 20,
+    "observation_embedding": "coordinate",
+    "eval_param": 5.0,
+    "training_epochs": 2,
 }
 
 env_challenges = [
@@ -60,6 +62,7 @@ env_challenges = [
         "ncols": 12,
         "optimal_value": -13,
         "worst_value": -200.0,
+        "observation_embedding": "coordinate",
     },
     {
         **lake_config,
