@@ -3,7 +3,8 @@ from typing import Tuple
 import gymnasium as gym
 import numpy as np
 from core.node import Node
-
+import torch as th
+from environments.observation_embeddings import CoordinateEmbedding, ObservationEmbedding
 from policies.policies import Policy
 
 
@@ -217,3 +218,47 @@ class RandomRolloutMCTS(MCTS):
             discount *= self.discount_factor
 
         return accumulated_reward
+
+
+
+class DistanceMCTS(MCTS):
+    def __init__(self, goal_state: int, embedding: CoordinateEmbedding, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.goal_state = goal_state
+        self.embedding = embedding
+
+
+    def value_function(
+        self,
+        node: Node,
+    ) -> float:
+        """
+        The value function for MCTS is the distance to the goal state.
+        """
+        if node.is_terminal():
+            return 0.0
+        cols = self.embedding.ncols
+        assert cols is not None
+        rows = self.embedding.nrows
+        assert rows is not None
+        observation = node.observation
+        assert observation is not None
+
+        """
+        There are 3 x 12 + 1 possible states. The player cannot be at the cliff, nor at the goal as the latter results in the end of the episode. What remains are all the positions of the first 3 rows plus the bottom-left cell.
+        The observation is a value representing the player’s current position as current_row * nrows + current_col (where both the row and col start at 0).
+        For example, the stating position can be calculated as follows: 3 * 12 + 0 = 36.
+        """
+        goal_row = self.goal_state // cols
+        goal_col = self.goal_state % cols
+        current_row = observation // cols
+        current_col = observation % cols
+
+        col_diff = abs(goal_col - current_col)
+        row_diff = abs(goal_row - current_row)
+
+        # special case for cliffwalking env
+        # if observation == 36:
+        #     return -14
+
+        return -float(col_diff + row_diff)

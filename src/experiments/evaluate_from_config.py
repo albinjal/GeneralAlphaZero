@@ -1,21 +1,12 @@
 import sys
-
-from log_code.metrics import calc_metrics
 sys.path.append("src/")
-
 import numpy as np
-
-from experiments.eval_agent import eval_agent
-
 import multiprocessing
-
-
-from core.mcts import RandomRolloutMCTS
 import gymnasium as gym
-
-
 import wandb
-
+from log_code.metrics import calc_metrics
+from experiments.eval_agent import eval_agent
+from core.mcts import DistanceMCTS, RandomRolloutMCTS
 import experiments.parameters as parameters
 from environments.observation_embeddings import ObservationEmbedding, embedding_dict
 from az.azmcts import AlphaZeroMCTS
@@ -63,6 +54,15 @@ def agent_from_config(hparams: dict):
             hparams["rollout_budget"] = 40
         agent = RandomRolloutMCTS(
             rollout_budget = hparams["rollout_budget"],
+            root_selection_policy=root_selection_policy,
+            selection_policy=selection_policy,
+            discount_factor=discount_factor,
+        )
+
+    elif hparams["agent_type"] == "distance":
+        agent = DistanceMCTS(
+            goal_state = 47,
+            embedding= observation_embedding,
             root_selection_policy=root_selection_policy,
             selection_policy=selection_policy,
             discount_factor=discount_factor,
@@ -117,7 +117,14 @@ def eval_from_config(
     seeds = [None] * hparams["runs"]
     results = eval_agent(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, hparams["max_episode_length"], seeds=seeds, temperature=hparams["eval_temp"], workers=workers)
     episode_returns, discounted_returns, time_steps, entropies = calc_metrics(results, agent.discount_factor, env.action_space.n)
-
+    trajectories = []
+    for i in range(results.shape[0]):
+        re = []
+        for j in range(results.shape[1]):
+            if results[i, j]["terminals"] == 1:
+                break
+            re.append(observation_embedding.tensor_to_obs(results[i, j]["observations"]))
+        trajectories.append(re)
     eval_res =  {
         "Evaluation/Returns": wandb.Histogram(np.array((episode_returns))),
         "Evaluation/Discounted_Returns": wandb.Histogram(np.array((discounted_returns))),
@@ -126,6 +133,7 @@ def eval_from_config(
         "Evaluation/Mean_Returns": episode_returns.mean().item(),
         "Evaluation/Mean_Discounted_Returns": discounted_returns.mean().item(),
         "Evaluation/Mean_Entropy": (th.sum(entropies, dim=-1) / time_steps).mean().item(),
+        "trajectories": trajectories,
     }
     run.log(data= eval_res)
     run.log_code(root="./src")
@@ -135,16 +143,15 @@ def eval_from_config(
 
 
 def eval_single():
-    challenge = parameters.env_challenges[2]
+    challenge = parameters.env_challenges[1]
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "visit",
         "eval_param": 1.0,
-        "selection_policy": "UCT",
+        "selection_policy": "PolicyUCT",
         "puct_c": 1.0,
-        "runs": 200,
-        "agent_type": "random_rollout",
-        "rollout_budget": 40,
+        "runs": 100,
+        "agent_type": "distance",
         "eval_temp": 0.0,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
