@@ -16,5 +16,4 @@ def eval_agent(agent: MCTS, env: gym.Env, tree_evaluation_policy: PolicyDistribu
         tasks,
         workers=workers,
     )
-
-    return calc_metrics(results, agent.discount_factor, env.action_space.n)
+    return results

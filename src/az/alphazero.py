@@ -102,11 +102,6 @@ class AlphaZeroController:
             tensor_results = self.self_play()
             self.replay_buffer.extend(tensor_results)
             total_return, ema = self.add_self_play_metrics(tensor_results, total_return, ema, i)
-
-            if i % self.evaluation_interval == 0:
-                print("Evaluating...")
-                self.evaluate(i)
-
             print("Learning...")
             (
                 value_losses,
@@ -179,11 +174,13 @@ class AlphaZeroController:
                         },
                         step=i)
 
+            if i % self.evaluation_interval == 0 or i == iterations - 1:
+                print("Evaluating...")
+                self.evaluate(i)
+
         if self.checkpoint_interval != -1:
             print(f"Saving model at iteration {iterations}")
             self.agent.model.save_model(f"{self.run_dir}/checkpoint.pth")
-
-        self.evaluate(iterations)
 
         return {"average_return": total_return / iterations}
 
@@ -193,7 +190,17 @@ class AlphaZeroController:
         self.agent.model.eval()
         # temporarly set the epsilon to 0
         eps, self.agent.dir_epsilon = self.agent.dir_epsilon, 0.0
-        episode_returns, discounted_returns, time_steps, entropies  = eval_agent(self.agent, self.env, self.tree_evaluation_policy, self.agent.model.observation_embedding, self.planning_budget, self.max_episode_length, seeds=[0], temperature=0.0)
+        results = eval_agent(self.agent, self.env, self.tree_evaluation_policy, self.agent.model.observation_embedding, self.planning_budget, self.max_episode_length, seeds=[0], temperature=0.0)
+        episode_returns, discounted_returns, time_steps, entropies = calc_metrics(results, self.agent.discount_factor, self.env.action_space.n)
+        # apply the observation embedding to the last dimension of the observations tensor
+        trajectories = []
+        for i in range(results.shape[0]):
+            re = []
+            for j in range(results.shape[1]):
+                if results[i, j]["terminals"] == 1:
+                    break
+                re.append(self.agent.model.observation_embedding.tensor_to_obs(results[i, j]["observations"]))
+            trajectories.append(re)
 
         eval_res =  {
             "Evaluation/Returns": wandb.Histogram(np.array((episode_returns))),
@@ -203,6 +210,7 @@ class AlphaZeroController:
             "Evaluation/Mean_Returns": episode_returns.mean().item(),
             "Evaluation/Mean_Discounted_Returns": discounted_returns.mean().item(),
             "Evaluation/Mean_Entropy": (th.sum(entropies, dim=-1) / time_steps).mean().item(),
+            "Evaluation/Trajectories": trajectories
         }
         wandb.log(
             eval_res,

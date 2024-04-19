@@ -26,6 +26,10 @@ class ObservationEmbedding(ABC):
     def obs_dim() -> int:
         pass
 
+    @abstractmethod
+    def tensor_to_obs(observation) -> th.Tensor:
+        pass
+
 
 
 class DefaultEmbedding(ObservationEmbedding):
@@ -38,6 +42,9 @@ class DefaultEmbedding(ObservationEmbedding):
 
     def obs_dim(self):
         return gym.spaces.flatdim(self.observation_space)
+
+    def tensor_to_obs(self, observation, *args, **kwargs):
+        return gym.spaces.unflatten(self.observation_space, observation, *args, **kwargs)
 
 
 class CoordinateEmbedding(ObservationEmbedding):
@@ -63,6 +70,13 @@ class CoordinateEmbedding(ObservationEmbedding):
 
     def obs_dim(self):
         return 2
+
+    def tensor_to_obs(self, observation, *args, **kwargs):
+        """
+        Returns the observation from a tensor of shape (2,)
+        """
+        cords = ((observation + 1) / 2) * np.array([self.nrows-1, self.ncols-1])
+        return int(cords[0] * self.ncols + cords[1])
 
 
 

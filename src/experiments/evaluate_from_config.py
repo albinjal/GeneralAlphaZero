@@ -1,4 +1,6 @@
 import sys
+
+from log_code.metrics import calc_metrics
 sys.path.append("src/")
 
 import numpy as np
@@ -113,8 +115,8 @@ def eval_from_config(
     workers = hparams["workers"]
 
     seeds = [None] * hparams["runs"]
-
-    episode_returns, discounted_returns, time_steps, entropies = eval_agent(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, hparams["max_episode_length"], seeds=seeds, temperature=hparams["eval_temp"], workers=workers)
+    results = eval_agent(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, hparams["max_episode_length"], seeds=seeds, temperature=hparams["eval_temp"], workers=workers)
+    episode_returns, discounted_returns, time_steps, entropies = calc_metrics(results, agent.discount_factor, env.action_space.n)
 
     eval_res =  {
         "Evaluation/Returns": wandb.Histogram(np.array((episode_returns))),
