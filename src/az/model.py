@@ -44,6 +44,7 @@ class AlphaZeroModel(th.nn.Module):
         pref_gpu=False,
         activation_fn=th.nn.ReLU,
         norm_layer=None,
+        value_bias: None | float = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -67,6 +68,8 @@ class AlphaZeroModel(th.nn.Module):
         self.norm_layer = norm_layer
         self.core = None
         self.create_model()
+        if value_bias is not None:
+            th.nn.init.constant_(self.value_head[-1].bias, value_bias)
         self.print_stats()
 
     def create_model(self):

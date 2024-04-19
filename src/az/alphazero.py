@@ -1,6 +1,7 @@
 from collections import Counter
 import multiprocessing
 import os
+from typing import List
 import gymnasium as gym
 import numpy as np
 from tqdm import tqdm
@@ -91,15 +92,16 @@ class AlphaZeroController:
         self.ema_beta = ema_beta
         self.evaluation_interval = evaluation_interval
 
-    def iterate(self, iterations=10):
+    def iterate(self, temp_schedule: List[float]):
         total_return = .0
         enviroment_steps = 0
         episodes = 0
         ema = None
-        for i in range(iterations):
+        iterations = len(temp_schedule)
+        for i, temperature in enumerate(temp_schedule):
             print(f"Iteration {i}")
             print("Self play...")
-            tensor_results = self.self_play()
+            tensor_results = self.self_play(temperature=temperature)
             self.replay_buffer.extend(tensor_results)
             total_return, ema = self.add_self_play_metrics(tensor_results, total_return, ema, i)
             print("Learning...")
@@ -220,7 +222,7 @@ class AlphaZeroController:
         return eval_res
 
 
-    def self_play(self):
+    def self_play(self, temperature=None):
         """Play games in parallel and store the data in the replay buffer."""
         self.agent.model.eval()
         tasks = [(
@@ -231,7 +233,7 @@ class AlphaZeroController:
                 self.planning_budget,
                 self.max_episode_length,
                 None,
-                None,
+                temperature,
             )] * self.episodes_per_iteration
         return collect_trajectories(tasks, self.self_play_workers)
 

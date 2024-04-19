@@ -159,8 +159,13 @@ def train_from_config(
         save_plots=not performance,
         batch_size=sample_batch_size,
     )
-
-    metrics = controller.iterate(hparams["iterations"])
+    iterations = hparams["iterations"]
+    # start_temp = 1.0
+    # end_temp = 0.5
+    # # Exponential decay from start_temp to end_temp
+    # temp_schedule = np.exp(np.linspace(np.log(start_temp), np.log(end_temp), iterations))
+    temp_schedule = [None] * iterations
+    metrics = controller.iterate(temp_schedule=temp_schedule)
 
     env.close()
     run.log_code(root="./src")
@@ -178,9 +183,9 @@ def run_single():
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "mvc",
-        "eval_param": 1.0,
+        "eval_param": 2.0,
         "planning_budget": 64,
-        "selection_policy": "PUCT",
+        "selection_policy": "PolicyPUCT",
         "puct_c": 1.0,
         "n_steps_learning": 1,
         "training_epochs": 2,
