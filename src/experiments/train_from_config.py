@@ -174,13 +174,14 @@ def sweep_agent():
 
 
 def run_single():
-    challenge = parameters.env_challenges[2]
+    challenge = parameters.env_challenges[1]
     config_modifications = {
-        "workers": 3,
-        "tree_evaluation_policy": "mvc",
-        "eval_param": 5.0,
+        "workers": 1,
+        "tree_evaluation_policy": "suprise",
+        "dir_epsilon": 0.1,
+        "eval_param": 1.0,
         "planning_budget": 64,
-        "selection_policy": "PolicyPUCT",
+        "selection_policy": "PUCT",
         "puct_c": 1.0,
         "n_steps_learning": 1,
         "training_epochs": 2,

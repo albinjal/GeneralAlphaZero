@@ -160,3 +160,14 @@ def puct_multiplier(c: float, node: Node):
     lambda_N from the mcts as policy optimisation paper.
     """
     return c * (node.visits**0.5) / (node.visits + int(node.action_space.n))
+
+
+def Q_theta_tensor(node: Node, discount: float, transform: ValueTransform = IdentityValueTransform) -> th.Tensor:
+    """
+    Returns a vector with the Q_theta values. Zero for unvisited nodes, for visited nodes it is return + the discoutned value evaluation of the node
+    """
+    vals = th.zeros(int(node.action_space.n), dtype=th.float32)
+    for action, child in node.children.items():
+        val = .0 if child.is_terminal() else child.value_evaluation
+        vals[action] = child.reward + discount * val
+    return transform.normalize(vals)

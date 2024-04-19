@@ -78,9 +78,9 @@ if __name__ == '__main__':
     #                                              )]
 
     series_configs = [
-        {'tree_evaluation_policy': 'visit', 'selection_policy': 'UCT'},
-                     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
-                     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
+        {'tree_evaluation_policy': 'visit', 'selection_policy': 'PUCT'},
+                     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PUCT'},
+                     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyPUCT'},
         # {"selection_policy": 'PolicyPUCT',
         # "tree_evaluation_policy": "mvto",
         # "eval_param": 10.0,

@@ -2,7 +2,7 @@ import torch as th
 
 from core.node import Node
 from policies.policies import PolicyDistribution
-from policies.utility_functions import get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, get_transformed_default_values, puct_multiplier
+from policies.utility_functions import Q_theta_tensor, get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, get_transformed_default_values, puct_multiplier
 from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
@@ -169,8 +169,45 @@ class BellmanPriorStdPolicy(PriorStdPolicy):
         self.discount_factor = discount_factor
 
     def Q_inv_std(self, node: Node):
-        q, var = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
-        return q, th.sqrt(var) / self.sigma
+        q, inv_var = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
+        return q, th.sqrt(inv_var) / self.sigma
+
+
+
+
+class QSuprisePolicy(PolicyDistribution):
+    """
+    This policy uses the idea of suprise from search to adjust the prior policy.
+    The issue is that the policy only looks for suprises and not for actual good actions, will think about how to fix this
+    """
+    def __init__(self, beta: float, discount_factor: float = 1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.beta = beta
+        self.discount_factor = discount_factor
+
+    def _probs(self, node: Node) -> th.Tensor:
+        # get child search values and their inverse variances
+        q_search, inv_var = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
+        # set infs to 0
+        q_search = th.nan_to_num(q_search)
+        # q_theta
+        q_theta = Q_theta_tensor(node, self.discount_factor, self.value_transform)
+        # calculate the surprise vector
+        surprise = q_search - q_theta
+
+        # weight the suprise by the inverse standard deviation
+        inv_std = th.sqrt(inv_var)
+        weighted_surprise = surprise * inv_std
+
+        # start with the prior policy
+        base_policy = node.prior_policy
+
+        # adjust the policy by the weighted surprise
+        final_policy =  base_policy * th.exp(self.beta * (weighted_surprise - weighted_surprise.max()))
+        return final_policy
+
+
+
 
 tree_dict = {
     "visit": VistationPolicy,
@@ -191,4 +228,5 @@ tree_eval_dict = lambda param, discount, c=1.0, temperature=None, value_transfor
     'visit_prior_std': VistationPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
     'bellman_prior_std': BellmanPriorStdPolicy(sigma=param, temperature=temperature, value_transform=value_transform),
     'mvcp': MinimalVarianceConstraintPolicyPrior(discount_factor=discount, beta=param, temperature=temperature, value_transform=value_transform),
+    'suprise': QSuprisePolicy(beta=param, discount_factor=discount, temperature=temperature, value_transform=value_transform),
 }
