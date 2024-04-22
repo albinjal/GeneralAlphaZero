@@ -183,13 +183,15 @@ def run_single():
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "mvc",
-        "eval_param": 2.0,
-        "planning_budget": 64,
+        "eval_param": 1.0,
+        "planning_budget": 32,
         "selection_policy": "PolicyPUCT",
         "puct_c": 1.0,
+        "training_epochs": 10,
+        "learning_rate": 8e-4,
         "n_steps_learning": 1,
-        "training_epochs": 2,
-        "learning_rate": 1e-3,
+        "use_visit_count": True,
+        "observation_embedding": "default",
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False)

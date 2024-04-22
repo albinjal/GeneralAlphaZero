@@ -120,18 +120,22 @@ def get_children_policy_values_and_inverse_variance(
     policy: PolicyDistribution,
     discount_factor: float,
     transform: ValueTransform = IdentityValueTransform,
+    include_self: bool = False,
 ) -> tuple[th.Tensor, th.Tensor]:
     """
     This is more efficent than calling get_children_policy_values and get_children_variances separately
     """
-    vals = th.ones(int(parent.action_space.n), dtype=th.float32) * -th.inf
-    inv_vars = th.zeros_like(vals, dtype=th.float32)
+    vals = th.ones(int(parent.action_space.n) + include_self, dtype=th.float32) * -th.inf
+    inv_vars = th.zeros_like(vals + include_self, dtype=th.float32)
     for action, child in parent.children.items():
         pi = policy.softmaxed_distribution(child, include_self=True)
         vals[action] = policy_value(child, pi, discount_factor)
         inv_vars[action] = 1 / independent_policy_value_variance(
             child, pi, discount_factor
         )
+    if include_self:
+        vals[-1] = parent.value_evaluation
+        inv_vars[-1] = 1 / value_evaluation_variance(parent)
 
     normalized_vals = transform.normalize(vals)
     return normalized_vals, inv_vars

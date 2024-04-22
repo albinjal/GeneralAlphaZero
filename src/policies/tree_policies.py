@@ -1,8 +1,8 @@
 import torch as th
 
 from core.node import Node
-from policies.policies import PolicyDistribution
-from policies.utility_functions import Q_theta_tensor, get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, get_transformed_default_values, puct_multiplier
+from policies.policies import PolicyDistribution, custom_softmax
+from policies.utility_functions import Q_theta_tensor, get_children_policy_values, get_children_policy_values_and_inverse_variance, get_children_inverse_variances, get_children_visits, get_transformed_default_values, puct_multiplier, value_evaluation_variance
 from policies.value_transforms import IdentityValueTransform, ValueTransform
 
 
@@ -39,16 +39,29 @@ class MinimalVarianceConstraintPolicy(PolicyDistribution):
     def get_beta(self, node: Node):
         return self.beta
 
+    # def _probs(self, node: Node) -> th.Tensor:
+
+    #     beta = self.get_beta(node)
+
+    #     normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
+    #     # for action in node.children:
+    #     #     probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
+    #     logits = beta * th.nan_to_num(normalized_vals)
+    #     probs = inv_vars * th.exp(logits - logits.max())
+    #     return probs
+
     def _probs(self, node: Node) -> th.Tensor:
+        pass
 
+    def softmaxed_distribution(
+        self, node: Node, include_self=False, **kwargs
+    ) -> th.distributions.Categorical:
         beta = self.get_beta(node)
-
-        normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
-        # for action in node.children:
-        #     probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
+        normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform, include_self=include_self)
         logits = beta * th.nan_to_num(normalized_vals)
         probs = inv_vars * th.exp(logits - logits.max())
-        return probs
+        softmaxed_probs = custom_softmax(probs, self.temperature, None)
+        return th.distributions.Categorical(probs=softmaxed_probs)
 class MinimalVarianceConstraintPolicyPrior(MinimalVarianceConstraintPolicy):
     def _probs(self, node: Node) -> th.Tensor:
         return super()._probs(node) * node.prior_policy

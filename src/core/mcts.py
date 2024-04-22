@@ -1,4 +1,5 @@
 import copy
+from re import L
 from typing import Tuple
 import gymnasium as gym
 import numpy as np
@@ -262,7 +263,9 @@ class DistanceMCTS(MCTS):
         manhattan_distance = col_diff + row_diff
         # special case for cliffwalking env
         # if we are in the last row, we need to add two since we cannot go directly to the goal (cuz cliff)
-        if current_row == rows - 1:
-            manhattan_distance += 2
-
-        return - float(manhattan_distance)
+        if cols == 12:
+            if current_row == rows - 1:
+                manhattan_distance += 2
+            return - float(manhattan_distance)
+        else:
+            return 1.0 * self.discount_factor ** manhattan_distance

@@ -142,13 +142,13 @@ def eval_from_config(
 
 
 def eval_single():
-    challenge = parameters.env_challenges[1]
+    challenge = parameters.env_challenges[2]
     config_modifications = {
-        "workers": 1,
-        "tree_evaluation_policy": "mvc",
-        "eval_param": 1.0,
-        "selection_policy": "PolicyUCT",
-        "puct_c": 1.0,
+        "workers": 6,
+        "tree_evaluation_policy": "visit",
+        "eval_param": 2.0,
+        "selection_policy": "UCT",
+        "puct_c": .5,
         "runs": 10,
         "agent_type": "distance",
         "eval_temp": 0.0,
