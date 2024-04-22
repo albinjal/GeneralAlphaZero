@@ -222,8 +222,11 @@ class RandomRolloutMCTS(MCTS):
 
 
 class DistanceMCTS(MCTS):
-    def __init__(self, goal_state: int, embedding: CoordinateEmbedding, *args, **kwargs):
+    def __init__(self, embedding: CoordinateEmbedding, goal_state: int | None = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if goal_state is None:
+            # the goal is max row max col
+            goal_state = embedding.nrows * embedding.ncols - 1
         self.goal_state = goal_state
         self.embedding = embedding
 
@@ -245,9 +248,9 @@ class DistanceMCTS(MCTS):
         assert observation is not None
 
         """
-        There are 3 x 12 + 1 possible states. The player cannot be at the cliff, nor at the goal as the latter results in the end of the episode. What remains are all the positions of the first 3 rows plus the bottom-left cell.
+        There are (rows-1) x cols + 1 possible states. The player cannot be at the cliff, nor at the goal as the latter results in the end of the episode. What remains are all the positions of the first 3 rows plus the bottom-left cell.
         The observation is a value representing the player’s current position as current_row * nrows + current_col (where both the row and col start at 0).
-        For example, the stating position can be calculated as follows: 3 * 12 + 0 = 36.
+        For example, the stating position can be calculated as follows: (rows-1) * cols + 0 = 36.
         """
         goal_row = self.goal_state // cols
         goal_col = self.goal_state % cols
@@ -256,9 +259,10 @@ class DistanceMCTS(MCTS):
 
         col_diff = abs(goal_col - current_col)
         row_diff = abs(goal_row - current_row)
-
+        manhattan_distance = col_diff + row_diff
         # special case for cliffwalking env
-        # if observation == 36:
-        #     return -14
+        # if we are in the last row, we need to add two since we cannot go directly to the goal (cuz cliff)
+        if current_row == rows - 1:
+            manhattan_distance += 2
 
-        return -float(col_diff + row_diff)
+        return - float(manhattan_distance)

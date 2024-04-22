@@ -61,7 +61,6 @@ def agent_from_config(hparams: dict):
 
     elif hparams["agent_type"] == "distance":
         agent = DistanceMCTS(
-            goal_state = 47,
             embedding= observation_embedding,
             root_selection_policy=root_selection_policy,
             selection_policy=selection_policy,
@@ -145,14 +144,15 @@ def eval_from_config(
 def eval_single():
     challenge = parameters.env_challenges[1]
     config_modifications = {
-        "workers": 6,
-        "tree_evaluation_policy": "visit",
+        "workers": 1,
+        "tree_evaluation_policy": "mvc",
         "eval_param": 1.0,
         "selection_policy": "PolicyUCT",
         "puct_c": 1.0,
-        "runs": 100,
+        "runs": 10,
         "agent_type": "distance",
         "eval_temp": 0.0,
+        "planning_budget": 32,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return eval_from_config(config=run_config)
