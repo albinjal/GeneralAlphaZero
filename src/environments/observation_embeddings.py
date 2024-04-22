@@ -71,12 +71,19 @@ class CoordinateEmbedding(ObservationEmbedding):
     def obs_dim(self):
         return 2
 
-    def tensor_to_obs(self, observation, *args, **kwargs):
+    def tensor_to_obs(self, tensor, *args, **kwargs):
         """
         Returns the observation from a tensor of shape (2,)
         """
-        cords = ((observation + 1) / 2) * np.array([self.nrows-1, self.ncols-1])
-        return int(cords[0] * self.ncols + cords[1])
+        # First, scale tensor from [-1, 1] to [0, 1]
+        scaled_tensor = (tensor + 1) / 2
+        # Now scale to [0, nrows-1] for rows and [0, ncols-1] for columns
+        scaled_tensor = scaled_tensor * th.tensor([self.nrows-1, self.ncols-1])
+        # Convert to integer indices
+        indices = scaled_tensor.round().int()
+        # Convert row and column indices to a single observation index
+        observation = indices[0] * self.ncols + indices[1]
+        return observation
 
 
 

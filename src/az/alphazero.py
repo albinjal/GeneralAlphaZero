@@ -199,9 +199,9 @@ class AlphaZeroController:
         for i in range(results.shape[0]):
             re = []
             for j in range(results.shape[1]):
+                re.append(self.agent.model.observation_embedding.tensor_to_obs(results[i, j]["observations"]))
                 if results[i, j]["terminals"] == 1:
                     break
-                re.append(self.agent.model.observation_embedding.tensor_to_obs(results[i, j]["observations"]))
             trajectories.append(re)
 
         eval_res =  {

@@ -32,7 +32,7 @@ class AlphaZeroMCTS(MCTS):
         # convert observation from int to tensor float 1x1 tensor
         assert node.env is not None
 
-        value, policy = self.model.single_observation_forward(observation)
+        value, policy = self.model.singl e_observation_forward(observation)
         # if root and dir_epsilon > 0.0, add dirichlet noise to the prior policy
         if node.parent is None and self.dir_epsilon > 0.0:
             noise = th.distributions.dirichlet.Dirichlet(th.ones_like(policy) * self.dir_alpha).sample()

@@ -120,9 +120,9 @@ def eval_from_config(
     for i in range(results.shape[0]):
         re = []
         for j in range(results.shape[1]):
+            re.append(observation_embedding.tensor_to_obs(results[i, j]["observations"]))
             if results[i, j]["terminals"] == 1:
                 break
-            re.append(observation_embedding.tensor_to_obs(results[i, j]["observations"]))
         trajectories.append(re)
     eval_res =  {
         "Evaluation/Returns": wandb.Histogram(np.array((episode_returns))),
@@ -142,14 +142,14 @@ def eval_from_config(
 
 
 def eval_single():
-    challenge = parameters.env_challenges[2]
+    challenge = parameters.env_challenges[1]
     config_modifications = {
         "workers": 6,
-        "tree_evaluation_policy": "visit",
-        "eval_param": 2.0,
-        "selection_policy": "UCT",
-        "puct_c": .5,
-        "runs": 10,
+        "tree_evaluation_policy": "mvc",
+        "eval_param": 1.0,
+        "selection_policy": "PolicyUCT",
+        "puct_c": 1.0,
+        "runs": 100,
         "agent_type": "distance",
         "eval_temp": 0.0,
         "planning_budget": 32,
