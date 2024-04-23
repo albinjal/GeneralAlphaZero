@@ -280,22 +280,22 @@ class AlphaZeroController:
         self.agent.model.train()
         for j in tqdm(range(self.training_epochs), desc="Training"):
             # sample a batch from the replay buffer
+            with th.no_grad():
+                trajectories = self.replay_buffer.sample(
+                    batch_size=min(self.batch_size, len(self.replay_buffer))
+                )
+                # Trajectories["observations"] is Batch_size x max_steps x obs_dim
+                observations = trajectories["observations"]
+                batch_size, max_steps, obs_dim = observations.shape
 
-            trajectories = self.replay_buffer.sample(
-                batch_size=min(self.batch_size, len(self.replay_buffer))
-            )
-            # Trajectories["observations"] is Batch_size x max_steps x obs_dim
-            observations = trajectories["observations"]
-            batch_size, max_steps, obs_dim = observations.shape
-
-            # flatten the observations into a batch of size (batch_size * max_steps, obs_dim)
-            flattened_observations = observations.view(-1, obs_dim)
+                # flatten the observations into a batch of size (batch_size * max_steps, obs_dim)
+                flattened_observations = observations.view(-1, obs_dim)
+                epsilon = 1e-8
 
             flat_values, flat_policies = self.agent.model.forward(flattened_observations)
             values = flat_values.view(batch_size, max_steps)
             policies = flat_policies.view(batch_size, max_steps, -1)
 
-            epsilon = 1e-8
             # compute the value targets via TD learning
             # the target should be the reward + the value of the next state
             # if the next state is terminal, the value of the next state is 0
@@ -311,7 +311,7 @@ class AlphaZeroController:
                     -th.sum(
                         (
                             trajectories["mask"]
-                            * (1 - trajectories["root_values"] / values)
+                            * (1 - trajectories["root_values"] / values.detach())
                         )
                         ** 2,
                         dim=-1,
@@ -338,20 +338,21 @@ class AlphaZeroController:
                         # lets normalize the visit_multiplier so that the sum of the multipliers is 1
                         norm_visit_multiplier = visit_multiplier * (trajectories["mask"].sum() / visit_multiplier.sum())
 
-
-            # the target value is the reward we got + the value of the next state if it is not terminal
-            targets = n_step_value_targets(
-                trajectories["rewards"],
-                values.detach(),
-                trajectories["terminals"],
-                self.discount_factor,
-                self.n_steps_learning,
-            )
-            # returns a tensor of shape (batch_size, max_steps - n_steps_learning)
-            # the td error is the difference between the target and the current value
-            dim_red = self.n_steps_learning
+            with th.no_grad():
+                # the target value is the reward we got + the value of the next state if it is not terminal
+                targets = n_step_value_targets(
+                    trajectories["rewards"],
+                    values.detach(),
+                    trajectories["terminals"],
+                    self.discount_factor,
+                    self.n_steps_learning,
+                )
+                # returns a tensor of shape (batch_size, max_steps - n_steps_learning)
+                # the td error is the difference between the target and the current value
+                dim_red = self.n_steps_learning
+                mask = trajectories["mask"][:, :-dim_red]
+                
             td = targets - values[:, :-dim_red]
-            mask = trajectories["mask"][:, :-dim_red]
             # compute the value loss
             step_loss = (td * mask) ** 2 * norm_visit_multiplier[:, :-dim_red]
             if self.value_sim_loss:

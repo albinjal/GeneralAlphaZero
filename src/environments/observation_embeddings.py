@@ -51,9 +51,13 @@ class CoordinateEmbedding(ObservationEmbedding):
     ncols: int
     nrows: int
     observation_space: gym.spaces.Discrete
+    multiplier: float
+    shift: float
 
-    def __init__(self, observation_space: gym.spaces.Discrete, ncols: int, *args, nrows: int | None= None, **kwargs) -> None:
+    def __init__(self, observation_space: gym.spaces.Discrete, ncols: int, *args, nrows: int | None= None, multiplier = -1.0, shift = 2.0, **kwargs) -> None:
         super().__init__(observation_space, *args, ncols=ncols, nrows=nrows, **kwargs)
+        self.multiplier = multiplier
+        self.shift = shift
         print(f"nrows: {self.nrows}, ncols: {self.ncols}")
 
 
@@ -64,7 +68,7 @@ class CoordinateEmbedding(ObservationEmbedding):
         cords = divmod(observation, self.ncols)
         # make cords between -1 and 1
         # cols between 0 and ncols-1, rows between 0 and nrows-1
-        cords = (np.array(cords) / np.array([self.nrows-1, self.ncols-1])) * 2 - 1
+        cords = (np.array(cords) / np.array([self.nrows-1, self.ncols-1])) * self.multiplier + self.shift
         return th.tensor(cords, *args, **kwargs)
 
 
@@ -76,7 +80,7 @@ class CoordinateEmbedding(ObservationEmbedding):
         Returns the observation from a tensor of shape (2,)
         """
         # First, scale tensor from [-1, 1] to [0, 1]
-        scaled_tensor = (tensor + 1) / 2
+        scaled_tensor = (tensor - self.shift) / self.multiplier
         # Now scale to [0, nrows-1] for rows and [0, ncols-1] for columns
         scaled_tensor = scaled_tensor * th.tensor([self.nrows-1, self.ncols-1])
         # Convert to integer indices
