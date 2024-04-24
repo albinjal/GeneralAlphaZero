@@ -54,7 +54,7 @@ class CoordinateEmbedding(ObservationEmbedding):
     multiplier: float
     shift: float
 
-    def __init__(self, observation_space: gym.spaces.Discrete, ncols: int, *args, nrows: int | None= None, multiplier = -1.0, shift = 2.0, **kwargs) -> None:
+    def __init__(self, observation_space: gym.spaces.Discrete, ncols: int, *args, nrows: int | None= None, multiplier = 2.0, shift = -1.0, **kwargs) -> None:
         super().__init__(observation_space, *args, ncols=ncols, nrows=nrows, **kwargs)
         self.multiplier = multiplier
         self.shift = shift

@@ -26,7 +26,7 @@ def eval_agent(project, entity, config, tags, sleep=3):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 1
+    nr_runs = 5
 
     config_modifications = {
         "workers": 1,
@@ -71,8 +71,8 @@ if __name__ == '__main__':
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'default', 'selection_policy': 'PUCT'},
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
     #                  ]
-    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
-    # budget_configs = [{"planning_budget": i} for i in (16, 64, 256)]
+    # budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    budget_configs = [{"planning_budget": i} for i in (16, 64)]
     # budget_configs = [{"eval_temp": x} for x in (.0,
     #                                              # 1.0, 10.0
     #                                              )]

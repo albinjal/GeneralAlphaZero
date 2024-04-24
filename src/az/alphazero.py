@@ -191,7 +191,9 @@ class AlphaZeroController:
         # collect one trajectory with non stochastic version of the policy
         self.agent.model.eval()
         # temporarly set the epsilon to 0
-        eps, self.agent.dir_epsilon = self.agent.dir_epsilon, 0.0
+        # eps, self.agent.dir_epsilon = self.agent.dir_epsilon, 0.0
+        alpha, self.agent.dir_alpha = self.agent.dir_alpha, None
+
         results = eval_agent(self.agent, self.env, self.tree_evaluation_policy, self.agent.model.observation_embedding, self.planning_budget, self.max_episode_length, seeds=[0], temperature=0.0)
         episode_returns, discounted_returns, time_steps, entropies = calc_metrics(results, self.agent.discount_factor, self.env.action_space.n)
         # apply the observation embedding to the last dimension of the observations tensor
@@ -218,7 +220,8 @@ class AlphaZeroController:
             eval_res,
             step=step,
         )
-        self.agent.dir_epsilon = eps
+        # self.agent.dir_epsilon = eps
+        self.agent.dir_alpha = alpha
         return eval_res
 
 
@@ -351,7 +354,7 @@ class AlphaZeroController:
                 # the td error is the difference between the target and the current value
                 dim_red = self.n_steps_learning
                 mask = trajectories["mask"][:, :-dim_red]
-                
+
             td = targets - values[:, :-dim_red]
             # compute the value loss
             step_loss = (td * mask) ** 2 * norm_visit_multiplier[:, :-dim_red]

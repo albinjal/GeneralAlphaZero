@@ -141,7 +141,7 @@ class AlphaZeroModel(th.nn.Module):
 def create_layers(state_dim, nlayers, hidden_dim, activation_fn, norm_layer):
     layers = []
     layers.append(th.nn.Linear(state_dim, hidden_dim))
-    layers.append(th.nn.ReLU())
+    layers.append(th.nn.LeakyReLU())
 
     for _ in range(nlayers):
         layers.append(th.nn.Linear(hidden_dim, hidden_dim))

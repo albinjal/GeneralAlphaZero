@@ -25,8 +25,34 @@ class InverseVarianceTreeEvaluator(PolicyDistribution):
         return get_children_inverse_variances(node, self, self.discount_factor)
 
 
-# minimal-variance constraint policy
 class MinimalVarianceConstraintPolicy(PolicyDistribution):
+    """
+    Selects the action with the highest inverse variance of the q value.
+    Should return the same as the default tree evaluator
+    """
+    def __init__(self, beta: float, discount_factor = 1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.beta = beta
+        self.discount_factor = discount_factor
+
+    def get_beta(self, node: Node):
+        return self.beta
+
+    def _probs(self, node: Node) -> th.Tensor:
+
+        beta = self.get_beta(node)
+
+        normalized_vals, inv_vars = get_children_policy_values_and_inverse_variance(node, self, self.discount_factor, self.value_transform)
+        # for action in node.children:
+        #     probs[action] = th.exp(beta * (normalized_vals[action] - normalized_vals.max())) * inv_vars[action]
+        logits = beta * th.nan_to_num(normalized_vals)
+        probs = inv_vars * th.exp(logits - logits.max())
+        return probs
+
+
+
+
+class MinimalVarianceConstraintPolicyMath(PolicyDistribution):
     """
     Selects the action with the highest inverse variance of the q value.
     Should return the same as the default tree evaluator

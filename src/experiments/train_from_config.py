@@ -184,7 +184,8 @@ def run_single():
         "workers": 6,
         "tree_evaluation_policy": "mvc",
         "planning_budget": 32,
-        "selection_policy": "PUCT",
+        "selection_policy": "PolicyPUCT",
+        "observation_embedding": "coordinate",
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False)

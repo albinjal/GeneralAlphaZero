@@ -35,7 +35,11 @@ class AlphaZeroMCTS(MCTS):
         value, policy = self.model.single_observation_forward(observation)
         # if root and dir_epsilon > 0.0, add dirichlet noise to the prior policy
         if node.parent is None and self.dir_epsilon > 0.0:
-            noise = th.distributions.dirichlet.Dirichlet(th.ones_like(policy) * self.dir_alpha).sample()
+            if self.dir_alpha is not None:
+                noise = th.distributions.dirichlet.Dirichlet(th.ones_like(policy) * self.dir_alpha).sample()
+            else:
+                # uniform distribution
+                noise = th.ones_like(policy) / policy.numel()
             node.prior_policy = (1 - self.dir_epsilon) * policy + self.dir_epsilon * noise
         else:
             node.prior_policy = policy
