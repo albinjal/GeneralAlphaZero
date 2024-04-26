@@ -34,7 +34,7 @@ if __name__ == '__main__':
         # "agent_type": "random_rollout",
         # "rollout_budget": 50,
         # "eval_temp": 0.0,
-        "planning_budget": 64,
+        "planning_budget": 16,
     }
 
     if False:
