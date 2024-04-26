@@ -186,6 +186,8 @@ def run_single():
         "planning_budget": 32,
         "selection_policy": "PolicyPUCT",
         "observation_embedding": "coordinate",
+        "norm_layer": "none",
+        "use_visit_count": False,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return train_from_config(config=run_config, performance=False)

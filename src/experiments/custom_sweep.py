@@ -34,7 +34,7 @@ if __name__ == '__main__':
         # "agent_type": "random_rollout",
         # "rollout_budget": 50,
         # "eval_temp": 0.0,
-        # "planning_budget": 32,
+        "planning_budget": 64,
     }
 
     if False:
@@ -72,7 +72,8 @@ if __name__ == '__main__':
     #                  {'use_visit_count': 0, 'tree_evaluation_policy': 'minimal_variance_constraint', 'selection_policy': 'PUCT'},
     #                  ]
     # budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
-    budget_configs = [{"planning_budget": i} for i in (16, 64)]
+    # budget_configs = [{"planning_budget": i} for i in (32)]
+    budget_configs = [{"use_visit_count": x} for x in [True]]
     # budget_configs = [{"eval_temp": x} for x in (.0,
     #                                              # 1.0, 10.0
     #                                              )]
