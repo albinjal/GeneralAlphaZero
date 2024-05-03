@@ -146,12 +146,9 @@ def eval_single():
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "mvc",
-        "eval_param": 1.0,
         "selection_policy": "PolicyUCT",
-        "puct_c": 1.0,
         "runs": 100,
         "agent_type": "distance",
-        "eval_temp": 0.0,
         "planning_budget": 32,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
