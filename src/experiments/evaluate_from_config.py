@@ -1,4 +1,7 @@
 import sys
+import time
+
+from tqdm import tqdm
 sys.path.append("src/")
 import numpy as np
 import multiprocessing
@@ -149,14 +152,40 @@ def eval_single():
         "selection_policy": "PolicyUCT",
         "runs": 100,
         "agent_type": "distance",
-        "planning_budget": 32,
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return eval_from_config(config=run_config)
+
+def custom_eval_sweep():
+    challenge = parameters.env_challenges[1]
+    config_modifications = {
+        "workers": 6,
+        "runs": 10,
+        "agent_type": "distance",
+    }
+    series_configs = [
+        {'tree_evaluation_policy': 'visit', 'selection_policy': 'UCT'},
+        {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
+        {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
+    ]
+    run_config = {**parameters.base_parameters, **challenge, **config_modifications}
+
+    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    configs = [
+            {**run_config, **variable_config, **series_config} for variable_config in budget_configs for series_config in series_configs
+        ]
+    print(f"Number of runs: {len(configs)}")
+
+    time_name = time.strftime("%Y-%m-%d-%H-%M-%S")
+
+    tags = ['eval_sweep', time_name]
+
+    for config in tqdm(configs):
+        eval_from_config(config=config, tags=tags)
 
 
 if __name__ == "__main__":
     # sweep_id = wandb.sweep(sweep=coord_search, project="AlphaZero")
 
     # wandb.agent(sweep_id, function=sweep_agent)
-    eval_single()
+    custom_eval_sweep()
