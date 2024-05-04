@@ -170,7 +170,7 @@ def custom_eval_sweep():
     ]
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
 
-    budget_configs = [{"planning_budget": 2**i} for i in range(4, 6)]
+    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
     configs = [
             {**run_config, **variable_config, **series_config} for variable_config in budget_configs for series_config in series_configs
         ]
