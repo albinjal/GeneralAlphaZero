@@ -157,10 +157,10 @@ def eval_single():
     return eval_from_config(config=run_config)
 
 def custom_eval_sweep():
-    challenge = parameters.env_challenges[1]
+    challenge = parameters.env_challenges[2]
     config_modifications = {
         "workers": 6,
-        "runs": 10,
+        "runs": 100,
         "agent_type": "distance",
     }
     series_configs = [
@@ -170,7 +170,7 @@ def custom_eval_sweep():
     ]
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
 
-    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    budget_configs = [{"planning_budget": 2**i} for i in range(4, 6)]
     configs = [
             {**run_config, **variable_config, **series_config} for variable_config in budget_configs for series_config in series_configs
         ]

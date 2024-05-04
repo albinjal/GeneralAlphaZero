@@ -41,16 +41,14 @@ default_embedding_parameters = {
     "puct_c": 3.0,
 }
 
-lake_discount_factor = 0.95
 lake_config = {
     "max_episode_length": 100,
-    "discount_factor": lake_discount_factor,
     "iterations": 30,
     "observation_embedding": "coordinate",
-    "eval_param": 5.0,
-    "training_epochs": 2,
     "puct_c": 1.0,
-    "eval_param": 1.0,
+    "eval_param": 10.0,
+    "n_steps_learning": 1,
+    "training_epochs": 2,
 }
 
 env_challenges = [
@@ -88,7 +86,9 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
-        "optimal_value": 1.0 * lake_discount_factor ** 5,
+        "discount_factor": (small_lake_discount_factor := 0.9),
+
+        "optimal_value": 1.0 * small_lake_discount_factor ** 5,
         "worst_value": -1.0,
     },
     {
@@ -102,7 +102,8 @@ env_challenges = [
             is_slippery=False,
             max_episode_steps=1000000000,
         ),
-        "optimal_value": 1.0 * lake_discount_factor ** 13,
+        "discount_factor": (big_lake_discount_factor := 0.95),
+        "optimal_value": 1.0 * big_lake_discount_factor ** 13,
         "worst_value": -1.0,
 
     },
