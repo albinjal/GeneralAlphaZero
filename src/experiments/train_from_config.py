@@ -183,7 +183,7 @@ def run_single():
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "visit",
-        "planning_budget": 6,
+        "planning_budget": 64,
         "selection_policy": "PUCT",
         "observation_embedding": "coordinate",
     }
