@@ -58,7 +58,7 @@ if __name__ == '__main__':
             if env["env_description"] in mods:
                 env.update(mods[env["env_description"]])
 
-    envs = parameters.env_challenges[2:3]
+    envs = parameters.env_challenges[3:4]
 
 
     run_config = {**parameters.base_parameters, **config_modifications}

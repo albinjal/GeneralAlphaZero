@@ -48,7 +48,6 @@ lake_config = {
     "puct_c": 1.0,
     "eval_param": 10.0,
     "n_steps_learning": 1,
-    "training_epochs": 2,
 }
 
 env_challenges = [
@@ -90,6 +89,7 @@ env_challenges = [
 
         "optimal_value": 1.0 * small_lake_discount_factor ** 5,
         "worst_value": -1.0,
+        "training_epochs": 2,
     },
     {
         **lake_config,
@@ -105,7 +105,7 @@ env_challenges = [
         "discount_factor": (big_lake_discount_factor := 0.95),
         "optimal_value": 1.0 * big_lake_discount_factor ** 13,
         "worst_value": -1.0,
-
+        "training_epochs": 4,
     },
     #     {
     #     "env_description": 'Acrobot-v1',

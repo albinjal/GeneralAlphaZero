@@ -145,7 +145,7 @@ def eval_from_config(
 
 
 def eval_single():
-    challenge = parameters.env_challenges[1]
+    challenge = parameters.env_challenges[3]
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "mvc",
@@ -157,7 +157,7 @@ def eval_single():
     return eval_from_config(config=run_config)
 
 def custom_eval_sweep():
-    challenge = parameters.env_challenges[2]
+    challenge = parameters.env_challenges[3]
     config_modifications = {
         "workers": 6,
         "runs": 100,
