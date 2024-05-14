@@ -2,6 +2,7 @@ import glob
 import os
 import sys
 sys.path.append("src/")
+import experiments.parameters as parameters
 
 import time
 import gymnasium as gym
@@ -78,7 +79,7 @@ def visualize_gameplay(
     for step in range(max_steps):
         tree = solver.search(env, planning_budget, observation, 0.0)
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
-        action = policy_dist.sample()
+        action = policy_dist.sample().item()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
         observation, reward, terminated, truncated, _ = env.step(action)
         render_env.step(action)
@@ -102,8 +103,7 @@ def visualize_gameplay(
 
 
 def main_runviss():
-    env_id = "CliffWalking-v0"
-    env_args = {"id": env_id}
+    env_args = parameters.env_challenges[3]["env_params"]
     discount = 0.95
     tree_policy = MinimalVarianceConstraintPolicy(5.0, discount_factor=discount)
     selection_policy = PolicyUCT(c=2, policy=tree_policy, discount_factor=discount)
