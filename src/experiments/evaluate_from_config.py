@@ -157,20 +157,21 @@ def eval_single():
     return eval_from_config(config=run_config)
 
 def custom_eval_sweep():
-    challenge = parameters.env_challenges[3]
+    challenge = parameters.env_challenges[1]
     config_modifications = {
         "workers": 6,
-        "runs": 100,
+        "runs": 6,
         "agent_type": "distance",
+        "max_episode_length": 200,
     }
     series_configs = [
         {'tree_evaluation_policy': 'visit', 'selection_policy': 'UCT'},
-        {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
-        {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
+        # {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
+        # {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
     ]
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
 
-    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
+    budget_configs = [{"planning_budget": 4**i} for i in range(2, 7)]
     configs = [
             {**run_config, **variable_config, **series_config} for variable_config in budget_configs for series_config in series_configs
         ]
