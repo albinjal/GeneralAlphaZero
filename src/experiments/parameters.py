@@ -105,7 +105,10 @@ env_challenges = [
         "discount_factor": (big_lake_discount_factor := 0.95),
         "optimal_value": 1.0 * big_lake_discount_factor ** 13,
         "worst_value": -1.0,
-        "training_epochs": 2,
+        "training_epochs": 4,
+        "learning_rate": 2e-4,
+        "n_steps_learning": 2,
+
     },
     #     {
     #     "env_description": 'Acrobot-v1',

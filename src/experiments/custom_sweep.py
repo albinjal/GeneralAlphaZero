@@ -26,7 +26,7 @@ def eval_agent(project, entity, config, tags, sleep=3):
 
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
-    nr_runs = 10
+    nr_runs = 2
 
     config_modifications = {
         "workers": 1,
