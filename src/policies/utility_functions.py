@@ -1,4 +1,3 @@
-from typing import Callable
 import torch as th
 
 from core.node import Node

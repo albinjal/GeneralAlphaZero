@@ -1,5 +1,4 @@
 from collections import Counter
-import multiprocessing
 import os
 from typing import List
 import gymnasium as gym

@@ -1,0 +1,13 @@
+gymnasium
+ipykernel
+torch
+tqdm
+numpy
+tensorboard
+graphviz
+python-graphviz
+matplotlib
+wandb
+seaborn
+torchrl
+gymnasium[toy-text]
