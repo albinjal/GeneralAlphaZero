@@ -1,4 +1,4 @@
-name: aztest
+name: az10
 channels:
   - pytorch
   - conda-forge
