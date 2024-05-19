@@ -5,7 +5,6 @@ channels:
   - defaults
 dependencies:
   - python=3.10
-  - gymnasium
   - ipykernel
   - pytorch
   - tqdm
@@ -18,4 +17,4 @@ dependencies:
   - pip
   - pip:
     - torchrl
-    - "gymnasium[toy-text]"
+    - "gymnasium[toy-text] @ git+https://github.com/albinjal/Gymnasium@main"

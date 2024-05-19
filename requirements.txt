@@ -1,4 +1,3 @@
-gymnasium
 ipykernel
 torch
 tqdm
@@ -9,4 +8,4 @@ matplotlib
 wandb
 seaborn
 torchrl
-gymnasium[toy-text]
+gymnasium[toy-text] @ git+https://github.com/albinjal/Gymnasium@main

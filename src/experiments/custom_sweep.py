@@ -27,9 +27,17 @@ def eval_agent(project, entity, config, tags, sleep=3):
 if __name__ == '__main__':
     entity, project = "ajzero", "AlphaZero"
     nr_runs = 2
+    cpu_count = multiprocessing.cpu_count()
 
+    if cpu_count >= 12:
+        workers_per_run = 6
+        total_workers = cpu_count
+    else:
+        workers_per_run = 1
+        total_workers = min(6, cpu_count)
+    sweep_workers = total_workers // workers_per_run
     config_modifications = {
-        "workers": 1,
+        "workers": workers_per_run,
         # "runs": 6*10,
         # "agent_type": "random_rollout",
         # "rollout_budget": 50,
@@ -100,8 +108,6 @@ if __name__ == '__main__':
 
     tags = ['custom_sweep', time_name]
     job = train_model
-
-    sweep_workers = 6
     if sweep_workers == 1:
         for config in tqdm(configs):
             job(project, entity, config, tags, sleep=0.0)

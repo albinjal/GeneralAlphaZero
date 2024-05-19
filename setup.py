@@ -3,7 +3,7 @@ def read_requirements():
     with open('requirements.txt') as req:
         return req.read().splitlines()
 setup(
-    name='GeneralAlphaZero',
+    name='genaz',
     version='0.1.0',
     packages=find_packages(where='src'),  # Tell setuptools to find packages in 'src'
     package_dir={'': 'src'},  # Set 'src' as the package directory

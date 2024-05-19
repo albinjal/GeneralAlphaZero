@@ -179,9 +179,9 @@ def sweep_agent():
 
 
 def run_single():
-    challenge = parameters.env_challenges[3]
+    challenge = parameters.env_challenges[1]
     config_modifications = {
-        "workers": 6,
+        "workers": min(6, multiprocessing.cpu_count()),
         "tree_evaluation_policy": "mvc",
         "planning_budget": 64,
         "selection_policy": "PolicyPUCT",
