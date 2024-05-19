@@ -12,7 +12,6 @@ dependencies:
   - numpy
   - tensorboard
   - graphviz
-  - python-graphviz
   - matplotlib
   - wandb
   - seaborn
