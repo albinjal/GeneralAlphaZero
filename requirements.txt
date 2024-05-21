@@ -8,4 +8,5 @@ matplotlib
 wandb
 seaborn
 torchrl
+pytest
 gymnasium[toy-text] @ git+https://github.com/albinjal/Gymnasium@main

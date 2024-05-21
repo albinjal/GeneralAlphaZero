@@ -22,35 +22,32 @@ These plots demonstrate the empirical benefits of our proposed policies in class
 For a quick start, feel free to use the notebook [kaggle.ipynb](kaggle.ipynb) which should run on Kaggle/Google Colab with minimal setup. If you want to run the code locally, follow the instructions below.
 
 ### Local Installation
+Start by cloning the repository:
+```bash
+git clone https://github.com/albinjal/GeneralAlphaZero.git
+cd GeneralAlphaZero
+```
+
 You can set up the environment using either Pip or Conda. Choose one of the following methods to install the dependencies:
 
 #### Using Pip
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/albinjal/GeneralAlphaZero.git
-    cd GeneralAlphaZero
-    ```
-2. Create a virtual environment and activate it:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
-3. Install the dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+
+1. Create a virtual environment and activate it:
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+```
+2. Install the dependencies:
+```bash
+pip install -r requirements.txt
+```
 
 #### Using Conda
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/albinjal/GeneralAlphaZero.git
-    cd GeneralAlphaZero
-    ```
-2. Create and activate the Conda environment:
-    ```bash
-    conda env create -f environment.yml
-    conda activate generalalphazero
-    ```
+Create and activate the Conda environment:
+```bash
+conda env create -f environment.yml
+conda activate az10
+```
 
 
 ## File Structure

@@ -9,6 +9,7 @@ dependencies:
   - pytorch
   - tqdm
   - numpy
+  - pytest
   - tensorboard
   - graphviz
   - matplotlib
