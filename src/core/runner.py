@@ -31,6 +31,7 @@ def run_episode(
     max_steps=1000,
     seed=None,
     temperature=None,
+    return_trees=False,
     ):
     """Runs an episode using the given solver and environment.
     For each timestep, the trajectory contains the observation, the policy distribution, the action taken and the reward received.
@@ -59,12 +60,16 @@ def run_episode(
         },
         batch_size=[max_steps],
     )
+    if return_trees:
+        trees = []
     tree = solver.search(env, planning_budget, observation, 0.0)
     for step in range(max_steps):
         root_value = tree.value_evaluation
 
         tree.reset_var_val()
         policy_dist = tree_evaluation_policy.softmaxed_distribution(tree)
+        if return_trees:
+            trees.append(tree)
         # apply extra softmax
         action = th.distributions.Categorical(probs=custom_softmax(policy_dist.probs, temperature, None)).sample().item()
         # res will now contain the obersevation, policy distribution, action, as well as the reward and terminal we got from executing the action
@@ -91,5 +96,8 @@ def run_episode(
     # trajectory.append((observation, None, None, None, None))
     # observations.append(observation)
     # convert render to tensor
+
+    if return_trees:
+        return trajectory, trees
 
     return trajectory

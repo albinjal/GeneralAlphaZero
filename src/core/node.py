@@ -115,13 +115,14 @@ class Node(Generic[ObservationType]):
 
             dot.edge(str(id(self)), str(id(child)), label=f"Action: {action}")
 
+
     def state_visitation_counts(self) -> Counter:
         """
         Returns a counter of the number of times each state has been visited
         """
         counter = Counter()
         # add the current node
-        counter[self.observation] += self.visits
+        counter[self.observation] = self.visits if self.is_terminal() else 1
         # add all children
         for child in self.children.values():
             counter.update(child.state_visitation_counts())
