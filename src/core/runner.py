@@ -87,7 +87,7 @@ def run_episode(
         if next_terminal or truncated:
             break
 
-        tree = solver.search(env, planning_budget, observation, reward)
+        tree = solver.search(env, planning_budget, new_obs, reward)
 
         new_observation_tensor = observation_embedding.obs_to_tensor(new_obs, dtype=th.float32)
         observation_tensor = new_observation_tensor
