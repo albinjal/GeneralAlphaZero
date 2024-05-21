@@ -18,8 +18,6 @@ norm_dict = {
 }
 
 
-
-
 class AlphaZeroModel(th.nn.Module):
     """
     The point of this class is to make sure the model is compatible with MCTS:
@@ -60,7 +58,11 @@ class AlphaZeroModel(th.nn.Module):
 
         self.env = env
         self.hidden_dim = hidden_dim
-        self.observation_embedding = observation_embedding if observation_embedding is not None else DefaultEmbedding(env.observation_space)
+        self.observation_embedding = (
+            observation_embedding
+            if observation_embedding is not None
+            else DefaultEmbedding(env.observation_space)
+        )
         self.state_dim = self.observation_embedding.obs_dim()
         self.action_dim = gym.spaces.flatdim(env.action_space)
         self.nlayers = nlayers
@@ -73,9 +75,23 @@ class AlphaZeroModel(th.nn.Module):
         self.print_stats()
 
     def create_model(self):
+        """
+        Creates a model for the AlphaZero algorithm.
+
+        This method should be implemented by subclasses to define the specific model architecture.
+
+        Raises:
+            NotImplementedError: This method should be implemented by subclasses.
+        """
         raise NotImplementedError
 
     def print_stats(self):
+        """
+        Prints the model parameters and the total number of trainable parameters.
+
+        Returns:
+            None
+        """
         # print the model parameters
         print(f"Model initialized on {self.device} with the following parameters:")
         total_params = 0
@@ -85,6 +101,15 @@ class AlphaZeroModel(th.nn.Module):
         print(f"Total number of trainable parameters: {total_params}")
 
     def forward(self, x: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+        """
+        Forward pass of the model.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing the value and policy tensors.
+        """
         # run the layers
         if self.core is not None:
             x = self.core(x)
@@ -95,6 +120,15 @@ class AlphaZeroModel(th.nn.Module):
         return value.squeeze(-1), policy
 
     def single_observation_forward(self, observation) -> Tuple[float, th.Tensor]:
+        """
+        Forward pass for a single observation.
+
+        Args:
+            observation: The input observation.
+
+        Returns:
+            A tuple containing the value and policy tensors.
+        """
         tensor_obs = self.observation_embedding.obs_to_tensor(
             observation,
             device=self.device,
@@ -104,6 +138,15 @@ class AlphaZeroModel(th.nn.Module):
         return value.item(), policy.squeeze(0)
 
     def save_model(self, filename: str):
+        """
+        Save the model to a file.
+
+        Args:
+            filename (str): The name of the file to save the model to.
+
+        Returns:
+            None
+        """
         model_info = {
             "state_dict": self.state_dict(),
             "input_dimensions": self.state_dim,
@@ -118,6 +161,19 @@ class AlphaZeroModel(th.nn.Module):
     def load_model(
         cls, filename: str, env: gym.Env, pref_gpu=False, default_hidden_dim=128
     ):
+        """
+        Load a saved model from a file and create a new instance of the model with the saved specifications.
+
+        Args:
+            cls (class): The class of the model.
+            filename (str): The path to the saved model file.
+            env (gym.Env): The environment associated with the model.
+            pref_gpu (bool, optional): Whether to prefer GPU for model computations. Defaults to False.
+            default_hidden_dim (int, optional): The default hidden dimension if not found in the saved model information. Defaults to 128.
+
+        Returns:
+            model: The newly created model with the loaded state dict.
+        """
         # Load the saved model information
         model_info = th.load(filename)
 
@@ -139,6 +195,20 @@ class AlphaZeroModel(th.nn.Module):
 
 
 def create_layers(state_dim, nlayers, hidden_dim, activation_fn, norm_layer):
+    """
+    Create a list of layers for a neural network model.
+
+    Args:
+        state_dim (int): The dimension of the input state.
+        nlayers (int): The number of hidden layers.
+        hidden_dim (int): The dimension of the hidden layers.
+        activation_fn (function): The activation function to use for the hidden layers.
+        norm_layer (function or None): The normalization layer to use for the hidden layers, or None if no normalization is desired.
+
+    Returns:
+        list: A list of layers for the neural network model.
+
+    """
     layers = []
     layers.append(th.nn.Linear(state_dim, hidden_dim))
     layers.append(th.nn.ReLU())
@@ -153,6 +223,25 @@ def create_layers(state_dim, nlayers, hidden_dim, activation_fn, norm_layer):
 
 
 class UnifiedModel(AlphaZeroModel):
+    """
+    A class representing the unified model used in AlphaZero.
+
+    This model consists of a core network, a value head, and a policy head.
+    The core network is responsible for processing the input state.
+    The value head predicts the value of the state, while the policy head predicts the probability distribution over actions.
+
+    Attributes:
+        state_dim (int): The dimension of the input state.
+        nlayers (int): The number of layers in the core network.
+        hidden_dim (int): The dimension of the hidden layers in the core network.
+        activation_fn (torch.nn.Module): The activation function used in the core network.
+        norm_layer (torch.nn.Module): The normalization layer used in the core network.
+        action_dim (int): The dimension of the action space.
+
+    Methods:
+        create_model(): Creates the unified model by initializing the core network, value head, and policy head.
+    """
+
     def create_model(self):
         self.core = th.nn.Sequential(
             *create_layers(
@@ -178,10 +267,15 @@ class UnifiedModel(AlphaZeroModel):
 
 class SeperatedModel(AlphaZeroModel):
     """
-    Keeps the value and policy heads seperate
+    A class representing a model with separate value and policy heads.
+
+    Inherits from the AlphaZeroModel class.
     """
 
     def create_model(self):
+        """
+        Creates the model architecture with separate value and policy heads.
+        """
         self.core = None
 
         # the value head should be two layers
@@ -211,6 +305,6 @@ class SeperatedModel(AlphaZeroModel):
 
 
 models_dict = {
-    'unified': UnifiedModel,
-    'seperated': SeperatedModel,
+    "unified": UnifiedModel,
+    "seperated": SeperatedModel,
 }

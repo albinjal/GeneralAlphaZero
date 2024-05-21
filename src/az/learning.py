@@ -151,7 +151,17 @@ def calculate_visit_counts(observations, full_mask):
 
 @th.no_grad()
 def plot_average_targets(observations, targets, masks):
+    """
+    Plots the average targets for each unique observation.
 
+    Args:
+        observations (ndarray): The observations array of shape (N, 2).
+        targets (ndarray): The targets array of shape (N,).
+        masks (ndarray): The masks array of shape (N,).
+
+    Returns:
+        ax (AxesSubplot): The heatmap plot of the average targets.
+    """
     # Flatten observations and targets
     flat_observations = observations.reshape(-1, 2).int()  # Shape: [7200, 2]
     flat_targets = targets.flatten()  # Shape: [7200]
@@ -162,7 +172,6 @@ def plot_average_targets(observations, targets, masks):
     sum_targets = th.zeros(size)
     # Count the occurrences of each unique observation
     counts = th.zeros(size)
-
 
     # Sum the targets for each unique observation and count occurrences
     for (row, col), target, mask in zip(flat_observations, flat_targets, flat_mask):
