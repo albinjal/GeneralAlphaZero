@@ -1,12 +1,14 @@
 import sys
+
+sys.path.append("src/")
 import time
 
 from tqdm import tqdm
-sys.path.append("src/")
 import numpy as np
 import multiprocessing
 import gymnasium as gym
 import wandb
+
 from log_code.metrics import calc_metrics
 from experiments.eval_agent import eval_agent
 from core.mcts import DistanceMCTS, RandomRolloutMCTS
@@ -20,6 +22,8 @@ from policies.tree_policies import tree_eval_dict
 from policies.selection_distributions import selection_dict_fn
 from policies.value_transforms import value_transform_dict
 import torch as th
+
+
 def agent_from_config(hparams: dict):
     env = gym.make(**hparams["env_params"])
 
@@ -30,25 +34,42 @@ def agent_from_config(hparams: dict):
     if "tree_value_transform" not in hparams or hparams["tree_value_transform"] is None:
         hparams["tree_value_transform"] = "identity"
 
-
-    tree_evaluation_policy = tree_eval_dict(hparams["eval_param"], discount_factor, hparams["puct_c"], hparams["tree_temperature"], value_transform=value_transform_dict[hparams["tree_value_transform"]])[
-        hparams["tree_evaluation_policy"]
-    ]
-    if "selection_value_transform" not in hparams or hparams["selection_value_transform"] is None:
+    tree_evaluation_policy = tree_eval_dict(
+        hparams["eval_param"],
+        discount_factor,
+        hparams["puct_c"],
+        hparams["tree_temperature"],
+        value_transform=value_transform_dict[hparams["tree_value_transform"]],
+    )[hparams["tree_evaluation_policy"]]
+    if (
+        "selection_value_transform" not in hparams
+        or hparams["selection_value_transform"] is None
+    ):
         hparams["selection_value_transform"] = "identity"
 
     selection_policy = selection_dict_fn(
-        hparams["puct_c"], tree_evaluation_policy, discount_factor, value_transform_dict[hparams["selection_value_transform"]]
+        hparams["puct_c"],
+        tree_evaluation_policy,
+        discount_factor,
+        value_transform_dict[hparams["selection_value_transform"]],
     )[hparams["selection_policy"]]
 
-    if "root_selection_policy" not in hparams or hparams["root_selection_policy"] is None:
+    if (
+        "root_selection_policy" not in hparams
+        or hparams["root_selection_policy"] is None
+    ):
         hparams["root_selection_policy"] = hparams["selection_policy"]
 
     root_selection_policy = selection_dict_fn(
-        hparams["puct_c"], tree_evaluation_policy, discount_factor, value_transform_dict[hparams["selection_value_transform"]]
+        hparams["puct_c"],
+        tree_evaluation_policy,
+        discount_factor,
+        value_transform_dict[hparams["selection_value_transform"]],
     )[hparams["root_selection_policy"]]
 
-    observation_embedding: ObservationEmbedding = embedding_dict[hparams["observation_embedding"]](env.observation_space, hparams["ncols"] if "ncols" in hparams else None)
+    observation_embedding: ObservationEmbedding = embedding_dict[
+        hparams["observation_embedding"]
+    ](env.observation_space, hparams["ncols"] if "ncols" in hparams else None)
     if "observation_embedding" not in hparams:
         hparams["observation_embedding"] = "default"
 
@@ -56,7 +77,7 @@ def agent_from_config(hparams: dict):
         if "rollout_budget" not in hparams:
             hparams["rollout_budget"] = 40
         agent = RandomRolloutMCTS(
-            rollout_budget = hparams["rollout_budget"],
+            rollout_budget=hparams["rollout_budget"],
             root_selection_policy=root_selection_policy,
             selection_policy=selection_policy,
             discount_factor=discount_factor,
@@ -64,7 +85,7 @@ def agent_from_config(hparams: dict):
 
     elif hparams["agent_type"] == "distance":
         agent = DistanceMCTS(
-            embedding= observation_embedding,
+            embedding=observation_embedding,
             root_selection_policy=root_selection_policy,
             selection_policy=selection_policy,
             discount_factor=discount_factor,
@@ -73,7 +94,8 @@ def agent_from_config(hparams: dict):
     else:
         filename = hparams["model_file"]
         model: AlphaZeroModel = AlphaZeroModel.load_model(
-            filename, env, False, hparams["hidden_dim"])
+            filename, env, False, hparams["hidden_dim"]
+        )
 
         model.eval()
 
@@ -93,11 +115,17 @@ def agent_from_config(hparams: dict):
             discount_factor=discount_factor,
         )
 
-    return agent, env, tree_evaluation_policy, observation_embedding, hparams["planning_budget"]
+    return (
+        agent,
+        env,
+        tree_evaluation_policy,
+        observation_embedding,
+        hparams["planning_budget"],
+    )
 
 
 def eval_from_config(
-    project_name="AlphaZero", entity=None, job_name=None, config=None, tags = None
+    project_name="AlphaZero", entity=None, job_name=None, config=None, tags=None
 ):
     if tags is None:
         tags = []
@@ -111,37 +139,58 @@ def eval_from_config(
     assert run is not None
     hparams = wandb.config
 
-    agent, env, tree_evaluation_policy, observation_embedding, planning_budget  = agent_from_config(hparams)
+    agent, env, tree_evaluation_policy, observation_embedding, planning_budget = (
+        agent_from_config(hparams)
+    )
     if "workers" not in hparams or hparams["workers"] is None:
         hparams["workers"] = multiprocessing.cpu_count()
     workers = hparams["workers"]
 
     seeds = [None] * hparams["runs"]
-    results = eval_agent(agent, env, tree_evaluation_policy, observation_embedding, planning_budget, hparams["max_episode_length"], seeds=seeds, temperature=hparams["eval_temp"], workers=workers)
-    episode_returns, discounted_returns, time_steps, entropies = calc_metrics(results, agent.discount_factor, env.action_space.n)
+    results = eval_agent(
+        agent,
+        env,
+        tree_evaluation_policy,
+        observation_embedding,
+        planning_budget,
+        hparams["max_episode_length"],
+        seeds=seeds,
+        temperature=hparams["eval_temp"],
+        workers=workers,
+    )
+    episode_returns, discounted_returns, time_steps, entropies = calc_metrics(
+        results, agent.discount_factor, env.action_space.n
+    )
     trajectories = []
     for i in range(results.shape[0]):
         re = []
         for j in range(results.shape[1]):
-            re.append(observation_embedding.tensor_to_obs(results[i, j]["observations"]))
+            re.append(
+                observation_embedding.tensor_to_obs(results[i, j]["observations"])
+            )
             if results[i, j]["terminals"] == 1:
                 break
         trajectories.append(re)
-    eval_res =  {
+    eval_res = {
         "Evaluation/Returns": wandb.Histogram(np.array((episode_returns))),
-        "Evaluation/Discounted_Returns": wandb.Histogram(np.array((discounted_returns))),
+        "Evaluation/Discounted_Returns": wandb.Histogram(
+            np.array((discounted_returns))
+        ),
         "Evaluation/Timesteps": wandb.Histogram(np.array((time_steps))),
-        "Evaluation/Entropies": wandb.Histogram(np.array(((th.sum(entropies, dim=-1) / time_steps)))),
+        "Evaluation/Entropies": wandb.Histogram(
+            np.array(((th.sum(entropies, dim=-1) / time_steps)))
+        ),
         "Evaluation/Mean_Returns": episode_returns.mean().item(),
         "Evaluation/Mean_Discounted_Returns": discounted_returns.mean().item(),
-        "Evaluation/Mean_Entropy": (th.sum(entropies, dim=-1) / time_steps).mean().item(),
+        "Evaluation/Mean_Entropy": (th.sum(entropies, dim=-1) / time_steps)
+        .mean()
+        .item(),
         "trajectories": trajectories,
     }
-    run.log(data= eval_res)
+    run.log(data=eval_res)
     run.log_code(root="./src")
     # Finish the WandB run
     run.finish()
-
 
 
 def eval_single():
@@ -156,30 +205,39 @@ def eval_single():
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
     return eval_from_config(config=run_config)
 
+
 def custom_eval_sweep():
     challenge = parameters.env_challenges[1]
     config_modifications = {
         "workers": 6,
-        "runs": 6,
+        "runs": 100,
         "agent_type": "distance",
-        "max_episode_length": 200,
-    }
+        "max_episode_length": 100,
+        "tree_evaluation_policy": "visit",
+        "selection_policy": "UCT",
+        }
+    # series_configs = [
+    #     {"tree_evaluation_policy": "visit", "selection_policy": "UCT"},
+    #     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
+    #     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
+    # ]
     series_configs = [
-        {'tree_evaluation_policy': 'visit', 'selection_policy': 'UCT'},
-        # {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
-        # {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
+        {"puct_c": x} for x in [1e-2, 1e0, 1e2]
     ]
+
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
 
-    budget_configs = [{"planning_budget": 4**i} for i in range(2, 7)]
+    budget_configs = [{"planning_budget": 2**i} for i in range(4, 8)]
     configs = [
-            {**run_config, **variable_config, **series_config} for variable_config in budget_configs for series_config in series_configs
-        ]
+        {**run_config, **variable_config, **series_config}
+        for variable_config in budget_configs
+        for series_config in series_configs
+    ]
     print(f"Number of runs: {len(configs)}")
 
     time_name = time.strftime("%Y-%m-%d-%H-%M-%S")
 
-    tags = ['eval_sweep', time_name]
+    tags = ["eval_sweep", time_name]
 
     for config in tqdm(configs):
         eval_from_config(config=config, tags=tags)
