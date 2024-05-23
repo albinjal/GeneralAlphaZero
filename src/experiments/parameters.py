@@ -32,15 +32,6 @@ base_parameters = {
     "eval_temp": 0.0,
 }
 
-default_embedding_parameters = {
-    "observation_embedding": "default",
-    "use_visit_count": False,
-    "sample_batch_ratio": 5,
-    "n_steps_learning": 3,
-    "training_epochs": 8,
-    "puct_c": 3.0,
-}
-
 lake_config = {
     "max_episode_length": 100,
     "iterations": 30,

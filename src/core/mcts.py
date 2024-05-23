@@ -1,6 +1,7 @@
+from collections import deque
 import copy
 from re import L
-from typing import Tuple
+from typing import Dict, List, Tuple
 import gymnasium as gym
 import numpy as np
 from core.node import Node
@@ -268,4 +269,53 @@ class DistanceMCTS(MCTS):
                 manhattan_distance += 2
             return - float(manhattan_distance)
         else:
-            return 1.0 * self.discount_factor ** manhattan_distance
+            return self.discount_factor ** manhattan_distance
+
+
+def compute_distances(lake_map: List[str]) -> Dict[int, int]:
+    """
+    Computes the distance from each cell to the goal cell, taking holes into account.
+    """
+    rows = len(lake_map)
+    cols = len(lake_map[0])
+    goal = (rows - 1, cols - 1)
+    distances = {goal: 0}
+    visited = set(goal)
+    queue = deque([goal])
+
+    while queue:
+        row, col = queue.popleft()
+        for dr, dc in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            new_row, new_col = row + dr, col + dc
+            if 0 <= new_row < rows and 0 <= new_col < cols and (new_row, new_col) not in visited:
+                if lake_map[new_row][new_col] == 'H':
+                    continue
+                visited.add((new_row, new_col))
+                distances[new_row, new_col] = distances[row, col] + 1
+                queue.append((new_row, new_col))
+    return distances
+
+
+class LakeDistanceMCTS(MCTS):
+
+    def __init__(self, lake_map: List[str], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.distances = compute_distances(lake_map)
+        self.ncols = len(lake_map[0])
+
+    def get_distance(self, observation: int) -> int:
+        current_row = observation // self.ncols
+        current_col = observation % self.ncols
+        return self.distances.get((current_row, current_col), float('inf'))
+
+    def get_value(self, observation: int) -> float:
+        distance = self.get_distance(observation)
+        return self.discount_factor ** distance if distance != float('inf') else 0.0
+
+    def value_function(
+            self,
+            node: Node,
+        ) -> float:
+        observation = node.observation
+        assert observation is not None
+        return self.get_value(observation)
