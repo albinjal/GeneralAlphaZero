@@ -217,7 +217,7 @@ def eval_single():
 
 
 def custom_eval_sweep():
-    challenge = parameters.env_challenges[2]
+    challenge = parameters.env_challenges[3]
     config_modifications = {
         "workers": 6,
         "runs": 100,
