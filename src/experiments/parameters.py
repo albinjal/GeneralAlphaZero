@@ -71,8 +71,12 @@ env_challenges = [
         "ncols": 4,
         "env_params": dict(
             id="FrozenLake-v1",
-            desc=None,
-            map_name="4x4",
+            desc=[
+            "SFFF",
+            "FHFH",
+            "FFFH",
+            "HFFG"
+            ],
             is_slippery=False,
             max_episode_steps=1000000000,
             hole_reward=-1.0,
@@ -89,8 +93,16 @@ env_challenges = [
         "ncols": 8,
         "env_params": dict(
             id="FrozenLake-v1",
-            desc=None,
-            map_name="8x8",
+            desc=[
+                "SFFFFFFF",
+                "FFFFFFFF",
+                "FFFHFFFF",
+                "FFFFFHFF",
+                "FFFHFFFF",
+                "FHHFFFHF",
+                "FHFFHFHF",
+                "FFFHFFFG",
+            ],
             is_slippery=False,
             max_episode_steps=1000000000,
             hole_reward=-1.0,

@@ -316,6 +316,8 @@ class LakeDistanceMCTS(MCTS):
             self,
             node: Node,
         ) -> float:
+        if node.is_terminal():
+            return 0.0
         observation = node.observation
         assert observation is not None
         return self.get_value(observation)

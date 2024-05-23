@@ -11,7 +11,7 @@ import wandb
 
 from log_code.metrics import calc_metrics
 from experiments.eval_agent import eval_agent
-from core.mcts import DistanceMCTS, RandomRolloutMCTS
+from core.mcts import DistanceMCTS, LakeDistanceMCTS, RandomRolloutMCTS
 import experiments.parameters as parameters
 from environments.observation_embeddings import ObservationEmbedding, embedding_dict
 from az.azmcts import AlphaZeroMCTS
@@ -84,12 +84,22 @@ def agent_from_config(hparams: dict):
         )
 
     elif hparams["agent_type"] == "distance":
-        agent = DistanceMCTS(
-            embedding=observation_embedding,
-            root_selection_policy=root_selection_policy,
-            selection_policy=selection_policy,
-            discount_factor=discount_factor,
-        )
+        if "desc" in hparams["env_params"] and hparams["env_params"]["desc"] is not None:
+            lake_map = hparams["env_params"]["desc"]
+            agent = LakeDistanceMCTS(
+                lake_map=lake_map,
+                root_selection_policy=root_selection_policy,
+                selection_policy=selection_policy,
+                discount_factor=discount_factor,
+            )
+        else:
+
+            agent = DistanceMCTS(
+                embedding=observation_embedding,
+                root_selection_policy=root_selection_policy,
+                selection_policy=selection_policy,
+                discount_factor=discount_factor,
+            )
 
     else:
         filename = hparams["model_file"]
@@ -194,12 +204,12 @@ def eval_from_config(
 
 
 def eval_single():
-    challenge = parameters.env_challenges[3]
+    challenge = parameters.env_challenges[2]
     config_modifications = {
         "workers": 6,
         "tree_evaluation_policy": "mvc",
         "selection_policy": "PolicyUCT",
-        "runs": 100,
+        "runs": 10,
         "agent_type": "distance",
     }
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
@@ -207,23 +217,20 @@ def eval_single():
 
 
 def custom_eval_sweep():
-    challenge = parameters.env_challenges[1]
+    challenge = parameters.env_challenges[2]
     config_modifications = {
         "workers": 6,
         "runs": 100,
         "agent_type": "distance",
-        "max_episode_length": 100,
-        "tree_evaluation_policy": "visit",
-        "selection_policy": "UCT",
         }
-    # series_configs = [
-    #     {"tree_evaluation_policy": "visit", "selection_policy": "UCT"},
-    #     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
-    #     {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
-    # ]
     series_configs = [
-        {"puct_c": x} for x in [1e-2, 1e0, 1e2]
+        {"tree_evaluation_policy": "visit", "selection_policy": "UCT"},
+        {'tree_evaluation_policy': 'mvc', 'selection_policy': 'UCT'},
+        {'tree_evaluation_policy': 'mvc', 'selection_policy': 'PolicyUCT'},
     ]
+    # series_configs = [
+    #     {"puct_c": x} for x in [1e-2, 1e0, 1e2]
+    # ]
 
     run_config = {**parameters.base_parameters, **challenge, **config_modifications}
 
