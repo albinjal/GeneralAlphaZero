@@ -19,3 +19,4 @@ dependencies:
   - pip:
     - torchrl
     - "gymnasium[toy-text] @ git+https://github.com/albinjal/Gymnasium@main"
+    - ipywidgets
