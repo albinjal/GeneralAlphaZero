@@ -58,7 +58,6 @@ class CoordinateEmbedding(ObservationEmbedding):
         super().__init__(observation_space, *args, ncols=ncols, nrows=nrows, **kwargs)
         self.multiplier = multiplier
         self.shift = shift
-        print(f"nrows: {self.nrows}, ncols: {self.ncols}")
 
 
     def obs_to_tensor(self, observation, *args, **kwargs):
