@@ -1,5 +1,10 @@
 # General Tree Evaluation for AlphaZero
 [![Python application](https://github.com/albinjal/GeneralAlphaZero/actions/workflows/python-app.yml/badge.svg)](https://github.com/albinjal/GeneralAlphaZero/actions/workflows/python-app.yml)
+
+
+
+![AlphaZeroGif](assets/AlphaZero.gif)
+![MVCGif](assets/NovelMVCAgent.gif)
 ## Introduction
 Welcome to the official repository for **General Tree Evaluation for AlphaZero**, a novel approach to enhancing model-based deep reinforcement learning. This repository contains the code and resources developed as part of the research that extends and refines the AlphaZero algorithm, particularly focusing on decoupling tree construction from action policies.
 
@@ -7,7 +12,7 @@ Welcome to the official repository for **General Tree Evaluation for AlphaZero**
 ![Performance Comparison](assets/CliffWalking-v0_Self_Play_Mean_Discounted_Return.svg)
 
 ![Algorithm Efficiency](assets/CliffWalking-v0_Evaluation_Mean_Discounted_Returns.svg)
-
+![cliffwalk](assets/env_picture.png)
 ![Project Overview](assets/CliffWalking-vo_Evaluation_Density.svg)
 
 
