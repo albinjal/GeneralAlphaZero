@@ -1,10 +1,13 @@
+
+<p align="center">
+  <img src="assets/AlphaZero.gif" alt="AlphaZero Gameplay Gif" width="49%"/>
+  <img src="assets/NovelMVCAgent.gif" alt="Novel MVC Agent Gif" width="49%"/>
+</p>
+
 # General Tree Evaluation for AlphaZero
 [![Python application](https://github.com/albinjal/GeneralAlphaZero/actions/workflows/python-app.yml/badge.svg)](https://github.com/albinjal/GeneralAlphaZero/actions/workflows/python-app.yml)
 
 
-
-![AlphaZeroGif](assets/AlphaZero.gif)
-![MVCGif](assets/NovelMVCAgent.gif)
 ## Introduction
 Welcome to the official repository for **General Tree Evaluation for AlphaZero**, a novel approach to enhancing model-based deep reinforcement learning. This repository contains the code and resources developed as part of the research that extends and refines the AlphaZero algorithm, particularly focusing on decoupling tree construction from action policies.
 
