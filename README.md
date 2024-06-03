@@ -1,7 +1,7 @@
 
 <p align="center">
   <img src="assets/AlphaZero.gif" alt="AlphaZero Gameplay Gif" width="49%"/>
-  <img src="assets/NovelMVCAgent.gif" alt="Novel MVC Agent Gif" width="49%"/>
+  <img src="assets/MVCAgent.gif" alt="Novel MVC Agent Gif" width="49%"/>
 </p>
 
 # General Tree Evaluation for AlphaZero
